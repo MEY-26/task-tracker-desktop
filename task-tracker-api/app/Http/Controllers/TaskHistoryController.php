@@ -10,20 +10,43 @@ class TaskHistoryController extends Controller
 {
     public function index(Task $task)
     {
-        $user = auth()->user();
+        $user = request()->user();
     
         // Erişim kontrolü
         if (
             $user->id !== $task->created_by &&
             $user->id !== $task->responsible_id &&
-            !$task->assignedUsers->contains($user->id)
+            !$task->assignedUsers->contains('id', $user->id)
         ) {
             return response()->json(['message' => 'Bu görevin geçmişine erişim yetkiniz yok.'], 403);
         }
     
-        $history = $task->histories()->orderBy('created_at', 'desc')->get();
+        $history = $task->histories()
+            ->with(['user:id,name'])
+            ->orderBy('created_at', 'desc')
+            ->get();
     
         return response()->json(['history' => $history]);
+    }
+
+    public function destroy(Task $task, TaskHistory $history)
+    {
+        $user = request()->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Bu işlem için yetkiniz yok.'], 403);
+        }
+
+        if ($history->task_id !== $task->id) {
+            return response()->json(['message' => 'Kayıt bu göreve ait değil.'], 404);
+        }
+
+        // Sadece yorum kayıtlarının silinmesine izin ver
+        if ($history->field !== 'comment') {
+            return response()->json(['message' => 'Yalnızca yorum kayıtları silinebilir.'], 422);
+        }
+
+        $history->delete();
+        return response()->json(['message' => 'Yorum silindi.']);
     }
     
 }

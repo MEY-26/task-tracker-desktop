@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 :root {
+  /* Scrollbar alanını rezerve ederek modal açılınca layout kaymasını engelle */
+}
+
+html {
+  scrollbar-gutter: stable; /* Chrome/Edge/Firefox */
+}
+
+:root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -23,6 +31,7 @@ a {
   color: #646cff;
   text-decoration: inherit;
 }
+
 a:hover {
   color: #535bf2;
 }
@@ -52,9 +61,11 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -65,10 +76,48 @@ button:focus-visible {
     color: #213547;
     background-color: #ffffff;
   }
+
   a:hover {
     color: #747bff;
   }
+
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* modal root her zaman viewport'a sabit, en üstte */
+#modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  /* çok yüksek, her şeyin üstünde */
+  pointer-events: none;
+  /* içeri tıklanabilirliği alt elemanlara bırak */
+}
+
+/* arka plan */
+#modal-root .modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .7);
+  pointer-events: auto;
+}
+
+/* merkezdeki kutu */
+#modal-root .modal-center {
+  position: absolute;
+  left: 50vw;
+  top: 50vh;
+  transform: translate(-50%, -50%);
+  width: min(1100px, calc(100vw - 64px));
+  max-height: 90vh;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;
+  /* senin koyu temaya uyumlu */
+  color: #e5e7eb;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, .6);
 }

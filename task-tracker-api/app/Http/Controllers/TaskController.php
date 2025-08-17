@@ -52,7 +52,7 @@ class TaskController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'priority' => 'required|in:low,medium,high,critical',
@@ -65,13 +65,15 @@ class TaskController extends Controller
             'due_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
+        $currentUserId = $request->user()->id;
+
         $task = Task::create([
             'title' => $request->title,
             'description' => $request->description,
             'priority' => $request->priority,
             'status' => $validated['status'] ?? 'waiting',
             'responsible_id' => $request->responsible_id,
-            'created_by' => auth()->id(),
+            'created_by' => $currentUserId,
             'start_date' => $request->start_date,
             'due_date' => $request->due_date,
         ]);
@@ -101,33 +103,33 @@ class TaskController extends Controller
 
         $message = 'Size yeni bir görev atandı: "' . $task->title . '"';
         foreach ($task->assignedUsers as $user) {
-            if ($user->id !== auth()->id()) {
+            if ($user->id !== $currentUserId) {
                 $user->notify(new TaskUpdated($task, $message));
             }
         }
 
-        if ($task->responsible_id && $task->responsible_id !== auth()->id()) {
+        if ($task->responsible_id && $task->responsible_id !== $currentUserId) {
             $task->responsible->notify(new TaskUpdated($task, $message));
         }
         return response()->json([
             'message' => 'Görev oluşturuldu.',
-            'task' => $task->load('assignedUsers'),
+            'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
         ], 201);
     }
 
-    public function show(Task $task)
+    public function show(Request $request, Task $task)
     {
-        $user = auth()->user();
+        $user = $request->user();
         if (
             $user->id !== $task->created_by &&
             $user->id !== $task->responsible_id &&
-            !$task->assignedUsers->contains($user->id)
+            !$task->assignedUsers->contains('id', $user->id)
         ) {
             return response()->json(['message' => 'Bu göreve erişim izniniz yok.'], 403);
         }
 
         return response()->json([
-            'task' => $task->load('assignedUsers'),
+            'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
         ]);
     }
 
@@ -139,7 +141,7 @@ class TaskController extends Controller
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
 
-        if ($user->id !== $task->created_by && $user->id !== $task->responsible_id) {
+        if ($user->role !== 'admin' && $user->id !== $task->created_by && $user->id !== $task->responsible_id) {
             return response()->json(['message' => 'Bu görevi güncelleme yetkiniz yok.'], 403);
         }
 
@@ -200,6 +202,13 @@ class TaskController extends Controller
             }
 
             $task->attachments()->createMany($uploadedFiles);
+            TaskHistory::create([
+                'task_id'    => $task->id,
+                'user_id'    => $user->id,
+                'field'      => 'attachments',
+                'old_value'  => null,
+                'new_value'  => json_encode(array_map(fn($f)=>$f['original_name'], $uploadedFiles)),
+            ]);
         }
 
 
@@ -236,7 +245,7 @@ class TaskController extends Controller
 
         return response()->json([
             'message' => 'Görev güncellendi.',
-            'task' => $task->load('assignedUsers')
+            'task' => $task->load(['assignedUsers','attachments','creator','responsible'])
         ]);
     }
 
@@ -281,7 +290,7 @@ class TaskController extends Controller
         $user = $request->user();
         if (
             $user->id !== $task->responsible_id &&
-            !$task->assignedUsers->contains($user->id)
+            !$task->assignedUsers->contains('id', $user->id)
         ) {
             return response()->json(['message' => 'Bu göreve yanıt verme yetkiniz yok.'], 403);
         }
@@ -327,6 +336,41 @@ class TaskController extends Controller
             'message' => 'Göreve yanıt verildi.',
             'response' => $validated['response'],
         ]);
+    }
+
+    public function comment(Request $request, Task $task)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
+        }
+
+        // Görevi görebilen herkes yorum ekleyebilsin (oluşturan, sorumlu veya atananlar)
+        if (
+            $user->id !== $task->created_by &&
+            $user->id !== $task->responsible_id &&
+            !$task->assignedUsers->contains('id', $user->id)
+        ) {
+            return response()->json(['message' => 'Bu göreve yorum ekleme yetkiniz yok.'], 403);
+        }
+
+        $validated = $request->validate([
+            'text' => 'required|string|max:5000',
+        ]);
+
+        // Yorumları TaskHistory'de ayrı bir alan olarak tutalım
+        $history = TaskHistory::create([
+            'task_id'   => $task->id,
+            'user_id'   => $user->id,
+            'field'     => 'comment',
+            'old_value' => null,
+            'new_value' => $validated['text'],
+        ]);
+
+        return response()->json([
+            'message' => 'Yorum eklendi',
+            'comment' => $history->load('user:id,name'),
+        ], 201);
     }
 
     public function remind(Request $request, Task $task)
@@ -377,7 +421,7 @@ class TaskController extends Controller
     {
         $task = Task::findOrFail($id);
         $task->status = 'cancelled'; // 'rejected' yerine
-        $task->due_date = now();
+        $task->end_date = now();
         $task->save();
 
         return response()->json(['message' => 'Görev iptal edildi.']);
@@ -409,10 +453,10 @@ class TaskController extends Controller
     }
 
 
-    public function markAsSeen($id)
+    public function markAsSeen(Request $request, $id)
     {
         $task = Task::findOrFail($id);
-        $user = auth()->user();
+        $user = $request->user();
 
         $task->assignedUsers()->updateExistingPivot($user->id, [
             'response' => 'seen',

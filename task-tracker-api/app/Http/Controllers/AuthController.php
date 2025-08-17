@@ -50,6 +50,7 @@ class AuthController extends Controller
             'message' => 'Giriş başarılı',
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'user' => $user,
         ]);
     }
 

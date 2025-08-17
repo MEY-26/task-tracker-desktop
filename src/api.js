@@ -49,7 +49,13 @@ export async function login(email, password) {
     
     if (data.access_token) {
       localStorage.setItem('jwt', data.access_token);
-      return data.user || data;
+      // Login sonrası garantili kullanıcı bilgisi getir
+      try {
+        const me = await api.get('/user');
+        return me.data;
+      } catch (e) {
+        return data.user || data;
+      }
     }
     
     return data;
@@ -109,6 +115,42 @@ export async function changePassword(currentPassword, newPassword) {
   }
 }
 
+export async function registerUser({ name, email, password, password_confirmation, role }) {
+  try {
+    const response = await api.post('/register', {
+      name,
+      email,
+      password,
+      password_confirmation,
+      role,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Register user error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+export async function updateUserAdmin(id, payload) {
+  try {
+    const response = await api.put(`/users/${id}`, payload);
+    return response.data;
+  } catch (error) {
+    console.error('Update user error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+export async function deleteUserAdmin(id) {
+  try {
+    const response = await api.delete(`/users/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Delete user error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
 export const Tasks = {
   list: async () => {
     try {
@@ -146,6 +188,31 @@ export const Tasks = {
       return response.data;
     } catch (error) {
       console.error('Task update error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  assignUsers: async (taskId, userIds) => {
+    try {
+      const response = await api.put(`/tasks/${taskId}`, { assigned_users: userIds });
+      return response.data;
+    } catch (error) {
+      console.error('Task assign users error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  uploadAttachments: async (taskId, files) => {
+    try {
+      const form = new FormData();
+      form.append('_method', 'PUT');
+      for (const f of files) form.append('attachments[]', f);
+      const response = await api.post(`/tasks/${taskId}`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Task upload attachments error:', error.response?.data || error.message);
       throw error;
     }
   },
@@ -206,6 +273,26 @@ export const Tasks = {
       return apiResponse.data;
     } catch (error) {
       console.error('Task respond error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  comment: async (taskId, text) => {
+    try {
+      const res = await api.post(`/tasks/${taskId}/comment`, { text });
+      return res.data;
+    } catch (error) {
+      console.error('Task comment error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  deleteHistory: async (taskId, historyId) => {
+    try {
+      const res = await api.delete(`/tasks/${taskId}/history/${historyId}`);
+      return res.data;
+    } catch (error) {
+      console.error('Task history delete error:', error.response?.data || error.message);
       throw error;
     }
   },

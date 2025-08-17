@@ -60,7 +60,8 @@ class Task extends Model
     protected static function booted()
     {
         static::deleting(function ($task) {
-            $task->history()->delete(); // veya ->histories() eğer öyle tanımladıysan
+            // Doğru ilişki adı: histories()
+            $task->histories()->delete();
             $task->assignedUsers()->detach();
         });
     }

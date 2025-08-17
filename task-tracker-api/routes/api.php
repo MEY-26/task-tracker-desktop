@@ -25,9 +25,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tasks/{task}', [TaskController::class, 'show']);
     Route::put('/tasks/{task}', [TaskController::class, 'update']);
     Route::post('/tasks/{task}/respond', [TaskController::class, 'respond']);
+    Route::post('/tasks/{task}/comment', [TaskController::class, 'comment']);
     Route::post('/tasks/{task}/remind', [TaskController::class, 'remind']);
     Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
     Route::get('/tasks/{task}/history', [TaskHistoryController::class, 'index']);
+    Route::delete('/tasks/{task}/history/{history}', [TaskHistoryController::class, 'destroy']);
     Route::put('/tasks/{id}/accept', [TaskController::class, 'accept']);
     Route::put('/tasks/{id}/reject', [TaskController::class, 'reject']);
     Route::put('/tasks/{id}/toggle-status', [TaskController::class, 'toggleStatus']);
@@ -39,28 +41,32 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
-    Route::post('/notifications/{id}/read', function ($id) {
-        $notification = auth()->user()->notifications()->findOrFail($id);
+    Route::post('/notifications/{id}/read', function (Request $request, $id) {
+        $notification = $request->user()->notifications()->findOrFail($id);
         $notification->markAsRead();
         return response()->json(['message' => 'Bildirim okundu olarak işaretlendi.']);
     });
 
-    Route::post('/notifications/read-all', function () {
-        auth()->user()->unreadNotifications->markAsRead();
+    Route::post('/notifications/read-all', function (Request $request) {
+        $user = $request->user();
+        // Tüm okunmamışları tek seferde okundu işaretle
+        $user->unreadNotifications->each(function ($notification) {
+            $notification->markAsRead();
+        });
         return response()->json(['message' => 'Tüm bildirimler okundu.']);
     });
 
     Route::delete('/attachments/{id}', [TaskController::class, 'destroyAttachment']);
     //Route::delete('/attachments/{id}', [TaskAttachmentController::class, 'destroy']);
-    Route::delete('/notifications/{id}', function ($id) {
-        $notification = auth()->user()->notifications()->findOrFail($id);
+    Route::delete('/notifications/{id}', function (Request $request, $id) {
+        $notification = $request->user()->notifications()->findOrFail($id);
         $notification->delete();
         return response()->json(['message' => 'Bildirim silindi.']);
     });
 
-    Route::delete('/notifications/cleanup', function () {
+    Route::delete('/notifications/cleanup', function (Request $request) {
         $threshold = Carbon::now()->subDays(30);
-        $deleted = auth()->user()
+        $deleted = $request->user()
             ->notifications()
             ->where('created_at', '<', $threshold)
             ->delete();
@@ -70,8 +76,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
 
-    Route::delete('/notifications', function () {
-        $deleted = auth()->user()->notifications()->delete();
+    Route::delete('/notifications', function (Request $request) {
+        $deleted = $request->user()->notifications()->delete();
         return response()->json([
             'message' => 'Tüm bildirimler silindi.',
             'deleted_count' => $deleted
