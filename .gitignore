@@ -1,58 +1,17 @@
-# ---------- Frontend (root) ----------
-/node_modules/
-/dist/
-/dist-ssr/
-/*.local
-
-# Logs
-logs
+# Node / React / Electron
+node_modules/
+dist/
+build/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-# Editors / OS
-.vscode/*
-!.vscode/extensions.json
-.idea/
+# IDE / OS
+.vscode/
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
-# If you keep Electron code under /electron
-/electron/node_modules/
-/electron/dist/
-/electron/out/
-/electron/release/
-
-# ---------- Backend (Laravel in /task-tracker-api) ----------
-/task-tracker-api/vendor/
-/task-tracker-api/node_modules/
-/task-tracker-api/public/build
-/task-tracker-api/public/hot
-/task-tracker-api/public/storage
-/task-tracker-api/storage/
-/task-tracker-api/storage/*.key
-/task-tracker-api/bootstrap/cache/*.php
-/task-tracker-api/.phpunit.cache
-/task-tracker-api/.phpunit.result.cache
-/task-tracker-api/.phpactor.json
-/task-tracker-api/Homestead.json
-/task-tracker-api/Homestead.yaml
-/task-tracker-api/npm-debug.log
-/task-tracker-api/yarn-error.log
-/task-tracker-api/auth.json
-/task-tracker-api/.fleet
-/task-tracker-api/.idea
-/task-tracker-api/.nova
-/task-tracker-api/.vscode
-/task-tracker-api/.zed
-/task-tracker-api/.env
-/task-tracker-api/.env.*
-!/task-tracker-api/.env.example
-/task-tracker-api/database.sqlite
+# Laravel API (alt klasör)
+task-tracker-api/.env
+task-tracker-api/.env.*
+task-tracker-api/vendor/
+task-tracker-api/storage/
+task-tracker-api/public/storage
+task-tracker-api/bootstrap/cache/*.php
