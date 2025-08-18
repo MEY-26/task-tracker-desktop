@@ -140,6 +140,63 @@ cd ..
 npm run dev
 ```
 
+## 🌐 Local Network Kurulumu
+
+Uygulamayı local ağınızdaki diğer cihazlardan erişilebilir hale getirmek için:
+
+### 1. IP Adresinizi Öğrenin
+```bash
+# Windows
+ipconfig
+
+# macOS
+ifconfig
+
+# Linux
+ip addr show
+```
+
+### 2. Backend'i Network'e Açın
+```bash
+cd task-tracker-api
+php artisan serve --host=0.0.0.0 --port=800
+```
+
+### 3. Frontend'i Network'e Açın
+```bash
+# Ana dizinde
+npm run dev
+```
+
+### 4. Erişim Adresleri
+- **Frontend**: `http://[IP_ADRESINIZ]:5173/`
+- **Backend**: `http://[IP_ADRESINIZ]:800/`
+
+Örnek: `http://192.168.1.180:5173/`
+
+### 5. Windows Firewall Ayarları
+Eğer bağlantı sorunu yaşarsanız, PowerShell'i **Yönetici olarak** açın:
+```powershell
+netsh advfirewall firewall add rule name="Node.js Server" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="Laravel API" dir=in action=allow protocol=TCP localport=800
+```
+
+### 6. API URL Güncelleme
+`src/api.js` dosyasında API URL'ini güncelleyin:
+```javascript
+const api = axios.create({
+  baseURL: 'http://[IP_ADRESINIZ]:800/api',
+  // ...
+});
+```
+
+### 7. Test Kullanıcıları
+Kurulum sonrası şu test kullanıcıları mevcuttur:
+- **Admin**: admin@vaden.com.tr / 1234
+- **Readonly**: readonly@example.com / 1234
+- **User**: user@example.com / 1234
+- **Observer**: izleyici@example.com / 1234
+
 ## 🔧 Yapılandırma
 
 ### API URL Ayarları

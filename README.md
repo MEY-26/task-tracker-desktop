@@ -64,6 +64,49 @@ cd ..
 npm run dev
 ```
 
+## 🌐 Local Network Kurulumu
+
+Uygulamayı local ağınızdaki diğer cihazlardan erişilebilir hale getirmek için:
+
+### 1. IP Adresinizi Öğrenin
+```bash
+# Windows
+ipconfig
+
+# macOS/Linux
+ifconfig
+```
+
+### 2. Backend'i Network'e Açın
+```bash
+cd task-tracker-api
+php artisan serve --host=0.0.0.0 --port=800
+```
+
+### 3. Frontend'i Network'e Açın
+```bash
+# Ana dizinde
+npm run dev
+```
+
+Frontend otomatik olarak network'e açılacaktır (`--host` parametresi ile).
+
+### 4. Erişim Adresleri
+- **Frontend**: `http://[IP_ADRESINIZ]:5173/`
+- **Backend**: `http://[IP_ADRESINIZ]:800/`
+
+Örnek: `http://192.168.1.180:5173/`
+
+### 5. Windows Firewall (Gerekirse)
+Eğer bağlantı sorunu yaşarsanız, PowerShell'i **Yönetici olarak** açın:
+```powershell
+netsh advfirewall firewall add rule name="Node.js Server" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="Laravel API" dir=in action=allow protocol=TCP localport=800
+```
+
+### 6. CORS Ayarları
+`task-tracker-api/config/cors.php` dosyası otomatik olarak local network adreslerini içerir.
+
 ## 🏗️ Geliştirme
 
 ### Geliştirme Modunda Çalıştırma
@@ -103,8 +146,14 @@ task-tracker-desktop/
 `src/api.js` dosyasında API URL'ini kendi sunucunuzun adresine göre güncelleyin:
 
 ```javascript
-const API_BASE_URL = 'http://localhost:8000/api';
+// Localhost için
+const API_BASE_URL = 'http://localhost:800/api';
+
+// Local Network için
+const API_BASE_URL = 'http://192.168.1.180:800/api';
 ```
+
+**Not**: Local network kullanımı için IP adresinizi değiştirin.
 
 ### Veritabanı Ayarları
 `task-tracker-api/.env` dosyasında veritabanı bağlantı bilgilerini güncelleyin:

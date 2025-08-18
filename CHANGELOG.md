@@ -11,6 +11,11 @@ Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uyg
 - Kapsamlı dokümantasyon
 - Kurulum rehberleri
 - Katkıda bulunma rehberi
+- Local network erişimi desteği
+- Vite host konfigürasyonu
+- CORS ayarları güncellemeleri
+- Windows firewall kuralları
+- Authentication hata düzeltmeleri
 
 ### Changed
 - Package.json metadata güncellemeleri
