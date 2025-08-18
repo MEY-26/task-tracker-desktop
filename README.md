@@ -28,7 +28,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 
 ### 1. Projeyi İndirin
 ```bash
-git clone https://github.com/kullaniciadi/task-tracker-desktop.git
+git clone https://github.com/MEY-26/task-tracker-desktop.git
 cd task-tracker-desktop
 ```
 
