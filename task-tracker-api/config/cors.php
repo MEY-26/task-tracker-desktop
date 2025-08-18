@@ -20,15 +20,17 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:3000',
-        'http://192.168.1.180:5173',
-        'http://192.168.1.180:5174',
-        'http://192.168.1.180:3000',
-        'app://./',
-        '*'
-    ],
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://192.168.1.180:5173',
+    'http://192.168.1.180:5174',
+    'http://192.168.1.180:3000',
+    'http://0.0.0.0:5173',
+    'http://0.0.0.0:5174',
+    'app://./',
+    '*'
+],
 
     'allowed_origins_patterns' => [],
 

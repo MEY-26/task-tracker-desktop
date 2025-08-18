@@ -17,7 +17,7 @@
     "url": "https://github.com/kullaniciadi/task-tracker-desktop/issues"
   },
   "scripts": {
-    "dev": "concurrently -k \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "concurrently -k \"cross-env NODE_ENV=development vite --host\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build:ui": "vite build",
     "build": "npm run build:ui && electron-builder",
     "build:win": "npm run build:ui && electron-builder --win",
