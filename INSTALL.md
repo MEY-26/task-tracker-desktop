@@ -156,6 +156,34 @@ ifconfig
 ip addr show
 ```
 
+### 1.1. Local Domain Kurulumu (Önerilen)
+Hosts dosyasını düzenleyerek local domain kullanabilirsiniz:
+
+**Windows için:**
+```bash
+# Notepad ile hosts dosyasını açın
+notepad C:\Windows\System32\drivers\etc\hosts
+```
+
+Hosts dosyasına şu satırları ekleyin:
+```
+# Task Tracker Desktop Local Domain
+192.168.1.180 gorevtakip.vaden
+192.168.1.180 api.gorevtakip.vaden
+```
+
+**macOS/Linux için:**
+```bash
+sudo nano /etc/hosts
+```
+
+Hosts dosyasına şu satırları ekleyin:
+```
+# Task Tracker Desktop Local Domain
+192.168.1.180 gorevtakip.vaden
+192.168.1.180 api.gorevtakip.vaden
+```
+
 ### 2. Backend'i Network'e Açın
 ```bash
 cd task-tracker-api
@@ -169,10 +197,10 @@ npm run dev
 ```
 
 ### 4. Erişim Adresleri
-- **Frontend**: `http://[IP_ADRESINIZ]:5173/`
-- **Backend**: `http://[IP_ADRESINIZ]:800/`
+- **Frontend**: `http://gorevtakip.vaden:5173/`
+- **Backend**: `http://api.gorevtakip.vaden:800/`
 
-Örnek: `http://192.168.1.180:5173/`
+Alternatif IP adresi: `http://192.168.1.180:5173/`
 
 ### 5. Windows Firewall Ayarları
 Eğer bağlantı sorunu yaşarsanız, PowerShell'i **Yönetici olarak** açın:

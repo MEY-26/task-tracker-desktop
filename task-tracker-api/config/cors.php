@@ -28,6 +28,9 @@ return [
     'http://192.168.1.180:3000',
     'http://0.0.0.0:5173',
     'http://0.0.0.0:5174',
+    'http://gorevtakip.vaden:5173',
+    'http://gorevtakip.vaden:5174',
+    'http://api.gorevtakip.vaden:800',
     'app://./',
     '*'
 ],
