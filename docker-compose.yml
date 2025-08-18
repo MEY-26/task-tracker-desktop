@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  # Frontend (Electron App)
+  task-tracker-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task-tracker-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://task-tracker-api:8000
+    depends_on:
+      - task-tracker-api
+      - mysql
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # Backend API
+  task-tracker-api:
+    build:
+      context: ./task-tracker-api
+      dockerfile: Dockerfile
+    container_name: task-tracker-api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=task_tracker
+      - DB_USERNAME=task_user
+      - DB_PASSWORD=task_password
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mysql
+      - redis
+    volumes:
+      - ./task-tracker-api/storage:/var/www/html/storage
+      - ./task-tracker-api/public/storage:/var/www/html/public/storage
+    restart: unless-stopped
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: task-tracker-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=task_tracker
+      - MYSQL_USER=task_user
+      - MYSQL_PASSWORD=task_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./task-tracker-api/database/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: task-tracker-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # Nginx (Optional - for production)
+  nginx:
+    image: nginx:alpine
+    container_name: task-tracker-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - task-tracker-api
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: task-tracker-network

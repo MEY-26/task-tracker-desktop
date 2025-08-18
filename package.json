@@ -2,15 +2,34 @@
   "main": "electron/main.js",
   "name": "task-tracker-desktop",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Modern bir masaüstü görev takip uygulaması",
+  "keywords": ["electron", "react", "task-tracker", "desktop-app", "laravel-api"],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kullaniciadi/task-tracker-desktop.git"
+  },
+  "homepage": "https://github.com/kullaniciadi/task-tracker-desktop#readme",
+  "bugs": {
+    "url": "https://github.com/kullaniciadi/task-tracker-desktop/issues"
+  },
   "scripts": {
     "dev": "concurrently -k \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build:ui": "vite build",
     "build": "npm run build:ui && electron-builder",
+    "build:win": "npm run build:ui && electron-builder --win",
+    "build:mac": "npm run build:ui && electron-builder --mac",
+    "build:linux": "npm run build:ui && electron-builder --linux",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "vite preview",
-    "start": "electron ."
+    "start": "electron .",
+    "postinstall": "electron-builder install-app-deps",
+    "setup": "npm install && cd task-tracker-api && composer install",
+    "setup:dev": "npm run setup && cd task-tracker-api && cp env.example .env && php artisan key:generate"
   },
   "dependencies": {
     "axios": "^1.11.0",
@@ -52,7 +71,30 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "public/vite.svg"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "public/vite.svg"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "public/vite.svg"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }

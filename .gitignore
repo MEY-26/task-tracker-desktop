@@ -1,17 +1,165 @@
-# Node / React / Electron
+# Dependencies
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Production builds
 dist/
 build/
+release/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
 *.log
 
-# IDE / OS
-.vscode/
-.DS_Store
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# Laravel API (alt klasör)
-task-tracker-api/.env
-task-tracker-api/.env.*
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Laravel specific
 task-tracker-api/vendor/
-task-tracker-api/storage/
-task-tracker-api/public/storage
+task-tracker-api/node_modules/
+task-tracker-api/.env
+task-tracker-api/.env.backup
+task-tracker-api/.phpunit.result.cache
+task-tracker-api/homestead.json
+task-tracker-api/homestead.yaml
+task-tracker-api/auth.json
+task-tracker-api/npm-debug.log
+task-tracker-api/yarn-error.log
+task-tracker-api/.phpstorm.meta.php
+task-tracker-api/_ide_helper.php
+task-tracker-api/_ide_helper_models.php
+task-tracker-api/.php_cs.cache
+task-tracker-api/.php-cs-fixer.cache
 task-tracker-api/bootstrap/cache/*.php
+task-tracker-api/storage/*.key
+task-tracker-api/storage/logs/*.log
+task-tracker-api/storage/framework/cache/*/
+task-tracker-api/storage/framework/sessions/*/
+task-tracker-api/storage/framework/views/*/
+task-tracker-api/storage/app/public/*
+task-tracker-api/storage/framework/testing/*/
+
+# Electron specific
+out/
+app/
+packages/
+*.dmg
+*.exe
+*.deb
+*.rpm
+*.AppImage
+*.snap
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Compiled files
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Local configuration files
+config.local.js
+config.local.json
