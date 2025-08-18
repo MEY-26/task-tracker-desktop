@@ -14,7 +14,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('jwt');
-    if (token) {
+    if (token && token !== 'null' && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -38,6 +38,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('jwt');
       console.error('Token geçersiz, oturum sonlandırıldı');
+      // Sayfayı yenile veya login sayfasına yönlendir
+      if (window.location.pathname !== '/login') {
+        window.location.reload();
+      }
     }
     return Promise.reject(error);
   }
@@ -67,7 +71,7 @@ export async function login(email, password) {
 
 export async function restore() {
   const token = localStorage.getItem('jwt');
-  if (token) {
+  if (token && token !== 'null' && token !== 'undefined') {
     try {
       await api.get('/user');
       return true;
