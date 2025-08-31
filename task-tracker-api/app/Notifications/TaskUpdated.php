@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Task;
 
 class TaskUpdated extends Notification
@@ -65,7 +66,8 @@ class TaskUpdated extends Notification
             'task_id' => $this->task->id,
             'title' => $this->task->title,
             'message' => $this->message,
-            'updated_by' => auth()->user()->name ?? 'Sistem',
+            'updated_by' => Auth::check() ? Auth::user()->name : 'Sistem',
+            'created_at' => now(),
         ];
     }
 }

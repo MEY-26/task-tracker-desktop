@@ -12,13 +12,16 @@ class TaskHistoryController extends Controller
     {
         $user = request()->user();
     
-        // Erişim kontrolü
-        if (
-            $user->id !== $task->created_by &&
-            $user->id !== $task->responsible_id &&
-            !$task->assignedUsers->contains('id', $user->id)
-        ) {
-            return response()->json(['message' => 'Bu görevin geçmişine erişim yetkiniz yok.'], 403);
+        // Erişim kontrolü - admin ve observer tüm görev geçmişlerini görebilir
+        if ($user->role !== 'admin' && $user->role !== 'observer') {
+            // team_leader ve team_member sadece kendi görevlerinin geçmişini görebilir
+            if (
+                $user->id !== $task->created_by &&
+                $user->id !== $task->responsible_id &&
+                !$task->assignedUsers->contains('id', $user->id)
+            ) {
+                return response()->json(['message' => 'Bu görevin geçmişine erişim yetkiniz yok.'], 403);
+            }
         }
     
         $history = $task->histories()

@@ -1,14 +1,35 @@
 // src/api.js
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: 'http://api.gorevtakip.vaden:800/api',
+// Dinamik API URL - geliştirme ortamında IP kullan, production'da domain
+const getApiBaseURL = () => {
+  // Geliştirme ortamında WAMP kullan (task-tracker-api klasörü)
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')) {
+    // CORS sorunu için geçici olarak aynı origin kullan
+    return `http://${window.location.hostname}:8000/api`;
+  }
+  // Production ortamında domain kullan
+  return 'http://api.gorevtakip.vaden:800/api';
+};
+
+export const api = axios.create({
+  baseURL: getApiBaseURL(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   }
 });
+
+// API origin (without trailing /api) to compose absolute asset links when needed
+export const apiOrigin = (() => {
+  try {
+    const u = new URL(api.defaults.baseURL);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return '';
+  }
+})();
 
 // Request interceptor - her istekte token'ı ekle
 api.interceptors.request.use(
@@ -38,8 +59,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('jwt');
       console.error('Token geçersiz, oturum sonlandırıldı');
-      // Sayfayı yenile veya login sayfasına yönlendir
-      if (window.location.pathname !== '/login') {
+      // Sadece kritik olmayan isteklerde sayfa yenileme yapma
+      if (window.location.pathname !== '/login' && 
+          !error.config?.url?.includes('/notifications') &&
+          !error.config?.url?.includes('/history')) {
+        console.warn('Critical auth error, reloading page');
         window.location.reload();
       }
     }
@@ -115,6 +139,31 @@ export async function changePassword(currentPassword, newPassword) {
     return response.data;
   } catch (error) {
     console.error('Change password error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+export async function forgotPassword(email) {
+  try {
+    const response = await api.post('/forgot-password', { email });
+    return response.data;
+  } catch (error) {
+    console.error('Forgot password error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+export async function resetPassword(email, token, password, passwordConfirmation) {
+  try {
+    const response = await api.post('/reset-password', {
+      email,
+      token,
+      password,
+      password_confirmation: passwordConfirmation
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Reset password error:', error.response?.data || error.message);
     throw error;
   }
 }

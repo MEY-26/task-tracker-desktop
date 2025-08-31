@@ -21,6 +21,12 @@ class Task extends Model
         'end_date',
     ];
 
+    protected $casts = [
+        'start_date' => 'datetime',
+        'due_date' => 'datetime',
+        'end_date' => 'datetime',
+    ];
+
     // Görevi oluşturan kişi
     public function creator()
     {

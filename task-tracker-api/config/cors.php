@@ -35,7 +35,11 @@ return [
     '*'
 ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^http:\/\/192\.168\.\d+\.\d+:\d+$/',
+        '/^http:\/\/10\.\d+\.\d+\.\d+:\d+$/',
+        '/^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$/',
+    ],
 
     'allowed_headers' => ['*'],
 

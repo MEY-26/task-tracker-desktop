@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TaskAttachment;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TaskNotificationMail;
+use App\Models\User;
 
 
 class TaskController extends Controller
@@ -20,9 +25,11 @@ class TaskController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === 'observer') {
+        if ($user->role === 'admin' || $user->role === 'observer') {
+            // Admin ve observer tüm görevleri görebilir
             $tasks = Task::with(['assignedUsers', 'attachments', 'creator', 'responsible'])->get();
         } else {
+            // team_leader ve team_member sadece kendi görevlerini görebilir
             $tasks = Task::with(['assignedUsers', 'attachments', 'creator', 'responsible'])
                 ->where('created_by', $user->id)
                 ->orWhere('responsible_id', $user->id)
@@ -57,7 +64,7 @@ class TaskController extends Controller
             'description' => 'nullable|string',
             'priority' => 'required|in:low,medium,high,critical',
             'status' => 'required|in:waiting,in_progress,investigating,completed,cancelled',
-            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,zip|max:10240',
+            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip|max:10240',
             'responsible_id' => 'required|exists:users,id',
             'assigned_users' => 'array|nullable',
             'assigned_users.*' => 'exists:users,id',
@@ -66,6 +73,52 @@ class TaskController extends Controller
         ]);
 
         $currentUserId = $request->user()->id;
+        $currentUser = $request->user();
+
+        // 1. Observer rolündeki kullanıcılara görev atanamasın kontrolü
+        $responsibleUser = User::find($request->responsible_id);
+        if ($responsibleUser && $responsibleUser->role === 'observer') {
+            return response()->json([
+                'message' => 'Observer rolündeki kullanıcılara görev sorumluluğu atayamazsınız.'
+            ], 422);
+        }
+
+        // 2. Team leader'ların admin'lere görev atayamaması kontrolü
+        if ($currentUser->role === 'team_leader' && $responsibleUser && $responsibleUser->role === 'admin') {
+            return response()->json([
+                'message' => 'Takım lideri olarak admin rolündeki kullanıcılara görev atayamazsınız.'
+            ], 422);
+        }
+
+        // 3. Atanan kullanıcılar için rol kontrolü
+        if (!empty($request->assigned_users)) {
+            $assignedUsers = User::whereIn('id', $request->assigned_users)->get();
+            
+            // Observer'lara atama kontrolü
+            $observers = $assignedUsers->where('role', 'observer');
+            if ($observers->count() > 0) {
+                return response()->json([
+                    'message' => 'Observer rolündeki kullanıcılara görev atayamazsınız: ' . $observers->pluck('name')->join(', ')
+                ], 422);
+            }
+
+            // Team leader'ın admin'lere atama kontrolü
+            if ($currentUser->role === 'team_leader') {
+                $admins = $assignedUsers->where('role', 'admin');
+                if ($admins->count() > 0) {
+                    return response()->json([
+                        'message' => 'Takım lideri olarak admin rolündeki kullanıcılara görev atayamazsınız: ' . $admins->pluck('name')->join(', ')
+                    ], 422);
+                }
+            }
+
+            // 4. Sorumlu olan kullanıcının atanan listesinde olmaması kontrolü
+            if (in_array($request->responsible_id, $request->assigned_users)) {
+                return response()->json([
+                    'message' => 'Sorumlu olan kullanıcı aynı görevde atanan olarak seçilemez.'
+                ], 422);
+            }
+        }
 
         $task = Task::create([
             'title' => $request->title,
@@ -101,16 +154,68 @@ class TaskController extends Controller
             }
         }
 
-        $message = 'Size yeni bir görev atandı: "' . $task->title . '"';
-        foreach ($task->assignedUsers as $user) {
-            if ($user->id !== $currentUserId) {
-                $user->notify(new TaskUpdated($task, $message));
+        // Bildirim gönderilecek kişiler
+        $bildirimGidecekler = collect([
+            $task->responsible,
+            ...$task->assignedUsers
+        ])->unique('id')->filter(function ($u) use ($currentUserId) {
+            return $u && $u->id !== $currentUserId;
+        });
+
+        // Sorumlu kişiye özel mesaj
+        if ($task->responsible_id && $task->responsible_id !== $currentUserId) {
+            try {
+                $responsibleMessage = 'Size yeni bir görev sorumluluğu atandı: "' . $task->title . '"';
+                $task->responsible->notify(new TaskUpdated($task, $responsibleMessage));
+                Log::info('Notification sent to responsible user: ' . $task->responsible->name);
+            } catch (\Exception $e) {
+                Log::error('Failed to send notification to responsible user: ' . $e->getMessage());
             }
         }
 
-        if ($task->responsible_id && $task->responsible_id !== $currentUserId) {
-            $task->responsible->notify(new TaskUpdated($task, $message));
+        // Atanan kullanıcılara özel mesaj
+        foreach ($task->assignedUsers as $user) {
+            if ($user->id !== $currentUserId && $user->id !== $task->responsible_id) {
+                try {
+                    $assignedMessage = 'Size yeni bir görev atandı: "' . $task->title . '"';
+                    $user->notify(new TaskUpdated($task, $assignedMessage));
+                    Log::info('Notification sent to assigned user: ' . $user->name);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send notification to assigned user: ' . $e->getMessage());
+                }
+            }
         }
+
+        // Email bildirimleri gönder
+        try {
+            // Sorumlu kişiye email gönder
+            if ($task->responsible && $task->responsible->id !== $currentUserId) {
+                Mail::to($task->responsible->email)->send(new TaskNotificationMail(
+                    $task,
+                    'assigned',
+                    $task->responsible,
+                    'Size yeni bir görev sorumluluğu atandı'
+                ));
+                Log::info('Email sent to responsible user: ' . $task->responsible->email);
+            }
+
+            // Atanan kullanıcılara email gönder
+            foreach ($task->assignedUsers as $user) {
+                if ($user->id !== $currentUserId && $user->id !== $task->responsible_id) {
+                    Mail::to($user->email)->send(new TaskNotificationMail(
+                        $task,
+                        'assigned',
+                        $user,
+                        'Size yeni bir görev atandı'
+                    ));
+                    Log::info('Email sent to assigned user: ' . $user->email);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send email notifications: ' . $e->getMessage());
+            // Email hatası görev oluşturulmasını engellemez
+        }
+
         return response()->json([
             'message' => 'Görev oluşturuldu.',
             'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
@@ -141,16 +246,30 @@ class TaskController extends Controller
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
 
+        // Observer'lar hiçbir güncelleme yapamaz
+        if ($user->role === 'observer') {
+            return response()->json(['message' => 'Observer rolündeki kullanıcılar görevlerde değişiklik yapamaz. Sadece görüntüleme yetkiniz var.'], 403);
+        }
+
         if ($user->role !== 'admin' && $user->id !== $task->created_by && $user->id !== $task->responsible_id) {
             return response()->json(['message' => 'Bu görevi güncelleme yetkiniz yok.'], 403);
         }
 
+        \Illuminate\Support\Facades\Log::info('Task update request', [
+            'task_id' => $task->id,
+            'user_id' => $user->id,
+            'user_role' => $user->role,
+            'request_data' => $request->all(),
+            'has_description' => $request->has('description'),
+            'description_value' => $request->input('description')
+        ]);
+
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'sometimes|nullable|string',
             'priority' => 'in:low,medium,high,critical',
             'status' => 'in:waiting,in_progress,investigating,completed,cancelled',
-            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,docx,xlsx,zip|max:10240',
+            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip|max:10240',
             'responsible_id' => 'exists:users,id',
             'start_date' => 'nullable|date',
             'due_date' => 'nullable|date|after_or_equal:start_date',
@@ -158,11 +277,66 @@ class TaskController extends Controller
             'assigned_users.*' => 'exists:users,id',
         ]);
 
+        // Rol tabanlı validasyonlar
+        if ($request->has('responsible_id')) {
+            $responsibleUser = User::find($request->responsible_id);
+            
+            // 1. Observer rolündeki kullanıcılara görev atanamasın kontrolü
+            if ($responsibleUser && $responsibleUser->role === 'observer') {
+                return response()->json([
+                    'message' => 'Observer rolündeki kullanıcılara görev sorumluluğu atayamazsınız.'
+                ], 422);
+            }
+
+            // 2. Team leader'ların admin'lere görev atayamaması kontrolü
+            if ($user->role === 'team_leader' && $responsibleUser && $responsibleUser->role === 'admin') {
+                return response()->json([
+                    'message' => 'Takım lideri olarak admin rolündeki kullanıcılara görev atayamazsınız.'
+                ], 422);
+            }
+        }
+
+        // 3. Atanan kullanıcılar için rol kontrolü
+        if ($request->has('assigned_users') && !empty($request->assigned_users)) {
+            $assignedUsers = User::whereIn('id', $request->assigned_users)->get();
+            
+            // Observer'lara atama kontrolü
+            $observers = $assignedUsers->where('role', 'observer');
+            if ($observers->count() > 0) {
+                return response()->json([
+                    'message' => 'Observer rolündeki kullanıcılara görev atayamazsınız: ' . $observers->pluck('name')->join(', ')
+                ], 422);
+            }
+
+            // Team leader'ın admin'lere atama kontrolü
+            if ($user->role === 'team_leader') {
+                $admins = $assignedUsers->where('role', 'admin');
+                if ($admins->count() > 0) {
+                    return response()->json([
+                        'message' => 'Takım lideri olarak admin rolündeki kullanıcılara görev atayamazsınız: ' . $admins->pluck('name')->join(', ')
+                    ], 422);
+                }
+            }
+
+            // 4. Sorumlu olan kullanıcının atanan listesinde olmaması kontrolü
+            $responsibleId = $request->responsible_id ?? $task->responsible_id;
+            if ($responsibleId && in_array($responsibleId, $request->assigned_users)) {
+                return response()->json([
+                    'message' => 'Sorumlu olan kullanıcı aynı görevde atanan olarak seçilemez.'
+                ], 422);
+            }
+        }
+
         $task->load(['assignedUsers', 'responsible', 'creator']);
         $before = $task->toArray();
 
+        // Bazı ortamlarda PUT ile kısmi güncellemelerde description alanı
+        // mass-assign sırasında gözden kaçabiliyor. Güvenli olması için
+        // hem toplu update hem de açık atama yapıyoruz.
         $task->update($validated);
-        $after = $task->fresh()->toArray();
+        if ($request->has('description')) {
+            $task->description = $request->input('description');
+        }
 
         if (in_array($request->status, ['in_progress', 'investigating']) && !$task->start_date) {
             $task->start_date = now();
@@ -173,8 +347,21 @@ class TaskController extends Controller
         }
 
         $task->save();
+        $after = $task->fresh()->toArray();
+        
+        \Illuminate\Support\Facades\Log::info('Task updated', [
+            'task_id' => $task->id,
+            'description_before' => $before['description'] ?? null,
+            'description_after' => $after['description'] ?? null,
+            'description_saved' => $task->description
+        ]);
 
         foreach ($validated as $key => $newValue) {
+            // Dosya ekleri ve atanan kullanıcılar için ayrı kayıt mantığı mevcut.
+            // Bu alanları genel değişiklik döngüsünden hariç tutarak mükerrer history oluşmasını engelle.
+            if (in_array($key, ['attachments', 'assigned_users'])) {
+                continue;
+            }
             $oldValue = $before[$key] ?? null;
 
             if ($oldValue != $newValue) {
@@ -243,6 +430,22 @@ class TaskController extends Controller
             $kisi->notify(new TaskUpdated($task, $message));
         }
 
+        // Email bildirimleri gönder
+        try {
+            foreach ($bildirimGidecekler as $kisi) {
+                Mail::to($kisi->email)->send(new TaskNotificationMail(
+                    $task,
+                    'updated',
+                    $kisi,
+                    'Göreviniz güncellendi'
+                ));
+                Log::info('Email sent to user: ' . $kisi->email . ' for task update');
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send email notifications for task update: ' . $e->getMessage());
+            // Email hatası görev güncellemesini engellemez
+        }
+
         return response()->json([
             'message' => 'Görev güncellendi.',
             'task' => $task->load(['assignedUsers','attachments','creator','responsible'])
@@ -251,13 +454,15 @@ class TaskController extends Controller
 
     public function destroy(Request $request, Task $task)
     {
-        if (!$request->user()) {
+        $user = $request->user();
+        
+        if (!$user) {
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
 
-        // Sadece oluşturan ya da sorumlu olan silebilir
-        if ($request->user()->id !== $task->created_by && $request->user()->id !== $task->responsible_id) {
-            return response()->json(['message' => 'Bu görevi silme yetkiniz yok.'], 403);
+        // Sadece admin kalıcı silme yapabilir
+        if ($user->role !== 'admin') {
+            return response()->json(['message' => 'Görevleri kalıcı olarak silme yetkiniz yok. Sadece admin kullanıcılar kalıcı silme yapabilir.'], 403);
         }
 
         foreach ($task->attachments as $attachment) {
@@ -279,10 +484,31 @@ class TaskController extends Controller
         // Fiziksel dosyayı sil
         Storage::disk('public')->delete($attachment->path);
 
+        // History: dosya silindi kaydı oluştur
+        $user = request()->user();
+        $originalName = $attachment->original_name;
+        TaskHistory::create([
+            'task_id'   => $attachment->task_id,
+            'user_id'   => $user?->id,
+            'field'     => 'attachments',
+            'old_value' => $originalName,   // silinen dosya adı
+            'new_value' => null,            // silme işlemi
+        ]);
+
         // Veritabanından kaydı sil
         $attachment->delete();
 
         return response()->json(['message' => 'Dosya başarıyla silindi.']);
+    }
+
+    // İmzalı URL üzerinden dosya gösterimi/indirme
+    public function showAttachment(TaskAttachment $attachment)
+    {
+        // storage/app/public içindeki dosyayı stream olarak döndür
+        if (!Storage::disk('public')->exists($attachment->path)) {
+            abort(404);
+        }
+        return response()->file(Storage::disk('public')->path($attachment->path));
     }
 
     public function respond(Request $request, Task $task)
@@ -345,8 +571,14 @@ class TaskController extends Controller
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
 
-        // Görevi görebilen herkes yorum ekleyebilsin (oluşturan, sorumlu veya atananlar)
+        // Observer'lar yorum ekleyemez
+        if ($user->role === 'observer') {
+            return response()->json(['message' => 'Observer rolündeki kullanıcılar yorum ekleyemez. Sadece görüntüleme yetkiniz var.'], 403);
+        }
+
+        // Admin'ler her şeye yorum ekleyebilir, diğerleri sadece kendi görevlerine
         if (
+            $user->role !== 'admin' &&
             $user->id !== $task->created_by &&
             $user->id !== $task->responsible_id &&
             !$task->assignedUsers->contains('id', $user->id)
@@ -377,6 +609,11 @@ class TaskController extends Controller
     {
         $user = $request->user();
 
+        // Observer'lar hatırlatma yapamaz
+        if ($user->role === 'observer') {
+            return response()->json(['message' => 'Observer rolündeki kullanıcılar hatırlatma yapamaz. Sadece görüntüleme yetkiniz var.'], 403);
+        }
+
         // Sadece görevi oluşturan ya da sorumlu kişi hatırlatma yapabilmeli
         if ($user->id !== $task->created_by && $user->id !== $task->responsible_id) {
             return response()->json(['message' => 'Bu göreve hatırlatma yapma yetkiniz yok.'], 403);
@@ -398,6 +635,24 @@ class TaskController extends Controller
             if ($target->id !== $user->id) {
                 $target->notify(new TaskUpdated($task, $message));
             }
+        }
+
+        // Email hatırlatmaları gönder
+        try {
+            foreach ($reminderTargets as $target) {
+                if ($target->id !== $user->id) {
+                    Mail::to($target->email)->send(new TaskNotificationMail(
+                        $task,
+                        'reminded',
+                        $target,
+                        'Görev hatırlatması'
+                    ));
+                    Log::info('Reminder email sent to user: ' . $target->email);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to send reminder emails: ' . $e->getMessage());
+            // Email hatası hatırlatma işlemini engellemez
         }
 
         return response()->json([

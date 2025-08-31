@@ -1,0 +1,21 @@
+# WAMP httpd-vhosts.conf dosyasına eklenecek konfigürasyon
+
+# Laravel API Virtual Host (Port 800)
+<VirtualHost *:800>
+    DocumentRoot "C:/wamp64/www/task-tracker-desktop/task-tracker-api/public"
+    ServerName localhost
+    ServerAlias 192.168.1.180
+    <Directory "C:/wamp64/www/task-tracker-desktop/task-tracker-api/public">
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.php
+    </Directory>
+    
+    # PHP ayarları
+    <FilesMatch \.php$>
+        SetHandler application/x-httpd-php
+    </FilesMatch>
+</VirtualHost>
+
+# Apache'nin port 800'ü dinlemesi için httpd.conf'a eklenecek
+Listen 800

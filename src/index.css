@@ -121,3 +121,40 @@ button:focus-visible {
   color: #e5e7eb;
   box-shadow: 0 25px 80px rgba(0, 0, 0, .6);
 }
+
+/* Hide scrollbars for horizontal chip rows without disabling scroll */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Custom scrollbar for notification list */
+.notification-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.notification-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Mobile scroll behavior */
+@media (max-width: 768px) {
+  .notification-scrollbar {
+    -webkit-overflow-scrolling: touch;
+  }
+}

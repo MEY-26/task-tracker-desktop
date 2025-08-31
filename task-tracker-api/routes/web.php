@@ -1,7 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TaskController;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// İmzalı ve herkese açık (token gerektirmeyen) dosya görüntüleme bağlantısı.
+// Link Laravel tarafından imzalandığı için yetkisiz erişim engellenir.
+Route::get('/attachments/{attachment}', [TaskController::class, 'showAttachment'])
+    ->name('attachments.show')
+    ->middleware('signed');
+
+

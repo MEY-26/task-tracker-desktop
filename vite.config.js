@@ -9,7 +9,7 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     hmr: {
-      host: 'gorevtakip.vaden'
+      host: '192.168.1.180'
     }
   },
 })

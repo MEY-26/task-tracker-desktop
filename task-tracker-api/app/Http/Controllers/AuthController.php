@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PasswordResetMail;
 
 class AuthController extends Controller
 {
@@ -84,7 +89,7 @@ class AuthController extends Controller
             'new_password' => 'required|string|min:4',
         ]);
 
-        $user = auth()->user();
+        $user = Auth::user();
 
         if (!Hash::check($request->current_password, $user->password)) {
             return response()->json(['message' => 'Mevcut şifre yanlış.'], 403);
@@ -94,5 +99,75 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json(['message' => 'Şifre başarıyla güncellendi.']);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+        $token = Str::random(8); // 8 karakterlik kod (daha kullanıcı dostu)
+        
+        // Token'ı veritabanına kaydet
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'token' => Hash::make($token),
+                'created_at' => now()
+            ]
+        );
+
+        try {
+            // Email gönder
+            Mail::to($user->email)->send(new PasswordResetMail($token, $user));
+            
+            return response()->json([
+                'message' => 'Şifre sıfırlama kodu e-posta adresinize gönderildi.',
+                'email' => $request->email
+            ]);
+        } catch (\Exception $e) {
+            // Email gönderme hatası durumunda
+            \Log::error('Password reset email error: ' . $e->getMessage());
+            
+            return response()->json([
+                'message' => 'E-posta gönderilirken bir hata oluştu. Lütfen sistem yöneticisi ile iletişime geçin.',
+                'debug_info' => app()->isLocal() ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:4|confirmed'
+        ]);
+
+        // Token'ı kontrol et
+        $passwordReset = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->first();
+
+        if (!$passwordReset || !Hash::check($request->token, $passwordReset->token)) {
+            return response()->json(['message' => 'Geçersiz token.'], 400);
+        }
+
+        // Token'ın süresi dolmuş mu kontrol et (60 dakika)
+        if (now()->diffInMinutes($passwordReset->created_at) > 60) {
+            return response()->json(['message' => 'Token süresi dolmuş.'], 400);
+        }
+
+        // Şifreyi güncelle
+        $user = User::where('email', $request->email)->first();
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        // Token'ı sil
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        return response()->json(['message' => 'Şifre başarıyla sıfırlandı.']);
     }
 }
