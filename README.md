@@ -11,6 +11,14 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔔 Bildirim sistemi
 - 📎 Dosya ekleme desteği
 - 🎨 Modern ve kullanıcı dostu arayüz
+- 📧 E-posta bildirimleri ve şifre sıfırlama
+- 📊 Excel'den toplu kullanıcı ekleme
+- 🔍 Gelişmiş kullanıcı arama sistemi
+- 🎯 Rol tabanlı erişim kontrolü
+- 📧 E-posta bildirimleri ve şifre sıfırlama
+- 📊 Excel'den toplu kullanıcı ekleme
+- 🔍 Gelişmiş kullanıcı arama sistemi
+- 🎯 Rol tabanlı erişim kontrolü
 
 ## 📋 Gereksinimler
 
@@ -23,6 +31,8 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - Composer
 - MySQL/PostgreSQL/SQLite
 - Laravel 12
+- SMTP Mail Server (Gmail, Outlook, vb.)
+- SMTP Mail Server (Gmail, Outlook, vb.)
 
 ## 🛠️ Kurulum
 
@@ -52,17 +62,99 @@ php artisan migrate
 php artisan db:seed
 ```
 
-### 5. API Sunucusunu Başlatın
+### 5. Mail Sistemi Konfigürasyonu
+
+#### 5.1. SMTP Ayarları
+`task-tracker-api/.env` dosyasında mail ayarlarını yapılandırın:
+
+```env
+# Mail Ayarları
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=your-email@gmail.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+#### 5.2. Gmail SMTP Kurulumu
+1. Gmail hesabınızda "2 Adımlı Doğrulama"yı etkinleştirin
+2. "Uygulama Şifreleri" bölümünden yeni bir şifre oluşturun
+3. Bu şifreyi `MAIL_PASSWORD` alanına yazın
+
+#### 5.3. Outlook/Hotmail SMTP Kurulumu
+```env
+MAIL_HOST=smtp-mail.outlook.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@outlook.com
+MAIL_PASSWORD=your-password
+```
+
+#### 5.4. Kendi Mail Sunucunuz İçin
+```env
+MAIL_HOST=mail.yourcompany.com
+MAIL_PORT=587
+MAIL_USERNAME=noreply@yourcompany.com
+MAIL_PASSWORD=your-password
+```
+
+### 6. API Sunucusunu Başlatın
 ```bash
 php artisan serve
 ```
 
-### 6. Electron Uygulamasını Başlatın
+### 7. Electron Uygulamasını Başlatın
 ```bash
 # Ana dizine geri dönün
 cd ..
 npm run dev
 ```
+
+## 📧 Mail Sistemi Özellikleri
+
+### Şifre Sıfırlama
+- Kullanıcılar "Şifremi Unuttum" butonuna tıklayabilir
+- Sistem otomatik olarak sıfırlama kodu gönderir
+- Kullanıcı kodu girerek yeni şifre belirleyebilir
+
+### Görev Bildirimleri
+- Yeni görev atandığında e-posta bildirimi
+- Görev durumu değiştiğinde bildirim
+- Görev tamamlandığında bildirim
+
+### Mail Template'leri
+Mail template'leri `task-tracker-api/resources/views/emails/` klasöründe bulunur:
+- `password-reset.blade.php` - Şifre sıfırlama e-postası
+- `task-notification.blade.php` - Görev bildirim e-postası
+
+## 📊 Excel Toplu Kullanıcı Ekleme
+
+### Excel Formatı
+Excel dosyası şu formatta olmalıdır:
+- **A1**: Kullanıcı Adı Soyadı
+- **B1**: E-posta Adresi  
+- **C1**: Rol (admin/team_leader/team_member/observer)
+- **D1**: Şifre (boşsa varsayılan: 123456)
+
+### Kullanım
+1. Admin panelinde "Kullanıcı Yönetimi" bölümüne gidin
+2. "Excel'den Toplu Kullanıcı Ekle" bölümünü kullanın
+3. Excel dosyasını seçin ve yükleyin
+
+## 🎯 Rol Tabanlı Erişim Kontrolü
+
+### Roller ve Yetkiler
+- **Admin**: Tüm yetkilere sahip
+- **Team Leader**: Görev oluşturabilir, atayabilir, dosya yükleyebilir
+- **Team Member**: Görevleri görüntüleyebilir, yorum yapabilir
+- **Observer**: Sadece görevleri görüntüleyebilir
+
+### Kısıtlamalar
+- Observer'lar görev atanamaz
+- Team Leader'lar admin'lere görev atayamaz
+- Sorumlu olan aynı görevde atanan olamaz
 
 ## 🌐 Local Network Kurulumu
 
