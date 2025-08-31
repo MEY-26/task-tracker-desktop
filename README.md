@@ -32,7 +32,6 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - MySQL/PostgreSQL/SQLite
 - Laravel 12
 - SMTP Mail Server (Gmail, Outlook, vb.)
-- SMTP Mail Server (Gmail, Outlook, vb.)
 
 ## 🛠️ Kurulum
 
