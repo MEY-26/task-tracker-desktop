@@ -164,7 +164,30 @@ ipconfig
 ifconfig
 ```
 
-### 1.1. Local Domain Kurulumu (Önerilen)
+### 2. Network Erişimi İçin Uygulamayı Başlatın
+```bash
+# Network erişimi için özel script
+npm run dev:network
+
+# Veya manuel olarak
+npm run dev -- --host 0.0.0.0
+```
+
+### 3. Firewall Ayarları
+Windows Defender Firewall'da 5173 portuna izin verin:
+```bash
+# PowerShell (Administrator olarak)
+netsh advfirewall firewall add rule name="Task Tracker Dev" dir=in action=allow protocol=TCP localport=5173
+```
+
+### 4. Erişim URL'leri
+Uygulama artık şu adreslerden erişilebilir:
+- `http://localhost:5173` (local)
+- `http://127.0.0.1:5173` (local)
+- `http://192.168.1.180:5173` (network)
+- `http://[YOUR_LOCAL_IP]:5173` (network)
+
+### 5. Local Domain Kurulumu (Önerilen)
 Hosts dosyasını düzenleyerek local domain kullanabilirsiniz:
 
 **Windows için:**
@@ -192,34 +215,34 @@ Hosts dosyasına şu satırları ekleyin:
 192.168.1.180 api.gorevtakip.vaden
 ```
 
-### 2. Backend'i Network'e Açın
+### 6. Backend'i Network'e Açın
 ```bash
 cd task-tracker-api
-php artisan serve --host=0.0.0.0 --port=800
+php artisan serve --host=0.0.0.0 --port=8000
 ```
 
-### 3. Frontend'i Network'e Açın
+### 7. Frontend'i Network'e Açın
 ```bash
 # Ana dizinde
-npm run dev
+npm run dev:network
 ```
 
-Frontend otomatik olarak network'e açılacaktır (`--host` parametresi ile).
+Frontend otomatik olarak network'e açılacaktır (`--host 0.0.0.0` parametresi ile).
 
-### 4. Erişim Adresleri
+### 8. Erişim Adresleri
 - **Frontend**: `http://gorevtakip.vaden:5173/`
-- **Backend**: `http://api.gorevtakip.vaden:800/`
+- **Backend**: `http://api.gorevtakip.vaden:8000/`
 
 Alternatif IP adresi: `http://192.168.1.180:5173/`
 
-### 5. Windows Firewall (Gerekirse)
+### 9. Windows Firewall (Gerekirse)
 Eğer bağlantı sorunu yaşarsanız, PowerShell'i **Yönetici olarak** açın:
 ```powershell
-netsh advfirewall firewall add rule name="Node.js Server" dir=in action=allow protocol=TCP localport=5173
-netsh advfirewall firewall add rule name="Laravel API" dir=in action=allow protocol=TCP localport=800
+netsh advfirewall firewall add rule name="Task Tracker Dev" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="Laravel API" dir=in action=allow protocol=TCP localport=8000
 ```
 
-### 6. CORS Ayarları
+### 10. CORS Ayarları
 `task-tracker-api/config/cors.php` dosyası otomatik olarak local network adreslerini içerir.
 
 ## 🏗️ Geliştirme

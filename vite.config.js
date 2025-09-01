@@ -5,11 +5,11 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0',
+    host: '0.0.0.0', // Tüm network interface'leri dinle
     port: 5173,
     strictPort: false,
     hmr: {
-      host: '192.168.1.180'
+      host: '0.0.0.0' // HMR için de tüm interface'leri dinle
     }
   },
 })

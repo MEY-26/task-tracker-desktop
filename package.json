@@ -23,7 +23,8 @@
     "url": "https://github.com/MEY-26/task-tracker-desktop/issues"
   },
   "scripts": {
-    "dev": "concurrently -k \"cross-env NODE_ENV=development vite --host\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev": "concurrently -k \"cross-env NODE_ENV=development vite --host 0.0.0.0\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
+    "dev:network": "concurrently -k \"cross-env NODE_ENV=development vite --host 0.0.0.0 --port 5173\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build:ui": "vite build",
     "build": "npm run build:ui && electron-builder",
     "build:win": "npm run build:ui && electron-builder --win",
