@@ -9,7 +9,10 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     hmr: {
-      host: '0.0.0.0' // HMR için de tüm interface'leri dinle
+      host: 'localhost', // HMR için localhost kullan (WebSocket hatası için)
+      port: 5173
     }
   },
+  // Eğer HMR sorunu devam ederse bu satırı ekleyin:
+  // hmr: false, // HMR'ı tamamen devre dışı bırak
 })
