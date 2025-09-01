@@ -12,15 +12,15 @@
     "desktop-app",
     "laravel-api"
   ],
-  "author": "Your Name",
+  "author": "MEY-26",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kullaniciadi/task-tracker-desktop.git"
+    "url": "https://github.com/MEY-26/task-tracker-desktop.git"
   },
-  "homepage": "https://github.com/kullaniciadi/task-tracker-desktop#readme",
+  "homepage": "https://github.com/MEY-26/task-tracker-desktop#readme",
   "bugs": {
-    "url": "https://github.com/kullaniciadi/task-tracker-desktop/issues"
+    "url": "https://github.com/MEY-26/task-tracker-desktop/issues"
   },
   "scripts": {
     "dev": "concurrently -k \"cross-env NODE_ENV=development vite --host\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",

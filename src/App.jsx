@@ -44,6 +44,7 @@ function App() {
     });
     setAssigneeSearch('');
     setShowAssigneeDropdown(false);
+    setError(null); // Hata mesajını da temizle
   };
   // Sıralama yapılandırması
   const [sortConfig, setSortConfig] = useState({ key: null, dir: 'desc' });
@@ -541,6 +542,7 @@ function App() {
 
       console.log('Created task:', createdTask);
 
+      // Görev listesini güncelle
       setTasks(prevTasks => {
         const currentTasks = Array.isArray(prevTasks) ? prevTasks : [];
         return [...currentTasks, createdTask];
@@ -548,17 +550,11 @@ function App() {
 
       addNotification('Görev başarıyla eklendi', 'success');
 
-      setNewTask({
-        title: '',
-        description: '',
-        priority: 'medium',
-        status: 'waiting',
-        responsible_id: null,
-        assigned_users: [],
-        start_date: '',
-        due_date: '',
-        attachments: []
-      });
+      // Hata mesajını temizle
+      setError(null);
+
+      // Form'u temizle ve modal'ı kapat
+      resetNewTask();
       setShowAddForm(false);
     } catch (err) {
       console.error('Add task error:', err);
@@ -1104,7 +1100,7 @@ function App() {
           />
         </div>
 
-        <div className="pt-8">
+        <div className="pt-8" style={{ paddingTop: '10px' }}>
           <button
             disabled={!can || loading}
             className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-blue-400 disabled:to-blue-400 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl px-8 py-4"
@@ -1172,10 +1168,10 @@ function App() {
           </div>
         </div>
 
-                {/* Excel'den Toplu Kullanıcı Ekleme */}
+        {/* Excel'den Toplu Kullanıcı Ekleme */}
         <div className="border-b border-white/10 pb-4">
           <h4 className="!text-[18px] font-medium text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h4>
-          
+
           <div className="space-y-4">
             <div className="bg-blue-900/20 border-blue-500/30 rounded-lg p-4">
               <div className="!text-[16px] text-blue-200 space-y-1">
@@ -1188,7 +1184,7 @@ function App() {
                 İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.
               </div>
             </div>
-            
+
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -1201,7 +1197,7 @@ function App() {
               }}
               className="w-full !text-[18px] text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
             />
-            
+
             <div className="!text-[16px] text-gray-400" style={{ paddingBottom: '10px' }}>
               Excel dosyası seçin (.xlsx veya .xls formatında)
             </div>
@@ -1662,16 +1658,17 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
       <div className="bg-white shadow-lg border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
-          <div className="flex justify-between items-center h-16 sm:h-20">
+        <div className="max-w-7xl mx-auto px-2 xs:px-3 sm:px-4 lg:px-6">
+          <div className="flex justify-between items-center h-14 xs:h-16 sm:h-18 lg:h-20">
             {/* Left Side - Brand */}
-            <div className="flex items-center space-x-2 sm:space-x-6">
-              <div className="flex items-center space-x-2 sm:space-x-3">
+            <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-4 lg:space-x-6">
+              <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-3">
                 <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
-                  <img 
-                    src={logo} 
-                    alt="Vaden Logo" 
-                    className="w-10 h-10 sm:w-12 sm:h-12" 
+                  <img
+                    src={logo}
+                    alt="Vaden Logo"
+                    style={{ width: '200px', height: '100px' }}
+                    className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
                     onLoad={() => console.log('Header logo başarıyla yüklendi')}
                     onError={(e) => {
                       console.error('Header logo yüklenemedi, fallback text gösteriliyor');
@@ -1679,46 +1676,23 @@ function App() {
                       e.target.nextSibling.style.display = 'block';
                     }}
                   />
-                  <div className="text-lg sm:text-xl font-bold text-gray-700" style={{ display: 'none' }}>
-                    VADEN
-                  </div>
-                </div>
-              </div>
-
-              <div className="hidden sm:flex items-center space-x-2 lg:space-x-6 text-xs lg:text-sm text-gray-600">
-                <div className="flex items-center space-x-2 bg-yellow-50 px-3 py-1 rounded-full">
-                  <span className="text-yellow-600">⭐</span>
-                  <span>Takip ediliyor</span>
-                </div>
-                <div className="flex items-center space-x-2 bg-blue-50 px-3 py-1 rounded-full">
-                  <span className="text-blue-600">👥</span>
-                  <span>{Array.isArray(tasks) ? tasks.length : 0} öğe</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    placeholder="Görev ara..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
                 </div>
               </div>
             </div>
-
             {/* Right Side - Controls: Yeni Görev, Kullanıcı, Zil, Çıkış */}
-            <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center space-x-1 xs:space-x-2 sm:space-x-3 lg:space-x-4">
               {(user?.role === 'admin' || user?.role === 'team_leader') && (
                 <button
                   onClick={() => {
                     resetNewTask();
                     setShowAddForm(!showAddForm);
                   }}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-2 sm:px-4 py-2 rounded-lg transition-all duration-200 flex items-center space-x-1 sm:space-x-2 shadow-md text-xs sm:text-sm"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 rounded-lg transition-all duration-200 flex items-center space-x-1 sm:space-x-2 shadow-md text-xs sm:text-sm"
                 >
-                  <span className="text-lg sm:text-xl">+</span>
-                  <span className="font-medium hidden sm:inline">Yeni Görev Ekle</span>
-                  <span className="font-medium sm:hidden">Ekle</span>
+                  <span className="text-sm xs:text-base sm:text-lg lg:text-xl">+</span>
+                  <span className="font-medium hidden lg:inline text-xs xs:text-sm">Yeni Görev Ekle</span>
+                  <span className="font-medium hidden sm:inline lg:hidden text-xs xs:text-sm">Yeni Görev</span>
+                  <span className="font-medium sm:hidden text-xs xs:text-sm">Ekle</span>
                 </button>
               )}
 
@@ -1726,11 +1700,11 @@ function App() {
               <div className="relative profile-menu">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-2 sm:px-3 py-2 rounded-lg transition-colors flex items-center space-x-1 shadow-md"
+                  className="text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-2 xs:px-3 sm:px-3 py-1.5 xs:py-2 rounded-lg transition-colors flex items-center space-x-1 shadow-md"
                   title={user?.email || ''}
                 >
-                  <span>👤</span>
-                  <span className="hidden sm:inline">{user?.name || 'Kullanıcı'}</span>
+                  <span className="text-xs xs:text-sm">👤</span>
+                  <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
                   <span className="text-xs hidden sm:inline">▼</span>
                 </button>
 
@@ -1747,8 +1721,10 @@ function App() {
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                       style={{ padding: '10px' }}
                     >
-                      <span>👤</span>
-                      <span>Profil</span>
+                      <span className="flex items-center gap-2">
+                        <span>👤</span>
+                        <span>Profil</span>
+                      </span>
                     </button>
                     {user?.role === 'admin' && (
                       <button
@@ -1759,8 +1735,10 @@ function App() {
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                         style={{ padding: '10px' }}
                       >
-                        <span>⚙️</span>
-                        <span>Kullanıcı Yönetimi</span>
+                        <span className="flex items-center gap-2 whitespace-nowrap">
+                          <span>⚙️</span>
+                          <span>Kullanıcı Yönetimi</span>
+                        </span>
                       </button>
                     )}
                     <hr className="my-1" />
@@ -1769,11 +1747,13 @@ function App() {
                         setShowProfileMenu(false);
                         handleLogout();
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                       style={{ padding: '10px' }}
                     >
-                      <span>🚪</span>
-                      <span>Çıkış Yap</span>
+                      <span className="flex items-center gap-2">
+                        <span>🚪</span>
+                        <span>Çıkış Yap</span>
+                      </span>
                     </button>
                   </div>
                 )}
@@ -1923,8 +1903,8 @@ function App() {
           />
           <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full">
             {/* Dark modal container aligned with other panels */}
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a]" style={{ padding: '5px 5px' }}>
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
                 <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
                 <div className="justify-self-end">
@@ -1934,7 +1914,7 @@ function App() {
                   }} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
                 </div>
               </div>
-              <div className="overflow-y-auto flex flex-col gap-4 sm:gap-6" style={{ height: 'calc(85vh - 72px)', padding: '10px' }}>
+              <div className="overflow-y-auto flex flex-col gap-4 sm:gap-6" style={{ height: 'calc(95vh - 80px)', padding: '20px' }}>
                 <br />
                 {/* Görev Başlığı */}
                 <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
@@ -1944,7 +1924,7 @@ function App() {
                     placeholder="Görev başlığını girin..."
                     value={newTask.title}
                     onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border shadow-sm"
                     style={{ minHeight: '48px' }}
                   />
                 </div>
@@ -2130,8 +2110,8 @@ function App() {
                 <br />
                 {/* Dosyalar */}
                 <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-start">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Dosyalar</label>
-                  <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '24px', height: 'fit-content', padding: '10px' }}>
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Dosyalar</label>
+                  <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '24px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '5px' }}>
                     <input
                       type="file"
                       multiple
@@ -2148,14 +2128,24 @@ function App() {
                       <div className="mt-2 space-y-1">
                         <p className="!text-[24px] font-medium text-gray-700 text-left">Seçilen Dosyalar:</p>
                         {newTask.attachments.map((file, index) => (
-                          <div key={index} className="!flex !items-center !justify-between !px-1 !py-1 !bg-gray-50 !rounded">
-                            <span className="!text-[24px] sm:!text-[20px] text-gray-700 text-left">{file.name}</span>
+                          <div key={index} className="!flex !items-center !justify-between !px-2 !py-2 !bg-gray-50 !rounded !border !border-gray-200">
+                            <div className="flex-1 min-w-0">
+                              <div className="!text-[24px] sm:!text-[20px] text-gray-700 text-left truncate">
+                                {file.name || 'Dosya'}
+                              </div>
+                              {file.size && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                                </div>
+                              )}
+                            </div>
                             <button
                               onClick={() => setNewTask({
                                 ...newTask,
                                 attachments: newTask.attachments.filter((_, i) => i !== index)
                               })}
-                              className="text-red-600 hover:text-red-800"
+                              className="text-red-600 hover:text-red-800 ml-2 px-2 py-1 rounded hover:bg-red-50"
+                              title="Dosyayı kaldır"
                             >
                               ×
                             </button>
@@ -2203,80 +2193,93 @@ function App() {
 
       {/* Main Content - Task List */}
       <div className="bg-white">
-        <div className="px-2 sm:px-6">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 py-3 sm:py-4 border-b border-gray-200">
+        <div className="px-2 xs:px-3 sm:px-4 lg:px-6">
+          <h2 className="text-xs xs:text-sm sm:text-base lg:text-lg font-semibold text-gray-900 py-2 xs:py-3 sm:py-4 border-b border-gray-200">
             Görev Takip Sistemi
           </h2>
 
-          {/* Sekmeler */}
-          <div className="flex space-x-1 border-b border-gray-200">
+          {/* Sekmeler ve Arama */}
+          <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto">
+            {/* Sekmeler */}
             <button
               onClick={() => setActiveTab('active')}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'active'
-                ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-700'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
+                ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
                 }`}
             >
-              Aktif Görevler ({taskCounts.active})
+              Aktif ({taskCounts.active})
             </button>
             <button
               onClick={() => setActiveTab('completed')}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'completed'
-                ? 'bg-green-50 text-green-700 border-b-2 border-green-700'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
+                ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
                 }`}
             >
               Tamamlanan ({taskCounts.completed})
             </button>
             <button
               onClick={() => setActiveTab('deleted')}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'deleted'
-                ? 'bg-red-50 text-red-700 border-b-2 border-red-700'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
+                ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
                 }`}
             >
-              İptal Edilen ({taskCounts.deleted})
+              İptal ({taskCounts.deleted})
             </button>
+
+            {/* Arama Kutusu */}
+            <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
+              <input
+                type="text"
+                placeholder="Görev ara..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-48 xs:w-56 sm:w-64 px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                style={{ height: '30px' }}
+              />
+            </div>
           </div>
         </div>
 
         {/* Table Header + Column Sorts */}
-        <div className="bg-gray-50 border-b border-gray-200 min-w-[1200px]">
-          <div className="grid grid-cols-13 gap-2 sm:gap-4 px-2 sm:px-6 pt-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            <button onClick={() => toggleSort('id')} className="w-full flex items-center justify-between">
+        <div className="bg-gray-50 border-b border-gray-200 min-w-[400px]">
+          <div className="grid grid-cols-[64px_128px_80px_96px_128px_160px_112px_96px_96px_112px_80px_80px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
+            <button onClick={() => toggleSort('id')} className="flex items-center justify-between px-2">
               <span>ID</span><span className="text-[10px]">{sortIndicator('id')}</span>
             </button>
-            <button onClick={() => toggleSort('title')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('title')} className="flex items-center justify-between px-2">
               <span>Başlık</span><span className="text-[10px]">{sortIndicator('title')}</span>
             </button>
-            <button onClick={() => toggleSort('priority')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('priority')} className="flex items-center justify-between px-2">
               <span>Öncelik</span><span className="text-[10px]">{sortIndicator('priority')}</span>
             </button>
-            <button onClick={() => toggleSort('status')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('status')} className="flex items-center justify-between px-2">
               <span>Durum</span><span className="text-[10px]">{sortIndicator('status')}</span>
             </button>
-            <button onClick={() => toggleSort('description')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('description')} className="flex items-center justify-between px-2">
               <span>Açıklama</span><span className="text-[10px]">{sortIndicator('description')}</span>
             </button>
-            <button onClick={() => toggleSort('responsible_name')} className="w-full flex items-center justify-between col-span-2">
+            <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-between px-2">
               <span>Sorumlu</span><span className="text-[10px]">{sortIndicator('responsible_name')}</span>
             </button>
-            <button onClick={() => toggleSort('creator_name')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-between px-2">
               <span>Oluşturan</span><span className="text-[10px]">{sortIndicator('creator_name')}</span>
             </button>
-            <button onClick={() => toggleSort('start_date')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('start_date')} className="flex items-center justify-between px-2">
               <span>Başlangıç</span><span className="text-[10px]">{sortIndicator('start_date')}</span>
             </button>
-            <button onClick={() => toggleSort('due_date')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('due_date')} className="flex items-center justify-between px-2">
               <span>Bitiş</span><span className="text-[10px]">{sortIndicator('due_date')}</span>
             </button>
-            <button onClick={() => toggleSort('assigned_count')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('assigned_count')} className="flex items-center justify-between px-2">
               <span>Atananlar</span><span className="text-[10px]">{sortIndicator('assigned_count')}</span>
             </button>
-            <button onClick={() => toggleSort('attachments_count')} className="w-full flex items-center justify-between">
+            <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-between px-2">
               <span>Dosyalar</span><span className="text-[10px]">{sortIndicator('attachments_count')}</span>
             </button>
-            <button className="w-full flex items-center justify-center">
+            <button className="flex items-center justify-center px-2">
               <span>İşlemler</span>
             </button>
           </div>
@@ -2288,19 +2291,19 @@ function App() {
             <div
               key={task.id}
               onClick={() => handleTaskClick(task)}
-              className="grid grid-cols-13 gap-4 px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+              className="grid grid-cols-[64px_128px_80px_96px_128px_160px_112px_96px_96px_112px_80px_80px] gap-0 px-3 xs:px-4 sm:px-6 py-2 xs:py-3 sm:py-4 hover:bg-gray-50 cursor-pointer transition-colors"
             >
-              <div>
-                <div className="text-sm text-gray-900">{task.id}</div>
+              <div className="px-2">
+                <div className="text-xs xs:text-sm text-gray-900">{task.id}</div>
               </div>
-              <div>
-                <div className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              <div className="px-2">
+                <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
                   {task.title || `Görev ${task.id}`}
                 </div>
               </div>
-              <div>
+              <div className="px-2">
                 <span
-                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                  className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
                   style={{
                     backgroundColor: getPriorityColor(task.priority) + '20',
                     color: getPriorityColor(task.priority)
@@ -2309,9 +2312,9 @@ function App() {
                   {getPriorityText(task.priority)}
                 </span>
               </div>
-              <div>
+              <div className="px-2">
                 <span
-                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                  className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
                   style={{
                     backgroundColor: getStatusColor(task.status) + '20',
                     color: getStatusColor(task.status)
@@ -2320,41 +2323,39 @@ function App() {
                   {getStatusText(task.status)}
                 </span>
               </div>
-              <div className="text-sm text-gray-900 truncate">
+              <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
                 {task.description || 'Açıklama yok'}
               </div>
-              <div className="text-sm text-gray-900 col-span-2">
+              <div className="px-2 text-xs xs:text-sm text-gray-900">
                 {task.responsible?.name || 'Atanmamış'}
               </div>
-              <div className="text-sm text-gray-900">
+              <div className="px-2 text-xs xs:text-sm text-gray-900">
                 {task.creator?.name || 'Bilinmiyor'}
               </div>
-              <div className="text-sm text-gray-900">
+              <div className="px-2 text-xs xs:text-sm text-gray-900">
                 {task.start_date ? formatDateOnly(task.start_date) : '-'}
               </div>
-              <div className="text-sm text-gray-900">
+              <div className="px-2 text-xs xs:text-sm text-gray-900">
                 {task.due_date ? formatDateOnly(task.due_date) : '-'}
               </div>
-              <div className="text-sm text-gray-900 truncate">
+              <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
                 {task.assigned_users?.length > 0
                   ? task.assigned_users.map(u => u.name).join(', ')
                   : '-'
                 }
               </div>
-              <div className="text-sm text-gray-900">
-                {task.attachments?.length > 0
-                  ? `${task.attachments.length} dosya`
-                  : '-'
-                }
+              <div className="px-2 text-xs xs:text-sm text-gray-900">
+                {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
+
               </div>
-              <div className="flex space-x-2 justify-center items-center">
+              <div className="px-2 flex space-x-1 xs:space-x-2 justify-center items-center">
                 {activeTab === 'active' && user?.role !== 'observer' && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleStatusChange(task.id, 'completed');
                     }}
-                    className="text-green-600 hover:text-green-800 text-xs"
+                    className="text-green-600 hover:text-green-800 text-xs p-1 rounded hover:bg-green-50"
                     title="Tamamla"
                   >
                     ✓
@@ -2367,7 +2368,7 @@ function App() {
                         e.stopPropagation();
                         handleTaskClick(task);
                       }}
-                      className="text-blue-600 hover:text-blue-800 text-xs"
+                      className="text-blue-600 hover:text-blue-800 text-xs p-1 rounded hover:bg-blue-50"
                       title="Görüntüle"
                     >
                       👁️
@@ -2378,7 +2379,7 @@ function App() {
                           e.stopPropagation();
                           handlePermanentDelete(task.id);
                         }}
-                        className="text-red-600 hover:text-red-800 text-xs"
+                        className="text-red-600 hover:text-red-800 text-xs p-1 rounded hover:bg-red-50"
                         title="Kalıcı Sil"
                       >
                         🗑️
@@ -2393,7 +2394,7 @@ function App() {
                         e.stopPropagation();
                         handleTaskClick(task);
                       }}
-                      className="text-blue-600 hover:text-blue-800 text-xs"
+                      className="text-blue-600 hover:text-blue-800 text-xs p-1 rounded hover:bg-blue-50"
                       title="Görüntüle"
                     >
                       👁️
@@ -2404,7 +2405,7 @@ function App() {
                           e.stopPropagation();
                           handlePermanentDelete(task.id);
                         }}
-                        className="text-red-600 hover:text-red-800 text-xs"
+                        className="text-red-600 hover:text-red-800 text-xs p-1 rounded hover:bg-red-50"
                         title="Kalıcı Sil"
                       >
                         🗑️
@@ -2418,13 +2419,13 @@ function App() {
         </div>
 
         {filteredTasks.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-500 text-lg">
+          <div className="text-center py-6 xs:py-8 sm:py-10 lg:py-12">
+            <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
               {activeTab === 'active' && 'Aktif görev bulunamadı'}
               {activeTab === 'completed' && 'Tamamlanan görev bulunamadı'}
               {activeTab === 'deleted' && 'İptal edilen görev bulunamadı'}
             </div>
-            <div className="text-gray-400 text-sm mt-2">
+            <div className="text-gray-400 text-xs mt-2">
               {searchTerm ? 'Aramayı temizlemeyi deneyin' :
                 (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
             </div>
@@ -2658,8 +2659,48 @@ function App() {
                             <div className="space-y-1">
                               {(selectedTask.attachments || []).map(a => (
                                 <div key={a.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-2 py-1">
-                                  <a href={(a.signed_url || a.url || (a.path ? `${apiOrigin}/storage/${a.path}` : '#'))} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-[16px] truncate flex-1 mr-2">{a.original_name || 'Dosya'}</a>
-                                  <button onClick={async () => { try { await Tasks.deleteAttachment(a.id); const t = await Tasks.get(selectedTask.id); setSelectedTask(t.task || t); } catch (err) { console.error('Delete attachment error:', err); addNotification('Silinemedi', 'error'); } }} className="text-red-600 hover:text-red-800 text-[16px] p-1 rounded hover:bg-red-50" title="Dosyayı sil">🗑️</button>
+                                  <div className="flex-1 min-w-0">
+                                    <a
+                                      href={(() => {
+                                        if (a.signed_url) {
+                                          const url = a.signed_url;
+                                          return url.startsWith('http') ? url : `http://localhost:8000${url.startsWith('/') ? '' : '/'}${url}`;
+                                        }
+                                        if (a.url) return a.url;
+                                        if (a.path) return `${apiOrigin}/storage/${a.path}`;
+                                        return '#';
+                                      })()}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-blue-600 hover:underline text-[16px] truncate block"
+                                      title={a.original_name || 'Dosya'}
+
+                                    >
+                                      {a.original_name || a.name || 'Dosya'}
+                                    </a>
+                                    {a.size && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {(a.size / 1024 / 1024).toFixed(2)} MB
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await Tasks.deleteAttachment(a.id);
+                                        const t = await Tasks.get(selectedTask.id);
+                                        setSelectedTask(t.task || t);
+                                        addNotification('Dosya silindi', 'success');
+                                      } catch (err) {
+                                        console.error('Delete attachment error:', err);
+                                        addNotification('Silinemedi', 'error');
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-800 text-[16px] p-1 rounded hover:bg-red-50 ml-2"
+                                    title="Dosyayı sil"
+                                  >
+                                    🗑️
+                                  </button>
                                 </div>
                               ))}
                             </div>
@@ -2667,7 +2708,31 @@ function App() {
                         ) : (
                           <div className="space-y-1">
                             {(selectedTask.attachments || []).map(a => (
-                              <a key={a.id} href={(a.signed_url || a.url || (a.path ? `${apiOrigin}/storage/${a.path}` : '#'))} target="_blank" rel="noreferrer" className="block text-blue-600 hover:underline text-sm">{a.original_name || 'Dosya'}</a>
+                              <div key={a.id} className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                                <a
+                                  href={(() => {
+                                    if (a.signed_url) {
+                                      const url = a.signed_url;
+                                      return url.startsWith('http') ? url : `http://localhost:8000${url.startsWith('/') ? '' : '/'}${url}`;
+                                    }
+                                    if (a.url) return a.url;
+                                    if (a.path) return `${apiOrigin}/storage/${a.path}`;
+                                    return '#';
+                                  })()}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-600 hover:underline text-sm block"
+                                  title={a.original_name || 'Dosya'}
+
+                                >
+                                  {a.original_name || a.name || 'Dosya'}
+                                </a>
+                                {a.size && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {(a.size / 1024 / 1024).toFixed(2)} MB
+                                  </div>
+                                )}
+                              </div>
                             ))}
                             {(selectedTask.attachments || []).length === 0 && <span className="text-gray-500 text-sm">-</span>}
                           </div>
@@ -2726,7 +2791,6 @@ function App() {
                           <textarea
                             value={descDraft}
                             onChange={(e) => {
-                              console.log('Description changed:', e.target.value);
                               setDescDraft(e.target.value);
                             }}
                             placeholder="Görev açıklamasını girin..."
@@ -2926,7 +2990,7 @@ function App() {
         <div className="fixed inset-0 z-[100200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} />
           <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[min(800px,calc(100vw-48px))] max-h-[70vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
                 <h3 className="!text-[24px] font-semibold text-center">Kullanıcı Ayarları</h3>
@@ -2936,10 +3000,10 @@ function App() {
               </div>
 
               {/* Body */}
-              <div className="p-16 space-y-12 overflow-y-auto" style={{ height: 'calc(70vh - 56px)' }}>
+              <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
                 {/* Kullanıcı Bilgileri */}
-                <div className="bg-white/5 rounded-xl p-10 mx-6" style={{ padding: '20px' }}>
-                  <div className="grid items-center gap-x-12 gap-y-6" style={{ gridTemplateColumns: '120px 1fr' }}>
+                <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
+                  <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
                     <div className="text-neutral-300 !text-[18px]">İsim</div>
                     <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
 
@@ -2952,8 +3016,8 @@ function App() {
                 </div>
                 <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
                 {/* Şifre Değiştirme */}
-                <div className="bg-white/5 rounded-xl p-10 mx-6">
-                  <div className="!text-[24px] font-medium mb-8 flex items-center" style={{ padding: '15px' }}>
+                <div className="bg-white/5 rounded-xl p-6 mx-4">
+                  <div className="!text-[20px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
                     🔐 <span className="ml-2">Şifre Değiştir</span>
                   </div>
                   <PasswordChangeForm onDone={() => setShowUserProfile(false)} />
@@ -3007,7 +3071,7 @@ function App() {
                 {/* Right - users list for admin */}
                 <div className="w-[480px] shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
                   <div className="text-[24px] font-semibold mb-3">Kullanıcılar</div>
-                  
+
                   {/* Kullanıcı Arama */}
                   <div className="mb-4">
                     <input
@@ -3018,7 +3082,7 @@ function App() {
                       className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[16px] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  
+
                   <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
                   {user?.role === 'admin' ? (
                     <div className="space-y-3">
@@ -3056,7 +3120,7 @@ function App() {
                             <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
                           </div>
                         ))}
-                      
+
                       {/* Arama sonucu bulunamadığında */}
                       {Array.isArray(users) && users.filter(u => {
                         if (!userSearchTerm) return true;
@@ -3067,10 +3131,10 @@ function App() {
                           getRoleText(u.role)?.toLowerCase().includes(searchTerm)
                         );
                       }).length === 0 && userSearchTerm && (
-                        <div className="text-center py-4 text-gray-400">
-                          "{userSearchTerm}" için kullanıcı bulunamadı
-                        </div>
-                      )}
+                          <div className="text-center py-4 text-gray-400">
+                            "{userSearchTerm}" için kullanıcı bulunamadı
+                          </div>
+                        )}
                     </div>
                   ) : (
                     <div className="text-xs text-neutral-400">Yalnızca admin kullanıcı listesi görüntüler.</div>

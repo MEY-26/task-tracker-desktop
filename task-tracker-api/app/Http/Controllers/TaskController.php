@@ -200,15 +200,15 @@ class TaskController extends Controller
             }
 
             // Atanan kullanıcılara email gönder
-            foreach ($task->assignedUsers as $user) {
-                if ($user->id !== $currentUserId && $user->id !== $task->responsible_id) {
-                    Mail::to($user->email)->send(new TaskNotificationMail(
+            foreach ($task->assignedUsers as $assignedUser) {
+                if ($assignedUser && $assignedUser->id !== $currentUserId && $assignedUser->id !== $task->responsible_id && $assignedUser->email) {
+                    Mail::to($assignedUser->email)->send(new TaskNotificationMail(
                         $task,
                         'assigned',
-                        $user,
+                        $assignedUser,
                         'Size yeni bir görev atandı'
                     ));
-                    Log::info('Email sent to assigned user: ' . $user->email);
+                    Log::info('Email sent to assigned user: ' . $assignedUser->email);
                 }
             }
         } catch (\Exception $e) {
@@ -225,6 +225,19 @@ class TaskController extends Controller
     public function show(Request $request, Task $task)
     {
         $user = $request->user();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
+        }
+
+        // Admin tüm görevleri görebilir
+        if ($user->role === 'admin') {
+            return response()->json([
+                'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
+            ]);
+        }
+
+        // Diğer kullanıcılar sadece kendi görevlerini görebilir
         if (
             $user->id !== $task->created_by &&
             $user->id !== $task->responsible_id &&
@@ -418,28 +431,47 @@ class TaskController extends Controller
 
         $message = 'Göreviniz güncellendi: "' . $task->title . '"';
 
-        $bildirimGidecekler = collect([
-            $task->responsible,
-            $task->creator,
-            ...$task->assignedUsers
-        ])->unique('id')->filter(function ($u) use ($user) {
-            return $u && $u->id !== $user->id;
-        });
+        // Bildirim gönderilecek kullanıcıları güvenli şekilde topla
+        $bildirimGidecekler = collect();
+        
+        // Sorumlu kullanıcı
+        if ($task->responsible && $task->responsible->id !== $user->id) {
+            $bildirimGidecekler->push($task->responsible);
+        }
+        
+        // Oluşturan kullanıcı
+        if ($task->creator && $task->creator->id !== $user->id) {
+            $bildirimGidecekler->push($task->creator);
+        }
+        
+        // Atanan kullanıcılar
+        foreach ($task->assignedUsers as $assignedUser) {
+            if ($assignedUser && $assignedUser->id !== $user->id) {
+                $bildirimGidecekler->push($assignedUser);
+            }
+        }
+        
+        // Duplicate'leri temizle
+        $bildirimGidecekler = $bildirimGidecekler->unique('id');
 
         foreach ($bildirimGidecekler as $kisi) {
-            $kisi->notify(new TaskUpdated($task, $message));
+            if ($kisi && $kisi->email) {
+                $kisi->notify(new TaskUpdated($task, $message));
+            }
         }
 
         // Email bildirimleri gönder
         try {
             foreach ($bildirimGidecekler as $kisi) {
-                Mail::to($kisi->email)->send(new TaskNotificationMail(
-                    $task,
-                    'updated',
-                    $kisi,
-                    'Göreviniz güncellendi'
-                ));
-                Log::info('Email sent to user: ' . $kisi->email . ' for task update');
+                if ($kisi && $kisi->email) {
+                    Mail::to($kisi->email)->send(new TaskNotificationMail(
+                        $task,
+                        'updated',
+                        $kisi,
+                        'Göreviniz güncellendi'
+                    ));
+                    Log::info('Email sent to user: ' . $kisi->email . ' for task update');
+                }
             }
         } catch (\Exception $e) {
             Log::error('Failed to send email notifications for task update: ' . $e->getMessage());
@@ -480,16 +512,36 @@ class TaskController extends Controller
     public function destroyAttachment($id)
     {
         $attachment = TaskAttachment::findOrFail($id);
+        $user = request()->user();
+        
+        if (!$user) {
+            return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
+        }
+
+        // Görev bilgisini al
+        $task = $attachment->task;
+        if (!$task) {
+            return response()->json(['message' => 'Görev bulunamadı.'], 404);
+        }
+
+        // Yetki kontrolü: Admin, görevi oluşturan, sorumlu veya atanan kullanıcı olabilir
+        if (
+            $user->role !== 'admin' &&
+            $user->id !== $task->created_by &&
+            $user->id !== $task->responsible_id &&
+            !$task->assignedUsers->contains('id', $user->id)
+        ) {
+            return response()->json(['message' => 'Bu dosyayı silme yetkiniz yok.'], 403);
+        }
 
         // Fiziksel dosyayı sil
         Storage::disk('public')->delete($attachment->path);
 
         // History: dosya silindi kaydı oluştur
-        $user = request()->user();
         $originalName = $attachment->original_name;
         TaskHistory::create([
             'task_id'   => $attachment->task_id,
-            'user_id'   => $user?->id,
+            'user_id'   => $user->id,
             'field'     => 'attachments',
             'old_value' => $originalName,   // silinen dosya adı
             'new_value' => null,            // silme işlemi
@@ -504,10 +556,14 @@ class TaskController extends Controller
     // İmzalı URL üzerinden dosya gösterimi/indirme
     public function showAttachment(TaskAttachment $attachment)
     {
+        // Signed URL ile erişim - kullanıcı kontrolü yapmıyoruz
+        // URL imzalandığı için güvenli
+        
         // storage/app/public içindeki dosyayı stream olarak döndür
         if (!Storage::disk('public')->exists($attachment->path)) {
             abort(404);
         }
+        
         return response()->file(Storage::disk('public')->path($attachment->path));
     }
 
@@ -640,7 +696,7 @@ class TaskController extends Controller
         // Email hatırlatmaları gönder
         try {
             foreach ($reminderTargets as $target) {
-                if ($target->id !== $user->id) {
+                if ($target && $target->id !== $user->id && $target->email) {
                     Mail::to($target->email)->send(new TaskNotificationMail(
                         $task,
                         'reminded',

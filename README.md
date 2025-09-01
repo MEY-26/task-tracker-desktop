@@ -15,10 +15,6 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 📊 Excel'den toplu kullanıcı ekleme
 - 🔍 Gelişmiş kullanıcı arama sistemi
 - 🎯 Rol tabanlı erişim kontrolü
-- 📧 E-posta bildirimleri ve şifre sıfırlama
-- 📊 Excel'den toplu kullanıcı ekleme
-- 🔍 Gelişmiş kullanıcı arama sistemi
-- 🎯 Rol tabanlı erişim kontrolü
 
 ## 📋 Gereksinimler
 

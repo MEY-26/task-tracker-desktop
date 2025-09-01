@@ -13,7 +13,14 @@ class DatabaseSeeder extends Seeder
         // Admin kullanıcı
         User::create([
             'name' => 'Mehmet Emin Yaman',
-            'email' => 'admin@vaden.com.tr',
+            'email' => 'meminyaman@vaden.com.tr',
+            'password' => Hash::make('1234'),
+            'role' => 'admin',
+        ]);
+
+        User::create([
+            'name' => 'Okan Turanlı',
+            'email' => 'okanturanli@vaden.com.tr',
             'password' => Hash::make('1234'),
             'role' => 'admin',
         ]);
@@ -21,7 +28,7 @@ class DatabaseSeeder extends Seeder
         // Readonly kullanıcı
         User::create([
             'name' => 'Sadece Görüntüleyici',
-            'email' => 'readonly@example.com',
+            'email' => 'observer@example.com',
             'password' => Hash::make('1234'),
             'role' => 'observer',
         ]);
@@ -29,14 +36,14 @@ class DatabaseSeeder extends Seeder
         // Normal kullanıcı
         User::create([
             'name' => 'Normal Kullanıcı',
-            'email' => 'user@example.com',
+            'email' => 'teamleader@example.com',
             'password' => Hash::make('1234'),
             'role' => 'team_leader',
         ]);
 
         User::create([
             'name' => 'İzleyici Kullanıcı',
-            'email' => 'izleyici@example.com',
+            'email' => 'teammember@example.com',
             'password' => Hash::make('1234'),
             'role' => 'team_member'
         ]);

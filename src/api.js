@@ -27,7 +27,7 @@ export const apiOrigin = (() => {
     const u = new URL(api.defaults.baseURL);
     return `${u.protocol}//${u.host}`;
   } catch {
-    return '';
+    return 'http://localhost:8000';
   }
 })();
 
@@ -374,8 +374,6 @@ export const Tasks = {
   getHistory: async (taskId) => {
     try {
       const response = await api.get(`/tasks/${taskId}/history`);
-      console.log('Raw task history response:', response.data); // Debug için
-      // Backend'in döndürdüğü formatı kontrol et
       return response.data.history || response.data || [];
     } catch (error) {
       console.error('Task history error:', error.response?.data || error.message);
@@ -388,8 +386,6 @@ export const Notifications = {
   list: async () => {
     try {
       const response = await api.get('/notifications');
-      console.log('Raw notifications response:', response.data); // Debug için
-      // Backend'in döndürdüğü formatı kontrol et
       return response.data.notifications || response.data || [];
     } catch (error) {
       console.error('Notifications fetch error:', error.response?.data || error.message);

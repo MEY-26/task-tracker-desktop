@@ -25,4 +25,9 @@ class TaskAttachment extends Model
         // 1 saat geçerli imzalı link
         return \Illuminate\Support\Facades\URL::signedRoute('attachments.show', ['attachment' => $this->id], now()->addHour());
     }
+
+    public function task()
+    {
+        return $this->belongsTo(Task::class);
+    }
 }
