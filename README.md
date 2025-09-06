@@ -15,6 +15,11 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 📊 Excel'den toplu kullanıcı ekleme
 - 🔍 Gelişmiş kullanıcı arama sistemi
 - 🎯 Rol tabanlı erişim kontrolü
+- 🏷️ Görev türü filtreleme (Yeni Ürün, Fikstür, Aparat, vb.)
+- 👁️ Observer (Gözlemci) rolü - sadece görüntüleme yetkisi
+- 🔄 Gerçek zamanlı bildirim güncellemeleri
+- 📝 Görev geçmişi ve yorum sistemi
+- 🎨 Responsive tasarım ve mobil uyumluluk
 
 ## 📋 Gereksinimler
 
@@ -124,6 +129,25 @@ Mail template'leri `task-tracker-api/resources/views/emails/` klasöründe bulun
 - `password-reset.blade.php` - Şifre sıfırlama e-postası
 - `task-notification.blade.php` - Görev bildirim e-postası
 
+## 🏷️ Görev Türü Filtreleme
+
+Uygulama 7 farklı görev türü ile çalışır:
+
+### Görev Türleri
+- **Yeni Ürün**: Yeni ürün geliştirme görevleri
+- **Fikstür**: Fikstür tasarım ve üretim görevleri
+- **Aparat**: Aparat geliştirme ve üretim görevleri
+- **Geliştirme**: Genel yazılım geliştirme görevleri
+- **Revizyon**: Mevcut ürünlerin revizyon görevleri
+- **Kalıp**: Kalıp tasarım ve üretim görevleri
+- **Test Cihazı**: Test cihazı geliştirme görevleri
+
+### Kullanım
+1. Ana ekranda "Tüm Türler" dropdown'ından istediğiniz türü seçin
+2. Görev listesi otomatik olarak filtrelenir
+3. Görev oluştururken görev türünü belirtin
+4. Görev detaylarında tür bilgisi görüntülenir
+
 ## 📊 Excel Toplu Kullanıcı Ekleme
 
 ### Excel Formatı
@@ -141,15 +165,17 @@ Excel dosyası şu formatta olmalıdır:
 ## 🎯 Rol Tabanlı Erişim Kontrolü
 
 ### Roller ve Yetkiler
-- **Admin**: Tüm yetkilere sahip
-- **Team Leader**: Görev oluşturabilir, atayabilir, dosya yükleyebilir
-- **Team Member**: Görevleri görüntüleyebilir, yorum yapabilir
-- **Observer**: Sadece görevleri görüntüleyebilir
+- **Admin**: Tüm yetkilere sahip, tüm görevleri görebilir ve düzenleyebilir
+- **Team Leader**: Görev oluşturabilir, atayabilir, dosya yükleyebilir, bitiş tarihini değiştirebilir
+- **Team Member**: Görevleri görüntüleyebilir, yorum yapabilir, kendi görevlerini takip edebilir
+- **Observer**: Sadece görevleri görüntüleyebilir, hiçbir değişiklik yapamaz
 
 ### Kısıtlamalar
-- Observer'lar görev atanamaz
+- Observer'lar görev oluşturamaz, düzenleyemez veya atanamaz
+- Observer'lar atananlar listesinde görünmez
 - Team Leader'lar admin'lere görev atayamaz
 - Sorumlu olan aynı görevde atanan olamaz
+- Team Leader'lar sadece bitiş tarihini değiştirebilir (başlangıç tarihi değil)
 
 ## 🌐 Local Network Kurulumu
 
@@ -333,6 +359,30 @@ Herhangi bir sorun yaşarsanız:
 - Dokümantasyonu kontrol edin
 - Geliştirici ile iletişime geçin
 
+## 🆕 Son Güncellemeler
+
+### v2.0.0 - Observer Rolü ve Görev Türü Filtreleme
+- ✅ **Observer (Gözlemci) Rolü**: Sadece görevleri görüntüleyebilen, hiçbir değişiklik yapamayan kullanıcı rolü
+- ✅ **Görev Türü Filtreleme**: Yeni Ürün, Fikstür, Aparat, Geliştirme, Revizyon, Kalıp, Test Cihazı
+- ✅ **Gelişmiş UI/UX**: Bildirim ikonları büyütüldü, kullanıcı ayarları paneli genişletildi
+- ✅ **Gerçek Zamanlı Bildirimler**: Yeni görev eklendiğinde bildirimler anında güncellenir
+- ✅ **Görev Geçmişi İyileştirmeleri**: Tarih formatı düzeltildi, görev türü değişiklikleri "Eski → Yeni" formatında
+- ✅ **Atanan Kullanıcı Geçmişi**: Hangi kullanıcıların eklendiği/çıkarıldığı gösterilir
+- ✅ **Şifre Sıfırlama Sistemi**: Admin'ler kullanıcı şifrelerini sıfırlayabilir
+- ✅ **Input Görünürlük Düzeltmeleri**: Tüm input alanlarında metin görünürlüğü iyileştirildi
+
+### v1.5.0 - Mail Sistemi ve Toplu Kullanıcı Ekleme
+- ✅ **E-posta Bildirimleri**: Görev atamaları ve durum değişiklikleri için
+- ✅ **Şifre Sıfırlama**: E-posta ile şifre sıfırlama kodu gönderimi
+- ✅ **Excel Toplu Kullanıcı Ekleme**: Admin'ler Excel dosyasından toplu kullanıcı ekleyebilir
+- ✅ **Gelişmiş Kullanıcı Arama**: İsim, e-posta ve rol bazlı arama
+
+### v1.0.0 - Temel Özellikler
+- ✅ **Görev Yönetimi**: Oluşturma, düzenleme, silme
+- ✅ **Kullanıcı Yönetimi**: Rol tabanlı erişim kontrolü
+- ✅ **Dosya Ekleme**: Görevlere dosya ekleme desteği
+- ✅ **Responsive Tasarım**: Mobil ve masaüstü uyumluluk
+
 ## 🔄 Güncellemeler
 
 Projeyi güncellemek için:
@@ -340,4 +390,5 @@ Projeyi güncellemek için:
 git pull origin main
 npm install
 cd task-tracker-api && composer install
+php artisan migrate
 ```
