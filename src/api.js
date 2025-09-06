@@ -3,7 +3,7 @@ import axios from 'axios';
 const getApiBaseURL = () => {
   // Electron uygulaması için
   if (window.location.protocol === 'file:') {
-    return 'http://localhost/task-tracker-api/public/api';
+    return 'http://localhost:8000/api';
   }
   
   // Web uygulaması için
