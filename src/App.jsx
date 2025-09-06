@@ -157,14 +157,11 @@ function App() {
     checkAuth();
   }, []);
 
-  // Otomatik doldurmayı engelle
   useEffect(() => {
     const preventAutofill = () => {
-      // Tüm input alanlarını bul
       const inputs = document.querySelectorAll('input');
 
       inputs.forEach(input => {
-        // Otomatik doldurma özelliklerini kaldır
         input.setAttribute('autocomplete', 'off');
         input.setAttribute('autocorrect', 'off');
         input.setAttribute('autocapitalize', 'off');
@@ -172,34 +169,28 @@ function App() {
         input.setAttribute('data-lpignore', 'true');
         input.setAttribute('data-form-type', 'other');
 
-        // Şifre alanları için özel işlem
         if (input.type === 'password') {
           input.setAttribute('autocomplete', 'new-password');
           input.setAttribute('data-lpignore', 'true');
           input.setAttribute('data-form-type', 'other');
         }
 
-        // Arama alanları için özel işlem
         if (input.placeholder && (input.placeholder.includes('ara') || input.placeholder.includes('search'))) {
           input.setAttribute('autocomplete', 'off');
           input.setAttribute('data-lpignore', 'true');
           input.setAttribute('data-form-type', 'other');
         }
 
-        // Otomatik doldurma olaylarını engelle
         input.addEventListener('focus', (e) => {
           e.target.setAttribute('autocomplete', 'off');
           e.target.setAttribute('data-lpignore', 'true');
         });
 
         input.addEventListener('input', (e) => {
-          // Eğer otomatik doldurma tespit edilirse, değeri temizle
           if (e.target.value && !e.isTrusted) {
             e.target.value = '';
           }
         });
-
-        // Otomatik doldurma olaylarını engelle
         input.addEventListener('animationstart', (e) => {
           if (e.animationName === 'onAutoFillStart') {
             e.target.value = '';
@@ -208,13 +199,10 @@ function App() {
       });
     };
 
-    // Sayfa yüklendiğinde çalıştır
     preventAutofill();
 
-    // Her 50ms'de bir kontrol et (daha sık)
     const interval = setInterval(preventAutofill, 50);
 
-    // Cleanup
     return () => clearInterval(interval);
   }, []);
 
@@ -240,8 +228,6 @@ function App() {
   async function checkAuth() {
     try {
       setLoading(true);
-      console.log('🔍 Checking authentication...');
-      console.log('🌐 API Base URL:', api.defaults.baseURL);
       const isAuthenticated = await restore();
       if (isAuthenticated) {
         try {
@@ -405,14 +391,11 @@ function App() {
   async function loadPasswordResetRequests() {
     try {
       if (user?.role === 'admin') {
-        console.log('Loading password reset requests...');
         const requests = await PasswordReset.getResetRequests();
-        console.log('Password reset requests loaded:', requests);
         setPasswordResetRequests(requests);
       }
     } catch (err) {
       console.error('Load password reset requests error:', err);
-      // Hata durumunda boş array set et
       setPasswordResetRequests([]);
     }
   }
@@ -438,16 +421,14 @@ function App() {
       }));
 
       list = list.filter(n => !n.read_at);
-      
-      // Şifre sıfırlandı bildirimlerini filtrele (mantıksız çünkü kullanıcı zaten giriş yapmış)
+
       list = list.filter(n => {
         const message = n.message || '';
         return !message.includes('Şifreniz admin tarafından sıfırlandı');
       });
 
       setNotifications(list);
-      
-      // Bildirimler yüklendikten sonra şifre sıfırlama taleplerini de yükle
+
       if (user?.role === 'admin') {
         await loadPasswordResetRequests();
       }
@@ -622,7 +603,6 @@ function App() {
 
       setError(null);
 
-      // Bildirimleri yenile
       await loadNotifications();
 
       resetNewTask();
@@ -666,7 +646,6 @@ function App() {
 
       if (selectedTask && selectedTask.id === taskId) {
         setSelectedTask(updatedTask);
-        // Görev güncellendiğinde geçmişi de yenile
         try {
           const history = await Tasks.getHistory(taskId);
           setTaskHistory(Array.isArray(history) ? history : []);
@@ -675,7 +654,6 @@ function App() {
         }
       }
 
-      // Tooltip için taskHistories state'ini de güncelle
       try {
         const history = await Tasks.getHistory(taskId);
         setTaskHistories(prev => ({
@@ -952,11 +930,9 @@ function App() {
       return 'Henüz açıklama eklenmemiş';
     }
 
-    // Sadece comment field'ı olan yorumları al
     const comments = taskHistory.filter(h => h.field === 'comment' && h.new_value && h.new_value.trim().length > 0);
 
     if (comments.length > 0) {
-      // En son yorumu al
       const sortedComments = comments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       return sortedComments[0].new_value;
     }
@@ -1510,7 +1486,6 @@ function App() {
 
 
   let filteredTasks = Array.isArray(tasks) ? tasks.filter(task => {
-    // Durum filtresi
     if (activeTab === 'active' && (task.status === 'completed' || task.status === 'cancelled')) {
       return false;
     }
@@ -1520,13 +1495,9 @@ function App() {
     if (activeTab === 'deleted' && task.status !== 'cancelled') {
       return false;
     }
-
-    // Görev türü filtresi
     if (selectedTaskType !== 'all' && task.task_type !== selectedTaskType) {
       return false;
     }
-
-    // Arama filtresi
     const q = lowerSafe(searchTerm);
     if (!q) return true;
     const title = lowerSafe(task?.title);
@@ -1707,209 +1678,210 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <div className="bg-white shadow-lg border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-2 xs:px-3 sm:px-4 lg:px-6">
-          <div className="flex justify-between items-center h-14 xs:h-16 sm:h-18 lg:h-20">
-            <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-4 lg:space-x-6">
-              <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-3">
-                <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
-                  <img
-                    src={logo}
-                    alt="Vaden Logo"
-                    style={{ width: '200px', height: '100px' }}
-                    className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
-                    onLoad={() => { }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center space-x-1 xs:space-x-2 sm:space-x-3 lg:space-x-4">
-              {user?.role !== 'observer' && (
-                <button
-                  onClick={() => {
-                    resetNewTask();
-                    setShowAddForm(!showAddForm);
-                  }}
-                  className="add-task-button bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
-                >
-                  <span className="add-icon">➕</span>
-                </button>
-              )}
-
-              <div className="relative profile-menu">
-                <button
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="profile-icon text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
-                  title={user?.email || ''}
-                >
-                  <span className="user-icon">👤</span>
-                  <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
-                  <span className="text-xs hidden sm:inline">▼</span>
-                </button>
-
-                {showProfileMenu && (
-                  <div
-                    className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-[9999]"
-                    style={{ display: 'block' }}
-                  >
-                    <button
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        setShowUserProfile(true);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                      style={{ padding: '10px' }}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span>👤</span>
-                        <span>Profil</span>
-                      </span>
-                    </button>
-                    {user?.role === 'admin' && (
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false);
-                          setShowUserPanel(true);
+      <div className="flex justify-center">
+        <div className="bg-white shadow-lg border-b border-gray-200" style={{ width: '1440px' }}>
+          <div className="flex justify-center">
+            <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
+              <div className="flex justify-between items-center h-14 xs:h-16 sm:h-18 lg:h-20">
+                <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-4 lg:space-x-6">
+                  <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-3">
+                    <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
+                      <img
+                        src={logo}
+                        alt="Vaden Logo"
+                        style={{ width: '300px', height: '100px' }}
+                        className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
+                        onLoad={() => { }}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                        style={{ padding: '10px' }}
-                      >
-                        <span className="flex items-center gap-2 whitespace-nowrap">
-                          <span>⚙️</span>
-                          <span>Kullanıcı Yönetimi</span>
-                        </span>
-                      </button>
-                    )}
-                    <hr className="my-1" />
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-1 xs:space-x-2 sm:space-x-3 lg:space-x-4">
+                  {user?.role !== 'observer' && (
                     <button
                       onClick={() => {
-                        setShowProfileMenu(false);
-                        handleLogout();
+                        resetNewTask();
+                        setShowAddForm(!showAddForm);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                      style={{ padding: '10px' }}
+                      className="add-task-button bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
                     >
-                      <span className="flex items-center gap-2 whitespace-nowrap">
-                        <span>🚪</span>
-                        <span>Çıkış Yap</span>
-                      </span>
+                      <span className="add-icon">➕</span>
                     </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <button
-                  ref={bellRef}
-                  onClick={async () => {
-                    const next = !showNotifications;
-                    if (next) await loadNotifications();
-                    setShowNotifications(next);
-                  }}
-                  className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible"
-                  aria-label="Bildirimler"
-                >
-                  {badgeCount > 0 && (
-                    <span className="notification-badge">
-                      {badgeCount > 99 ? '99+' : badgeCount}
-                    </span>
                   )}
 
-                  <span>🔔</span>
-                </button>
-              </div>
-
-
-
-              {showNotifications && createPortal(
-                <>
-                  <div className="fixed inset-0 z-[9998] bg-black/80"
-                    onClick={() => setShowNotifications(false)} />
-
-                  <div
-                    ref={notifPanelRef}
-                    className="fixed z-[99999] p-3"
-                    style={{
-                      top: `${notifPos.top}px`,
-                      right: `${notifPos.right}px`,
-                      opacity: 1,
-                      backdropFilter: 'none',
-                      WebkitBackdropFilter: 'none',
-                    }}
-                  >
-                    <div
-                      className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                  <div className="relative profile-menu">
+                    <button
+                      onClick={() => setShowProfileMenu(!showProfileMenu)}
+                      className="profile-icon text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+                      title={user?.email || ''}
                     >
-                      {/* Header */}
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
-                        </div>
-                        <div className="flex items-center gap-2">
+                      <span className="user-icon">👤</span>
+                      <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
+                      <span className="text-xs hidden sm:inline">▼</span>
+                    </button>
+
+                    {showProfileMenu && (
+                      <div
+                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-[9999]"
+                        style={{ display: 'block' }}
+                      >
+                        <button
+                          onClick={() => {
+                            setShowProfileMenu(false);
+                            setShowUserProfile(true);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          style={{ padding: '10px' }}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>👤</span>
+                            <span>Profil</span>
+                          </span>
+                        </button>
+                        {user?.role === 'admin' && (
                           <button
-                            onClick={async () => { try { await Notifications.markAllAsRead(); await loadNotifications(); } catch (err) { console.error('Mark all notifications error:', err); addNotification('İşlem başarısız', 'error'); } }}
-                            className="rounded-lg px-2 py-1 text-xs font-medium text-blue-300 border border-blue-400/40 bg-blue-500/10"
+                            onClick={() => {
+                              setShowProfileMenu(false);
+                              setShowUserPanel(true);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                            style={{ padding: '10px' }}
                           >
-                            Tümünü okundu yap
+                            <span className="flex items-center gap-2 whitespace-nowrap">
+                              <span>⚙️</span>
+                              <span>Kullanıcı Yönetimi</span>
+                            </span>
                           </button>
-                        </div>
-                      </div>
-
-                      <div className="overflow-y-auto notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
-                        {(!Array.isArray(notifications) || notifications.length === 0) ? (
-                          <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
-                        ) : (
-                          notifications.map(n => (
-                            <div
-                              key={n.id}
-                              className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors`}
-                            >
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <p className="text-sm text-white">{n.message}</p>
-                                  <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
-                                </div>
-                                <div className="flex gap-1 ml-2">
-                                  {!n.read_at && (
-                                    <button
-                                      onClick={async () => {
-                                        try { await Notifications.markAsRead(n.id); await loadNotifications(); }
-                                        catch (err) { console.error('Mark notification error:', err); addNotification('Bildirim işaretlenemedi', 'error'); }
-                                      }}
-                                      className="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-blue-500/20 transition-colors"
-                                      title="Okundu olarak işaretle"
-                                    >✓</button>
-                                  )}
-                                  <button
-                                    onClick={async () => {
-                                      try { await Notifications.delete(n.id); await loadNotifications(); addNotification('Bildirim silindi', 'success'); }
-                                      catch (err) { console.error('Delete notification error:', err); addNotification('Bildirim silinemedi', 'error'); }
-                                    }}
-                                    className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-red-500/20 transition-colors"
-                                    title="Bildirimi sil"
-                                  >🗑️</button>
-                                </div>
-                              </div>
-                            </div>
-                          ))
                         )}
+                        <hr className="my-1" />
+                        <button
+                          onClick={() => {
+                            setShowProfileMenu(false);
+                            handleLogout();
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          style={{ padding: '10px' }}
+                        >
+                          <span className="flex items-center gap-2 whitespace-nowrap">
+                            <span>🚪</span>
+                            <span>Çıkış Yap</span>
+                          </span>
+                        </button>
                       </div>
-
-                    </div>
-
+                    )}
                   </div>
-                </>,
-                document.body
-              )}
+
+                  <div className="relative">
+                    <button
+                      ref={bellRef}
+                      onClick={async () => {
+                        const next = !showNotifications;
+                        if (next) await loadNotifications();
+                        setShowNotifications(next);
+                      }}
+                      className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible"
+                      aria-label="Bildirimler"
+                    >
+                      {badgeCount > 0 && (
+                        <span className="notification-badge">
+                          {badgeCount > 99 ? '99+' : badgeCount}
+                        </span>
+                      )}
+
+                      <span>🔔</span>
+                    </button>
+                  </div>
+
+                  {showNotifications && createPortal(
+                    <>
+                      <div className="fixed inset-0 z-[9998] bg-black/80"
+                        onClick={() => setShowNotifications(false)} />
+
+                      <div
+                        ref={notifPanelRef}
+                        className="fixed z-[99999] p-3"
+                        style={{
+                          top: `${notifPos.top}px`,
+                          right: `${notifPos.right}px`,
+                          opacity: 1,
+                          backdropFilter: 'none',
+                          WebkitBackdropFilter: 'none',
+                        }}
+                      >
+                        <div
+                          className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                        >
+                          {/* Header */}
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={async () => { try { await Notifications.markAllAsRead(); await loadNotifications(); } catch (err) { console.error('Mark all notifications error:', err); addNotification('İşlem başarısız', 'error'); } }}
+                                className="rounded-lg px-2 py-1 text-xs font-medium text-blue-300 border border-blue-400/40 bg-blue-500/10"
+                              >
+                                Tümünü okundu yap
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="overflow-y-auto notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
+                            {(!Array.isArray(notifications) || notifications.length === 0) ? (
+                              <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
+                            ) : (
+                              notifications.map(n => (
+                                <div
+                                  key={n.id}
+                                  className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors`}
+                                >
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <p className="text-sm text-white">{n.message}</p>
+                                      <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
+                                    </div>
+                                    <div className="flex gap-1 ml-2">
+                                      {!n.read_at && (
+                                        <button
+                                          onClick={async () => {
+                                            try { await Notifications.markAsRead(n.id); await loadNotifications(); }
+                                            catch (err) { console.error('Mark notification error:', err); addNotification('Bildirim işaretlenemedi', 'error'); }
+                                          }}
+                                          className="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-blue-500/20 transition-colors"
+                                          title="Okundu olarak işaretle"
+                                        >✓</button>
+                                      )}
+                                      <button
+                                        onClick={async () => {
+                                          try { await Notifications.delete(n.id); await loadNotifications(); addNotification('Bildirim silindi', 'success'); }
+                                          catch (err) { console.error('Delete notification error:', err); addNotification('Bildirim silinemedi', 'error'); }
+                                        }}
+                                        className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-red-500/20 transition-colors"
+                                        title="Bildirimi sil"
+                                      >🗑️</button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                        </div>
+
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
       {showAddForm && (
         <div className="fixed inset-0 z-[100300]">
           <div
@@ -2223,236 +2195,251 @@ function App() {
       )}
 
       <div className="bg-white">
-        <div className="px-2 xs:px-3 sm:px-4 lg:px-6">
-          <h2 className="text-xs xs:text-sm sm:text-base lg:text-lg font-semibold text-gray-900 py-2 xs:py-3 sm:py-4 border-b border-gray-200">
-            Görev Takip Sistemi
-          </h2>
+        <div className="flex justify-center">
+          <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
+            <h2 className="text-[28px] xs:text-sm sm:text-base lg:text-lg font-semibold text-gray-900 py-2 xs:py-3 sm:py-4 border-b border-gray-200" style={{ minWidth: '1440px' }}>
+              Görev Takip Sistemi
+            </h2>
 
-          <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('active')}
-              className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
-                ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                }`}
-            >
-              Aktif ({taskCounts.active})
-            </button>
-            <button
-              onClick={() => setActiveTab('completed')}
-              className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
-                ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                }`}
-            >
-              Tamamlanan ({taskCounts.completed})
-            </button>
-            <button
-              onClick={() => setActiveTab('deleted')}
-              className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
-                ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                }`}
-            >
-              İptal ({taskCounts.deleted})
-            </button>
-
-            {/* Görev Türü Filtresi */}
-            <div className="relative">
-              <select
-                value={selectedTaskType}
-                onChange={(e) => setSelectedTaskType(e.target.value)}
-                className="px-3 xs:px-4 sm:px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
-                style={{ height: '40px', minWidth: '140px' }}
+            <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px' }}>
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
+                  ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                  }`}
               >
-                <option value="all">Tüm Türler</option>
-                <option value="new_product">Yeni Ürün</option>
-                <option value="fixture">Fikstür</option>
-                <option value="apparatus">Aparat</option>
-                <option value="development">Geliştirme</option>
-                <option value="revision">Revizyon</option>
-                <option value="mold">Kalıp</option>
-                <option value="test_device">Test Cihazı</option>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+                Aktif ({taskCounts.active})
+              </button>
+              <button
+                onClick={() => setActiveTab('completed')}
+                className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
+                  ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                  }`}
+              >
+                Tamamlanan ({taskCounts.completed})
+              </button>
+              <button
+                onClick={() => setActiveTab('deleted')}
+                className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
+                  ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                  }`}
+              >
+                İptal ({taskCounts.deleted})
+              </button>
 
-            <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
-              <input
-                type="text"
-                placeholder="Görev ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-48 xs:w-56 sm:w-64 px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
-                style={{ height: '30px' }}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                data-lpignore="true"
-                data-form-type="other"
-                name="search"
-                id="task-search"
-                onFocus={(e) => {
-                  e.target.setAttribute('autocomplete', 'off');
-                  e.target.setAttribute('autocorrect', 'off');
-                  e.target.setAttribute('autocapitalize', 'off');
-                  e.target.setAttribute('spellcheck', 'false');
-                }}
-                onInput={(e) => {
-                  // Otomatik doldurma tespit edilirse temizle
-                  if (e.target.value && !e.isTrusted) {
-                    e.target.value = '';
-                    setSearchTerm('');
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 border-b border-gray-200 min-w-[400px]">
-          <div className="grid grid-cols-[180px_100px_100px_280px_140px_140px_120px_80px_100px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
-            <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
-              <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
-            </button>
-            <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
-              <span>Öncelik</span><span className="text-[10px] ml-1">{sortIndicator('priority')}</span>
-            </button>
-            <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
-              <span>Tür</span><span className="text-[10px] ml-1">{sortIndicator('task_type')}</span>
-            </button>
-            <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-center px-2">
-              <span>Sorumlu</span><span className="text-[10px] ml-1">{sortIndicator('responsible_name')}</span>
-            </button>
-            <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-center px-2">
-              <span>Oluşturan</span><span className="text-[10px] ml-1">{sortIndicator('creator_name')}</span>
-            </button>
-            <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
-              <span>Başlangıç</span><span className="text-[10px] ml-1">{sortIndicator('start_date')}</span>
-            </button>
-            <button onClick={() => toggleSort('assigned_count')} className="flex items-center justify-center px-2">
-              <span>Atananlar</span><span className="text-[10px] ml-1">{sortIndicator('assigned_count')}</span>
-            </button>
-            <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
-              <span>Dosyalar</span><span className="text-[10px] ml-1">{sortIndicator('attachments_count')}</span>
-            </button>
-            <button className="flex items-center justify-center px-2">
-              <span>Güncel Durum</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="divide-y divide-gray-200">
-          {filteredTasks.map((task) => (
-            <div
-              key={task.id}
-              onClick={() => handleTaskClick(task)}
-              className="grid grid-cols-[180px_100px_100px_280px_140px_140px_120px_80px_100px] gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors"
-            >
-              <div className="px-2">
-                <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
-                  {task.title || `Görev ${task.id}`}
+              {/* Görev Türü Filtresi */}
+              <div className="relative">
+                <select
+                  value={selectedTaskType}
+                  onChange={(e) => setSelectedTaskType(e.target.value)}
+                  className="px-3 xs:px-4 sm:px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
+                  style={{ height: '40px', minWidth: '140px' }}
+                >
+                  <option value="all">Tüm Türler</option>
+                  <option value="new_product">Yeni Ürün</option>
+                  <option value="fixture">Fikstür</option>
+                  <option value="apparatus">Aparat</option>
+                  <option value="development">Geliştirme</option>
+                  <option value="revision">Revizyon</option>
+                  <option value="mold">Kalıp</option>
+                  <option value="test_device">Test Cihazı</option>
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
               </div>
-              <div className="px-2">
-                <span
-                  className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
-                  style={{
-                    backgroundColor: getPriorityColor(task.priority) + '20',
-                    color: getPriorityColor(task.priority)
+
+              <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
+                <input
+                  type="text"
+                  placeholder="Görev ara..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
+                  style={{ height: '30px', color: 'black', fontSize: '16px' }}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  name="search"
+                  id="task-search"
+                  onFocus={(e) => {
+                    e.target.setAttribute('autocomplete', 'off');
+                    e.target.setAttribute('autocorrect', 'off');
+                    e.target.setAttribute('autocapitalize', 'off');
+                    e.target.setAttribute('spellcheck', 'false');
                   }}
-                >
-                  {getPriorityText(task.priority)}
-                </span>
-              </div>
-              <div className="px-2">
-                <span
-                  className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
-                  style={{
-                    backgroundColor: getTaskTypeColor(task.task_type) + '20',
-                    color: getTaskTypeColor(task.task_type)
+                  onInput={(e) => {
+                    if (e.target.value && !e.isTrusted) {
+                      e.target.value = '';
+                      setSearchTerm('');
+                    }
                   }}
-                >
-                  {getTaskTypeText(task.task_type)}
-                </span>
+                />
               </div>
-              <div className="px-2 text-xs xs:text-sm text-gray-900">
-                {task.responsible?.name || 'Atanmamış'}
-              </div>
-              <div className="px-2 text-xs xs:text-sm text-gray-900">
-                {task.creator?.name || 'Bilinmiyor'}
-              </div>
-              <div className="px-2 text-xs xs:text-sm text-gray-900">
-                {task.start_date ? formatDateOnly(task.start_date) : '-'}
-              </div>
-              <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
-                {task.assigned_users?.length > 0
-                  ? task.assigned_users.map(u => u.name).join(', ')
-                  : '-'
-                }
-              </div>
-              <div className="px-2 text-xs xs:text-sm text-gray-900">
-                {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
-              </div>
-              <div className="px-2 flex justify-center items-center">
-                <div
-                  className="relative group"
-                  onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-center">
+          <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
+            <div className="grid grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
+              <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
+                <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
+              </button>
+              <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
+                <span>Öncelik</span><span className="text-[10px] ml-1">{sortIndicator('priority')}</span>
+              </button>
+              <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
+                <span>Tür</span><span className="text-[10px] ml-1">{sortIndicator('task_type')}</span>
+              </button>
+              <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-center px-2">
+                <span>Sorumlu</span><span className="text-[10px] ml-1">{sortIndicator('responsible_name')}</span>
+              </button>
+              <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-center px-2">
+                <span>Oluşturan</span><span className="text-[10px] ml-1">{sortIndicator('creator_name')}</span>
+              </button>
+              <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
+                <span>Başlangıç</span><span className="text-[10px] ml-1">{sortIndicator('start_date')}</span>
+              </button>
+              <button onClick={() => toggleSort('assigned_count')} className="flex items-center justify-center px-2">
+                <span>Atananlar</span><span className="text-[10px] ml-1">{sortIndicator('assigned_count')}</span>
+              </button>
+              <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
+                <span>Dosyalar</span><span className="text-[10px] ml-1">{sortIndicator('attachments_count')}</span>
+              </button>
+              <button className="flex items-center justify-center px-2">
+                <span>Güncel Durum</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-center">
+          <div style={{ width: '1440px' }}>
+            {filteredTasks.map((task) => (
+              <div
+                key={task.id}
+                onClick={() => handleTaskClick(task)}
+                className="grid grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px] gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200"
+                style={{ paddingTop: '10px', paddingBottom: '10px' }}
+              >
+                <div className="px-2">
+                  <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
+                    {task.title || `Görev ${task.id}`}
+                  </div>
+                </div>
+                <div className="px-2">
+                  <span
+                    className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
                     style={{
-                      backgroundColor: getStatusColor(task.status),
-                      border: '3px solid rgba(255, 255, 255, 0.3)',
-                      boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
-                      width: '24px',
-                      height: '24px'
-                    }}
-                    title={getStatusText(task.status)}
-                  ></div>
-                  <div
-                    className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
-                    style={{
-                      backgroundColor: 'rgba(17, 24, 39, 0.98)',
-                      backdropFilter: 'blur(8px)',
-                      WebkitBackdropFilter: 'blur(8px)',
-                      minWidth: '300px',
-                      maxWidth: '400px',
-                      padding: '20px 16px'
+                      backgroundColor: getPriorityColor(task.priority) + '20',
+                      color: getPriorityColor(task.priority),
+                      paddingBottom: '5px',
+                      paddingTop: '5px',
+                      paddingLeft: '10px',
+                      paddingRight: '10px'
                     }}
                   >
-                    <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
-                    <div className="text-justify">Durum: {getStatusText(task.status)}</div>
-                    <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
+                    {getPriorityText(task.priority)}
+                  </span>
+                </div>
+                <div className="px-2">
+                  <span
+                    className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
+                    style={{
+                      backgroundColor: getTaskTypeColor(task.task_type) + '20',
+                      color: getTaskTypeColor(task.task_type),
+                      paddingBottom: '5px',
+                      paddingTop: '5px',
+                      paddingLeft: '10px',
+                      paddingRight: '10px'
+                    }}
+                  >
+                    {getTaskTypeText(task.task_type)}
+                  </span>
+                </div>
+                <div className="px-2 text-xs xs:text-sm text-gray-900">
+                  {task.responsible?.name || 'Atanmamış'}
+                </div>
+                <div className="px-2 text-xs xs:text-sm text-gray-900">
+                  {task.creator?.name || 'Bilinmiyor'}
+                </div>
+                <div className="px-2 text-xs xs:text-sm text-gray-900">
+                  {task.start_date ? formatDateOnly(task.start_date) : '-'}
+                </div>
+                <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
+                  {task.assigned_users?.length > 0
+                    ? task.assigned_users.map(u => u.name).join(', ')
+                    : '-'
+                  }
+                </div>
+                <div className="px-2 text-xs xs:text-sm text-gray-900">
+                  {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
+                </div>
+                <div className="px-2 flex justify-center items-center">
+                  <div
+                    className="relative group"
+                    onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
+                  >
                     <div
-                      className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
-                      style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
+                      className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
+                      style={{
+                        backgroundColor: getStatusColor(task.status),
+                        border: '3px solid rgba(255, 255, 255, 0.3)',
+                        boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
+                        width: '24px',
+                        height: '24px'
+                      }}
+                      title={getStatusText(task.status)}
                     ></div>
+                    <div
+                      className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
+                      style={{
+                        backgroundColor: 'rgba(17, 24, 39, 0.98)',
+                        backdropFilter: 'blur(8px)',
+                        WebkitBackdropFilter: 'blur(8px)',
+                        minWidth: '300px',
+                        maxWidth: '400px',
+                        padding: '20px 16px'
+                      }}
+                    >
+                      <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
+                      <div className="text-justify">Durum: {getStatusText(task.status)}</div>
+                      <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
+                      <div
+                        className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
+                        style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {filteredTasks.length === 0 && (
-          <div className="text-center py-6 xs:py-8 sm:py-10 lg:py-12">
-            <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
-              {activeTab === 'active' && 'Aktif görev bulunamadı'}
-              {activeTab === 'completed' && 'Tamamlanan görev bulunamadı'}
-              {activeTab === 'deleted' && 'İptal edilen görev bulunamadı'}
-            </div>
-            <div className="text-gray-400 text-xs mt-2">
-              {searchTerm ? 'Aramayı temizlemeyi deneyin' :
-                (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
-            </div>
+            ))}
           </div>
-        )}
+
+          {filteredTasks.length === 0 && (
+            <div className="flex justify-center">
+              <div className="text-center py-6 xs:py-8 sm:py-10 lg:py-12" style={{ width: '1440px' }}>
+                <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
+                  {activeTab === 'active' && 'Aktif görev bulunamadı'}
+                  {activeTab === 'completed' && 'Tamamlanan görev bulunamadı'}
+                  {activeTab === 'deleted' && 'İptal edilen görev bulunamadı'}
+                </div>
+                <div className="text-gray-400 text-xs mt-2">
+                  {searchTerm ? 'Aramayı temizlemeyi deneyin' :
+                    (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {showDetailModal && selectedTask && createPortal(
@@ -2998,10 +2985,7 @@ function App() {
                                     };
                                     const oldUsers = normalizeToNames(h.old_value);
                                     const newUsers = normalizeToNames(h.new_value);
-
-                                    // Yeni eklenen kullanıcıları bul
                                     const added = newUsers.filter(user => !oldUsers.includes(user));
-                                    // Kaldırılan kullanıcıları bul
                                     const removed = oldUsers.filter(user => !newUsers.includes(user));
 
                                     const actor = h.user?.name || 'Kullanıcı';
@@ -3252,7 +3236,7 @@ function App() {
                   )}
                 </div>
                 <div className="w-[600px] shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
-                  <div className="text-[24px] font-semibold mb-3">Kullanıcılar</div>
+                  <div className="text-[24px] font-semibold mb-3" style={{ marginBottom: '10px' }}>Kullanıcılar</div>
 
                   <div className="mb-4">
                     <input
@@ -3260,7 +3244,8 @@ function App() {
                       placeholder="Kullanıcı ara..."
                       value={userSearchTerm}
                       onChange={(e) => setUserSearchTerm(e.target.value)}
-                      className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[16px] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ color: 'black', marginBottom: '20px' }}
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
@@ -3276,7 +3261,6 @@ function App() {
                         e.target.setAttribute('spellcheck', 'false');
                       }}
                       onInput={(e) => {
-                        // Otomatik doldurma tespit edilirse temizle
                         if (e.target.value && !e.isTrusted) {
                           e.target.value = '';
                           setUserSearchTerm('');
@@ -3285,7 +3269,7 @@ function App() {
                     />
                   </div>
 
-                  <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                  <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
                   {user?.role === 'admin' ? (
                     <div className="space-y-3">
                       {Array.isArray(users) && users
@@ -3300,10 +3284,9 @@ function App() {
                         })
                         .map((u, index) => {
                           const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
-                          console.log(`User ${u.name} (${u.id}): hasResetRequest = ${hasResetRequest}`, passwordResetRequests);
                           return (
-                            <div 
-                              key={u.id} 
+                            <div
+                              key={u.id}
                               className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
                               style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
                             >
@@ -3315,26 +3298,26 @@ function App() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
-                                   <button
-                                     className="text-xs rounded px-3 py-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
-                                     onClick={async () => {
-                                       if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
-                                       
-                                       try {
-                                         setLoading(true);
-                                         await PasswordReset.adminResetPassword(u.id, '123456');
-                                         addNotification('Şifre başarıyla "123456" olarak sıfırlandı', 'success');
-                                         await loadPasswordResetRequests();
-                                       } catch (err) {
-                                         console.error('Admin reset password error:', err);
-                                         addNotification(err.response?.data?.message || 'Şifre sıfırlanamadı', 'error');
-                                       } finally {
-                                         setLoading(false);
-                                       }
-                                     }}
-                                   >
-                                     Şifre Sıfırla
-                                   </button>
+                                  <button
+                                    className="text-xs rounded px-3 py-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+                                    onClick={async () => {
+                                      if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
+
+                                      try {
+                                        setLoading(true);
+                                        await PasswordReset.adminResetPassword(u.id, '123456');
+                                        addNotification('Şifre başarıyla "123456" olarak sıfırlandı', 'success');
+                                        await loadPasswordResetRequests();
+                                      } catch (err) {
+                                        console.error('Admin reset password error:', err);
+                                        addNotification(err.response?.data?.message || 'Şifre sıfırlanamadı', 'error');
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    }}
+                                  >
+                                    Şifre Sıfırla
+                                  </button>
                                   <select
                                     className="text-xs rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     value={u.role}

@@ -15,7 +15,6 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
-// Şifre sıfırlama talepleri (public)
 Route::post('/password-reset-request', [PasswordResetController::class, 'requestReset']);
 Route::post('/password-reset', [PasswordResetController::class, 'resetPassword']);
 
@@ -46,7 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
-    // Şifre sıfırlama (admin)
+    // admin
     Route::get('/password-reset-requests', [PasswordResetController::class, 'getResetRequests']);
     Route::post('/admin-reset-password', [PasswordResetController::class, 'adminResetPassword']);
     Route::post('/cancel-reset-request', [PasswordResetController::class, 'cancelResetRequest']);
@@ -61,7 +60,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/notifications/read-all', function (Request $request) {
         $user = $request->user();
-        // Tüm okunmamışları tek seferde okundu işaretle
         $user->unreadNotifications->each(function ($notification) {
             $notification->markAsRead();
         });
@@ -69,7 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::delete('/attachments/{id}', [TaskController::class, 'destroyAttachment']);
-    //Route::delete('/attachments/{id}', [TaskAttachmentController::class, 'destroy']);
+
     Route::delete('/notifications/{id}', function (Request $request, $id) {
         $notification = $request->user()->notifications()->findOrFail($id);
         $notification->delete();

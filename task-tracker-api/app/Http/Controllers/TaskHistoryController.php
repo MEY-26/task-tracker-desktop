@@ -11,10 +11,7 @@ class TaskHistoryController extends Controller
     public function index(Task $task)
     {
         $user = request()->user();
-    
-        // Erişim kontrolü - admin ve observer tüm görev geçmişlerini görebilir
         if ($user->role !== 'admin' && $user->role !== 'observer') {
-            // team_leader ve team_member sadece kendi görevlerinin geçmişini görebilir
             if (
                 $user->id !== $task->created_by &&
                 $user->id !== $task->responsible_id &&
@@ -42,8 +39,6 @@ class TaskHistoryController extends Controller
         if ($history->task_id !== $task->id) {
             return response()->json(['message' => 'Kayıt bu göreve ait değil.'], 404);
         }
-
-        // Sadece yorum kayıtlarının silinmesine izin ver
         if ($history->field !== 'comment') {
             return response()->json(['message' => 'Yalnızca yorum kayıtları silinebilir.'], 422);
         }

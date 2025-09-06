@@ -74,8 +74,6 @@ class AuthController extends Controller
     public function index()
     {
         $user = Auth::user();
-
-        // Observer kullanıcılar da kullanıcı listesini görebilir (sadece görüntüleme için)
         if (!in_array($user->role, ['admin', 'team_leader', 'observer'])) {
             return response()->json(['message' => 'Bu işlemi yapmaya yetkiniz yok.'], 403);
         }
@@ -109,9 +107,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $request->email)->first();
-        $token = Str::random(8); // 8 karakterlik kod (daha kullanıcı dostu)
-        
-        // Token'ı veritabanına kaydet
+        $token = Str::random(8);
         DB::table('password_reset_tokens')->updateOrInsert(
             ['email' => $request->email],
             [
@@ -121,7 +117,6 @@ class AuthController extends Controller
         );
 
         try {
-            // Email gönder
             Mail::to($user->email)->send(new PasswordResetMail($token, $user));
             
             return response()->json([
@@ -129,7 +124,6 @@ class AuthController extends Controller
                 'email' => $request->email
             ]);
         } catch (\Exception $e) {
-            // Email gönderme hatası durumunda
             \Log::error('Password reset email error: ' . $e->getMessage());
             
             return response()->json([
@@ -146,8 +140,6 @@ class AuthController extends Controller
             'token' => 'required|string',
             'password' => 'required|string|min:4|confirmed'
         ]);
-
-        // Token'ı kontrol et
         $passwordReset = DB::table('password_reset_tokens')
             ->where('email', $request->email)
             ->first();
@@ -155,18 +147,12 @@ class AuthController extends Controller
         if (!$passwordReset || !Hash::check($request->token, $passwordReset->token)) {
             return response()->json(['message' => 'Geçersiz token.'], 400);
         }
-
-        // Token'ın süresi dolmuş mu kontrol et (60 dakika)
         if (now()->diffInMinutes($passwordReset->created_at) > 60) {
             return response()->json(['message' => 'Token süresi dolmuş.'], 400);
         }
-
-        // Şifreyi güncelle
         $user = User::where('email', $request->email)->first();
         $user->password = Hash::make($request->password);
         $user->save();
-
-        // Token'ı sil
         DB::table('password_reset_tokens')->where('email', $request->email)->delete();
 
         return response()->json(['message' => 'Şifre başarıyla sıfırlandı.']);

@@ -10,22 +10,18 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Admin kullanıcı
         User::create([
             'name' => 'Osman Aydın',
             'email' => 'osmanaydin@vaden.com.tr',
             'password' => Hash::make('1234'),
             'role' => 'admin',
         ]);
-
         User::create([
             'name' => 'Okan Turanlı',
             'email' => 'okanturanli@vaden.com.tr',
             'password' => Hash::make('1234'),
             'role' => 'admin',
         ]);
-
-        // Readonly kullanıcı
         User::create([
             'name' => 'Mehmet Emin Yaman',
             'email' => 'meminyaman@vaden.com.tr',

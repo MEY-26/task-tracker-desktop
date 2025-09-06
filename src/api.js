@@ -1,12 +1,10 @@
 import axios from 'axios';
 
 const getApiBaseURL = () => {
-  // Electron uygulaması için
   if (window.location.protocol === 'file:') {
     return 'http://localhost:8000/api';
   }
   
-  // Web uygulaması için
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')) {
     return `http://${window.location.hostname}:8000/api`;
   }
@@ -440,7 +438,6 @@ export const Notifications = {
   }
 };
 
-// Şifre sıfırlama API'leri
 export const PasswordReset = {
   requestReset: async (email) => {
     try {

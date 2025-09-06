@@ -128,28 +128,24 @@ button:focus-visible {
   }
 }
 
-/* Arama kutusu otomatik doldurmayı engelle */
 input[type="text"] {
   autocomplete: off !important;
   -webkit-autofill: none !important;
   -webkit-autocomplete: off !important;
 }
 
-/* Şifre alanları için güçlü otomatik doldurma engelleme */
 input[type="password"] {
   autocomplete: new-password !important;
   -webkit-autofill: none !important;
   -webkit-autocomplete: off !important;
 }
 
-/* Tüm input alanları için genel otomatik doldurma engelleme */
 input {
   autocomplete: off !important;
   -webkit-autofill: none !important;
   -webkit-autocomplete: off !important;
 }
 
-/* Özel olarak arama kutusu için ek koruma */
 input[placeholder*="ara"], input[placeholder*="search"] {
   autocomplete: off !important;
   -webkit-autofill: none !important;
@@ -157,7 +153,6 @@ input[placeholder*="ara"], input[placeholder*="search"] {
   background-color: white !important;
 }
 
-/* Otomatik doldurma için güçlü engelleme */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -168,7 +163,6 @@ input:-webkit-autofill:active {
   background-clip: content-box !important;
 }
 
-/* Şifre alanları için özel otomatik doldurma engelleme */
 input[type="password"]:-webkit-autofill,
 input[type="password"]:-webkit-autofill:hover,
 input[type="password"]:-webkit-autofill:focus,
@@ -179,7 +173,6 @@ input[type="password"]:-webkit-autofill:active {
   background-clip: content-box !important;
 }
 
-/* Otomatik doldurma animasyonlarını engelle */
 @keyframes onAutoFillStart {
   from { /**/ }
   to { /**/ }
@@ -200,21 +193,17 @@ input:not(:-webkit-autofill) {
   animation-duration: 0.001s;
 }
 
-/* Tüm otomatik doldurma özelliklerini devre dışı bırak */
 input[autocomplete="off"] {
   -webkit-autofill: none !important;
   -webkit-autocomplete: off !important;
   autocomplete: off !important;
 }
 
-/* Şifre alanları için ek koruma */
 input[type="password"][autocomplete="new-password"] {
   -webkit-autofill: none !important;
   -webkit-autocomplete: off !important;
   autocomplete: new-password !important;
 }
-
-/* Bildirim ve profil ikonları için özel stiller */
 .notification-bell {
   font-size: 1.5rem !important;
   padding: 0.75rem !important;
@@ -224,8 +213,8 @@ input[type="password"][autocomplete="new-password"] {
 
 .notification-badge {
   position: absolute !important;
-  top: -0.2rem !important;
-  left: 0rem !important;
+  top: 0.1rem !important;
+  left: 1.5rem !important;
   width: 1.5rem !important;
   height: 1.5rem !important;
   font-size: 0.75rem !important;
