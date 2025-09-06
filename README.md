@@ -152,10 +152,10 @@ Uygulama 7 farklı görev türü ile çalışır:
 
 ### Excel Formatı
 Excel dosyası şu formatta olmalıdır:
-- **A1**: Kullanıcı Adı Soyadı
-- **B1**: E-posta Adresi  
-- **C1**: Rol (admin/team_leader/team_member/observer)
-- **D1**: Şifre (boşsa varsayılan: 123456)
+- **A2**: Kullanıcı Adı Soyadı
+- **B2**: E-posta Adresi  
+- **C2**: Rol (admin/team_leader/team_member/observer)
+- **D2**: Şifre (boşsa varsayılan: 123456)
 
 ### Kullanım
 1. Admin panelinde "Kullanıcı Yönetimi" bölümüne gidin
