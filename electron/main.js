@@ -3,6 +3,7 @@ import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ipcMain } from 'electron';
+import fs from 'fs';
 
 const isDev = process.env.NODE_ENV === 'development';
 const __filename = fileURLToPath(import.meta.url);
@@ -14,7 +15,9 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            webSecurity: false, // Local dosyalara erişim için
+            allowRunningInsecureContent: true
         }
     });
 
@@ -31,7 +34,15 @@ function createWindow() {
             // Unpacked app
             distPath = path.join(__dirname, '..', 'dist', 'index.html');
         }
-        win.loadFile(distPath);
+        
+        // Dosya varlığını kontrol et
+        if (fs.existsSync(distPath)) {
+            win.loadFile(distPath);
+        } else {
+            console.error('Index.html not found at:', distPath);
+            // Fallback: basit bir HTML sayfası göster
+            win.loadURL('data:text/html,<h1>Task Tracker</h1><p>Loading...</p>');
+        }
     }
 }
 
