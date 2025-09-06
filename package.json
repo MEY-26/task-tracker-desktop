@@ -79,20 +79,17 @@
     "win": {
       "target": [
         "nsis"
-      ],
-      "icon": "public/vite.svg"
+      ]
     },
     "mac": {
       "target": [
         "dmg"
-      ],
-      "icon": "public/vite.svg"
+      ]
     },
     "linux": {
       "target": [
         "AppImage"
-      ],
-      "icon": "public/vite.svg"
+      ]
     },
     "nsis": {
       "oneClick": false,

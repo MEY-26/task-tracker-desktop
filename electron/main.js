@@ -22,7 +22,16 @@ function createWindow() {
         win.loadURL('http://localhost:5173');
         win.webContents.openDevTools();
     } else {
-        win.loadFile(path.join(__dirname, '../dist/index.html'));
+        // Production modunda dist klasörünü doğru yoldan yükle
+        let distPath;
+        if (process.resourcesPath) {
+            // Packaged app
+            distPath = path.join(process.resourcesPath, 'app', 'dist', 'index.html');
+        } else {
+            // Unpacked app
+            distPath = path.join(__dirname, '..', 'dist', 'index.html');
+        }
+        win.loadFile(distPath);
     }
 }
 
