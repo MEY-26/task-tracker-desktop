@@ -75,7 +75,8 @@ class AuthController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role !== 'admin' && $user->role !== 'team_leader') {
+        // Observer kullanıcılar da kullanıcı listesini görebilir (sadece görüntüleme için)
+        if (!in_array($user->role, ['admin', 'team_leader', 'observer'])) {
             return response()->json(['message' => 'Bu işlemi yapmaya yetkiniz yok.'], 403);
         }
 

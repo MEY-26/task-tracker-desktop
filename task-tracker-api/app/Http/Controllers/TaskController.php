@@ -59,11 +59,17 @@ class TaskController extends Controller
      */
     public function store(Request $request)
     {
+        \Log::info('Task creation request', [
+            'request_data' => $request->all(),
+            'headers' => $request->headers->all()
+        ]);
+        
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'priority' => 'required|in:low,medium,high,critical',
             'status' => 'required|in:waiting,in_progress,investigating,completed,cancelled',
+            'task_type' => 'required|in:new_product,fixture,apparatus,development,revision,mold,test_device',
             'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip|max:10240',
             'responsible_id' => 'required|exists:users,id',
             'assigned_users' => 'array|nullable',
@@ -74,6 +80,13 @@ class TaskController extends Controller
 
         $currentUserId = $request->user()->id;
         $currentUser = $request->user();
+
+        // 0. Observer kullanıcılar görev oluşturamaz
+        if ($currentUser->role === 'observer') {
+            return response()->json([
+                'message' => 'Observer rolündeki kullanıcılar görev oluşturamaz.'
+            ], 403);
+        }
 
         // 1. Observer rolündeki kullanıcılara görev atanamasın kontrolü
         $responsibleUser = User::find($request->responsible_id);
@@ -125,6 +138,7 @@ class TaskController extends Controller
             'description' => $request->description,
             'priority' => $request->priority,
             'status' => $validated['status'] ?? 'waiting',
+            'task_type' => $request->task_type,
             'responsible_id' => $request->responsible_id,
             'created_by' => $currentUserId,
             'start_date' => $request->start_date,
@@ -230,8 +244,8 @@ class TaskController extends Controller
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
 
-        // Admin tüm görevleri görebilir
-        if ($user->role === 'admin') {
+        // Admin ve observer tüm görevleri görebilir
+        if ($user->role === 'admin' || $user->role === 'observer') {
             return response()->json([
                 'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
             ]);
@@ -282,6 +296,7 @@ class TaskController extends Controller
             'description' => 'sometimes|nullable|string',
             'priority' => 'in:low,medium,high,critical',
             'status' => 'in:waiting,in_progress,investigating,completed,cancelled',
+            'task_type' => 'in:new_product,fixture,apparatus,development,revision,mold,test_device',
             'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip|max:10240',
             'responsible_id' => 'exists:users,id',
             'start_date' => 'nullable|date',
@@ -306,6 +321,20 @@ class TaskController extends Controller
                 return response()->json([
                     'message' => 'Takım lideri olarak admin rolündeki kullanıcılara görev atayamazsınız.'
                 ], 422);
+            }
+        }
+
+        // Takım liderleri sadece bitiş tarihini değiştirebilir
+        if ($user->role === 'team_leader') {
+            $allowedFields = ['due_date', 'status', 'comment'];
+            $requestFields = array_keys($request->all());
+            
+            foreach ($requestFields as $field) {
+                if (!in_array($field, $allowedFields)) {
+                    return response()->json([
+                        'message' => 'Takım liderleri sadece bitiş tarihi, durum ve yorum değiştirebilir.'
+                    ], 403);
+                }
             }
         }
 
@@ -427,6 +456,23 @@ class TaskController extends Controller
             }
 
             $task->assignedUsers()->sync($newUsers);
+            
+            // Yeni eklenen kullanıcıları bul
+            $newlyAssigned = array_diff($newUsers, $oldUsers);
+            
+            // Yeni eklenen kullanıcılara bildirim gönder
+            foreach ($newlyAssigned as $userId) {
+                $assignedUser = User::find($userId);
+                if ($assignedUser && $assignedUser->id !== $user->id) {
+                    try {
+                        $assignedMessage = 'Size yeni bir görev atandı: "' . $task->title . '"';
+                        $assignedUser->notify(new TaskUpdated($task, $assignedMessage));
+                        Log::info('Notification sent to newly assigned user: ' . $assignedUser->name);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to send notification to newly assigned user: ' . $e->getMessage());
+                    }
+                }
+            }
         }
 
         $message = 'Göreviniz güncellendi: "' . $task->title . '"';

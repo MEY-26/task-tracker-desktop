@@ -8,11 +8,16 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskHistoryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\PasswordResetController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+
+// Şifre sıfırlama talepleri (public)
+Route::post('/password-reset-request', [PasswordResetController::class, 'requestReset']);
+Route::post('/password-reset', [PasswordResetController::class, 'resetPassword']);
 
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -40,6 +45,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
+
+    // Şifre sıfırlama (admin)
+    Route::get('/password-reset-requests', [PasswordResetController::class, 'getResetRequests']);
+    Route::post('/admin-reset-password', [PasswordResetController::class, 'adminResetPassword']);
+    Route::post('/cancel-reset-request', [PasswordResetController::class, 'cancelResetRequest']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

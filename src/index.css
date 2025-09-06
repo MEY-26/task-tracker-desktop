@@ -2,23 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Scrollbar alanını rezerve ederek modal açılınca layout kaymasını engelle */
-}
-
 html {
-  scrollbar-gutter: stable; /* Chrome/Edge/Firefox */
+  scrollbar-gutter: stable;
 }
 
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -71,32 +65,13 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-/*@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-
-  a:hover {
-    color: #747bff;
-  }
-
-  button {
-    background-color: #f9f9f9;
-  }
-}*/
-
-/* modal root her zaman viewport'a sabit, en üstte */
 #modal-root {
   position: fixed;
   inset: 0;
   z-index: 2147483000;
-  /* çok yüksek, her şeyin üstünde */
   pointer-events: none;
-  /* içeri tıklanabilirliği alt elemanlara bırak */
 }
 
-/* arka plan */
 #modal-root .modal-overlay {
   position: absolute;
   inset: 0;
@@ -104,7 +79,6 @@ button:focus-visible {
   pointer-events: auto;
 }
 
-/* merkezdeki kutu */
 #modal-root .modal-center {
   position: absolute;
   left: 50vw;
@@ -117,22 +91,18 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   background: #0b1220;
-  /* senin koyu temaya uyumlu */
   color: #e5e7eb;
   box-shadow: 0 25px 80px rgba(0, 0, 0, .6);
 }
 
-/* Hide scrollbars for horizontal chip rows without disabling scroll */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Custom scrollbar for notification list */
 .notification-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
 }
 
-/* Webkit browsers (Chrome, Safari, Edge) */
 .notification-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -152,9 +122,148 @@ button:focus-visible {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Mobile scroll behavior */
 @media (max-width: 768px) {
   .notification-scrollbar {
     -webkit-overflow-scrolling: touch;
   }
+}
+
+/* Arama kutusu otomatik doldurmayı engelle */
+input[type="text"] {
+  autocomplete: off !important;
+  -webkit-autofill: none !important;
+  -webkit-autocomplete: off !important;
+}
+
+/* Şifre alanları için güçlü otomatik doldurma engelleme */
+input[type="password"] {
+  autocomplete: new-password !important;
+  -webkit-autofill: none !important;
+  -webkit-autocomplete: off !important;
+}
+
+/* Tüm input alanları için genel otomatik doldurma engelleme */
+input {
+  autocomplete: off !important;
+  -webkit-autofill: none !important;
+  -webkit-autocomplete: off !important;
+}
+
+/* Özel olarak arama kutusu için ek koruma */
+input[placeholder*="ara"], input[placeholder*="search"] {
+  autocomplete: off !important;
+  -webkit-autofill: none !important;
+  -webkit-autocomplete: off !important;
+  background-color: white !important;
+}
+
+/* Otomatik doldurma için güçlü engelleme */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: #000 !important;
+  background-color: white !important;
+  background-clip: content-box !important;
+}
+
+/* Şifre alanları için özel otomatik doldurma engelleme */
+input[type="password"]:-webkit-autofill,
+input[type="password"]:-webkit-autofill:hover,
+input[type="password"]:-webkit-autofill:focus,
+input[type="password"]:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.1) inset !important;
+  -webkit-text-fill-color: #fff !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-clip: content-box !important;
+}
+
+/* Otomatik doldurma animasyonlarını engelle */
+@keyframes onAutoFillStart {
+  from { /**/ }
+  to { /**/ }
+}
+
+@keyframes onAutoFillCancel {
+  from { /**/ }
+  to { /**/ }
+}
+
+input:-webkit-autofill {
+  animation-name: onAutoFillStart;
+  animation-duration: 0.001s;
+}
+
+input:not(:-webkit-autofill) {
+  animation-name: onAutoFillCancel;
+  animation-duration: 0.001s;
+}
+
+/* Tüm otomatik doldurma özelliklerini devre dışı bırak */
+input[autocomplete="off"] {
+  -webkit-autofill: none !important;
+  -webkit-autocomplete: off !important;
+  autocomplete: off !important;
+}
+
+/* Şifre alanları için ek koruma */
+input[type="password"][autocomplete="new-password"] {
+  -webkit-autofill: none !important;
+  -webkit-autocomplete: off !important;
+  autocomplete: new-password !important;
+}
+
+/* Bildirim ve profil ikonları için özel stiller */
+.notification-bell {
+  font-size: 1.5rem !important;
+  padding: 0.75rem !important;
+  min-height: 3rem !important;
+  min-width: 3rem !important;
+}
+
+.notification-badge {
+  position: absolute !important;
+  top: -0.2rem !important;
+  left: 0rem !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  font-size: 0.75rem !important;
+  font-weight: bold !important;
+  background-color: #ef4444 !important;
+  color: white !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 2px solid #1f2937 !important;
+  z-index: 10 !important;
+  pointer-events: none !important;
+}
+
+.profile-icon {
+  font-size: 1.5rem !important;
+  padding: 0.75rem !important;
+  min-height: 3rem !important;
+  min-width: 3rem !important;
+}
+
+.profile-icon .user-icon {
+  font-size: 1.5rem !important;
+}
+
+.add-task-button {
+  min-height: 3rem !important;
+  min-width: 3rem !important;
+  padding: 0.75rem !important;
+  font-size: 1.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+}
+
+.add-task-button .add-icon {
+  font-size: 1.5rem !important;
+  font-weight: bold !important;
 }

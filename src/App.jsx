@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, forgotPassword, resetPassword, apiOrigin } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, forgotPassword, resetPassword, apiOrigin, PasswordReset } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -19,6 +19,7 @@ function App() {
     description: '',
     priority: 'medium',
     status: 'waiting',
+    task_type: 'development',
     responsible_id: null,
     assigned_users: [],
     start_date: '',
@@ -29,13 +30,13 @@ function App() {
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Modal açıldığında newTask'ı sıfırla
   const resetNewTask = () => {
     setNewTask({
       title: '',
       description: '',
       priority: 'medium',
       status: 'waiting',
+      task_type: 'development',
       responsible_id: null,
       assigned_users: [],
       start_date: '',
@@ -44,11 +45,9 @@ function App() {
     });
     setAssigneeSearch('');
     setShowAssigneeDropdown(false);
-    setError(null); // Hata mesajını da temizle
+    setError(null);
   };
-  // Sıralama yapılandırması
   const [sortConfig, setSortConfig] = useState({ key: null, dir: 'desc' });
-  // key örnekleri: 'title', 'priority', 'status', 'description', 'responsible_name', 'creator_name', 'start_date', 'due_date', 'assigned_count', 'attachments_count'
   const [searchTerm, setSearchTerm] = useState('');
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [notifications, setNotifications] = useState([]);
@@ -57,10 +56,11 @@ function App() {
   const [newComment, setNewComment] = useState('');
   const [users, setUsers] = useState([]);
   const [taskHistory, setTaskHistory] = useState([]);
+  const [taskHistories, setTaskHistories] = useState({});
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [descDraft, setDescDraft] = useState('');
   const bellRef = useRef(null);
-  const notifPanelRef = useRef(null);  // bildirim paneli
+  const notifPanelRef = useRef(null);
   const [notifPos, setNotifPos] = useState({ top: 64, right: 16 });
   const badgeCount = Array.isArray(notifications)
     ? notifications.filter(n => !n.isFrontendNotification && !n.read_at).length
@@ -68,26 +68,19 @@ function App() {
   const [historyDeleteMode, setHistoryDeleteMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [showResetPassword, setShowResetPassword] = useState(false);
   const [forgotPasswordForm, setForgotPasswordForm] = useState({ email: '' });
-  const [resetPasswordForm, setResetPasswordForm] = useState({
-    email: '',
-    token: '',
-    password: '',
-    password_confirmation: ''
-  });
   const [showUserProfile, setShowUserProfile] = useState(false);
-  const [activeTab, setActiveTab] = useState('active'); // 'active', 'completed', 'deleted'
-  const [userSearchTerm, setUserSearchTerm] = useState(''); // Kullanıcı arama terimi
+  const [activeTab, setActiveTab] = useState('active');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [selectedTaskType, setSelectedTaskType] = useState('all');
+  const [passwordResetRequests, setPasswordResetRequests] = useState([]);
 
-  // Sekme sayılarını hesapla
   const taskCounts = {
     active: Array.isArray(tasks) ? tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length : 0,
     completed: Array.isArray(tasks) ? tasks.filter(t => t.status === 'completed').length : 0,
     deleted: Array.isArray(tasks) ? tasks.filter(t => t.status === 'cancelled').length : 0
   };
 
-  // Auto-refresh controls
   const taskRefreshTimer = useRef(null);
   const isRefreshingTasks = useRef(false);
   const lastTasksSigRef = useRef('');
@@ -104,7 +97,7 @@ function App() {
   useEffect(() => { lastSelectedSigRef.current = buildTaskSignatureOne(selectedTask); }, [selectedTask]);
 
   useEffect(() => {
-    if (!showNotifications) return; // Panel kapalıyken hiçbir dinleyici ekleme
+    if (!showNotifications) return;
 
     const place = () => {
       if (!bellRef.current) return;
@@ -112,16 +105,13 @@ function App() {
       const panelWidth = 360;
       const maxPanelHeight = 500;
 
-      // Viewport sınırları içinde kalacak şekilde pozisyon hesapla
       let top = r.bottom + 8;
       let right = Math.max(16, window.innerWidth - r.right + 8);
 
-      // Eğer panel viewport'tan taşıyorsa, yukarıya kaydır
       if (top + maxPanelHeight > window.innerHeight) {
         top = Math.max(16, window.innerHeight - maxPanelHeight - 16);
       }
 
-      // Eğer sağdan taşıyorsa, sola kaydır  
       if (right + panelWidth > window.innerWidth) {
         right = window.innerWidth - panelWidth - 16;
       }
@@ -145,7 +135,6 @@ function App() {
     window.addEventListener('scroll', place, true);
     document.addEventListener('mousedown', onDown);
 
-    // TEK bir cleanup bloğu
     return () => {
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
@@ -153,7 +142,6 @@ function App() {
     };
   }, [showNotifications]);
 
-  // Profil menüsü dışına tıklandığında kapat
   useEffect(() => {
     function handleClickOutside(event) {
       if (showProfileMenu && !event.target.closest('.profile-menu')) {
@@ -169,7 +157,67 @@ function App() {
     checkAuth();
   }, []);
 
-  // ESC ile modal kapatma
+  // Otomatik doldurmayı engelle
+  useEffect(() => {
+    const preventAutofill = () => {
+      // Tüm input alanlarını bul
+      const inputs = document.querySelectorAll('input');
+
+      inputs.forEach(input => {
+        // Otomatik doldurma özelliklerini kaldır
+        input.setAttribute('autocomplete', 'off');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'off');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-form-type', 'other');
+
+        // Şifre alanları için özel işlem
+        if (input.type === 'password') {
+          input.setAttribute('autocomplete', 'new-password');
+          input.setAttribute('data-lpignore', 'true');
+          input.setAttribute('data-form-type', 'other');
+        }
+
+        // Arama alanları için özel işlem
+        if (input.placeholder && (input.placeholder.includes('ara') || input.placeholder.includes('search'))) {
+          input.setAttribute('autocomplete', 'off');
+          input.setAttribute('data-lpignore', 'true');
+          input.setAttribute('data-form-type', 'other');
+        }
+
+        // Otomatik doldurma olaylarını engelle
+        input.addEventListener('focus', (e) => {
+          e.target.setAttribute('autocomplete', 'off');
+          e.target.setAttribute('data-lpignore', 'true');
+        });
+
+        input.addEventListener('input', (e) => {
+          // Eğer otomatik doldurma tespit edilirse, değeri temizle
+          if (e.target.value && !e.isTrusted) {
+            e.target.value = '';
+          }
+        });
+
+        // Otomatik doldurma olaylarını engelle
+        input.addEventListener('animationstart', (e) => {
+          if (e.animationName === 'onAutoFillStart') {
+            e.target.value = '';
+          }
+        });
+      });
+    };
+
+    // Sayfa yüklendiğinde çalıştır
+    preventAutofill();
+
+    // Her 50ms'de bir kontrol et (daha sık)
+    const interval = setInterval(preventAutofill, 50);
+
+    // Cleanup
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (!showDetailModal) return;
     const onKey = (e) => {
@@ -189,9 +237,6 @@ function App() {
     }
   }, [showDetailModal]);
 
-
-
-
   async function checkAuth() {
     try {
       setLoading(true);
@@ -199,7 +244,6 @@ function App() {
       if (isAuthenticated) {
         try {
           const userData = await getUser();
-          console.log('User data received:', userData);
           setUser(userData);
           await Promise.all([
             loadTasks(),
@@ -237,7 +281,6 @@ function App() {
     }
   }
 
-  // Lightweight comparer to avoid redundant state updates
   function buildTasksSignature(arr) {
     try {
       return JSON.stringify((Array.isArray(arr) ? arr : []).map(t => [
@@ -257,7 +300,6 @@ function App() {
     }
   }
 
-  // Signature for a single task
   function buildTaskSignatureOne(t) {
     if (!t) return '';
     try {
@@ -278,7 +320,6 @@ function App() {
     }
   }
 
-  // One-shot refresh used by polling/focus listeners
   async function refreshTasksOnce() {
     if (isRefreshingTasks.current) return;
     isRefreshingTasks.current = true;
@@ -291,7 +332,6 @@ function App() {
         lastTasksSigRef.current = nextSig;
       }
 
-      // If detail modal is open, keep the selected task fresh (without breaking open dropdowns)
       const currentSelected = selectedTaskRef.current;
       if (showDetailModalRef.current && currentSelected?.id) {
         const inList = next.find(t => t.id === currentSelected.id);
@@ -319,25 +359,20 @@ function App() {
                 console.warn('Task history refresh failed:', err.message);
               }
             } else {
-              // Skip updating while the assignee dropdown is open
             }
           }
         }
       }
     } catch (e) {
-      // Sessiz hata: arka plan yenilemesi
     } finally {
       isRefreshingTasks.current = false;
     }
   }
 
-  // Start polling and refetch on focus/visibility when authenticated
   useEffect(() => {
     if (!user?.id) return;
-    // Run an immediate refresh
     refreshTasksOnce();
 
-    // Poll every 3 seconds
     taskRefreshTimer.current = setInterval(() => {
       refreshTasksOnce();
     }, 3000);
@@ -358,7 +393,6 @@ function App() {
   async function loadUsers() {
     try {
       const usersList = await getUsers();
-      console.log('Loaded users:', usersList); // Debug için
       setUsers(usersList);
     } catch (err) {
       console.error('Users load error:', err);
@@ -366,12 +400,25 @@ function App() {
     }
   }
 
+  async function loadPasswordResetRequests() {
+    try {
+      if (user?.role === 'admin') {
+        console.log('Loading password reset requests...');
+        const requests = await PasswordReset.getResetRequests();
+        console.log('Password reset requests loaded:', requests);
+        setPasswordResetRequests(requests);
+      }
+    } catch (err) {
+      console.error('Load password reset requests error:', err);
+      // Hata durumunda boş array set et
+      setPasswordResetRequests([]);
+    }
+  }
+
   async function loadNotifications() {
     try {
       const res = await Notifications.list();
-      console.log('raw notifications response:', res);
 
-      // Her şekli yakala
       let list =
         Array.isArray(res) ? res :
           Array.isArray(res?.notifications) ? res.notifications :
@@ -379,25 +426,31 @@ function App() {
               Array.isArray(res?.data?.notifications) ? res.data.notifications :
                 [];
 
-      // UI'nin beklediği alanları garanti et
       list = list.map((n, i) => ({
         id: n.id ?? n.uuid ?? `srv_${i}`,
         message: n.data?.message ?? n.message ?? 'Bildirim mesajı bulunamadı',
         created_at: n.created_at ?? n.updated_at ?? n.timestamp ?? new Date().toISOString(),
         read_at: n.read_at ?? null,
-        isFrontendNotification: false, // backend bildirimi
-        // istersen orijinali de tut:
+        isFrontendNotification: false,
         raw: n,
       }));
 
-      // Okunmuş bildirimleri (read_at dolu olanları) liste dışı bırak
       list = list.filter(n => !n.read_at);
+      
+      // Şifre sıfırlandı bildirimlerini filtrele (mantıksız çünkü kullanıcı zaten giriş yapmış)
+      list = list.filter(n => {
+        const message = n.message || '';
+        return !message.includes('Şifreniz admin tarafından sıfırlandı');
+      });
 
       setNotifications(list);
-      console.log('loaded notifications:', list.length);
+      
+      // Bildirimler yüklendikten sonra şifre sıfırlama taleplerini de yükle
+      if (user?.role === 'admin') {
+        await loadPasswordResetRequests();
+      }
     } catch (err) {
       console.error('Notifications load error:', err);
-      // 401 hatası gelirse logout yapma, sadece bildirimleri temizle
       if (err.response?.status === 401) {
         console.warn('Unauthorized notification access, clearing notifications');
       } else if (err.response?.status === 404) {
@@ -416,14 +469,14 @@ function App() {
       setError(null);
 
       const u = await login(loginForm.email, loginForm.password);
-      console.log('Login user data:', u);
       setUser(u);
 
       addNotification('Başarıyla giriş yapıldı', 'success');
       await Promise.all([
         loadTasks(),
         loadUsers(),
-        loadNotifications()
+        loadNotifications(),
+        loadPasswordResetRequests()
       ]);
     } catch (err) {
       console.error('Login error:', err);
@@ -455,7 +508,7 @@ function App() {
       created_at: new Date().toISOString(),
       timestamp: new Date(),
       read_at: null,
-      isFrontendNotification: true // Frontend bildirimi olduğunu işaretle
+      isFrontendNotification: true
     };
     setNotifications(prev => {
       const currentNotifications = Array.isArray(prev) ? prev : [];
@@ -478,12 +531,36 @@ function App() {
     setSelectedTask(null);
   }
 
+  function validateDates(startDate, endDate) {
+    if (!startDate || !endDate) {
+      return { isValid: true };
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (end < start) {
+      return {
+        isValid: false,
+        message: 'Bitiş tarihi başlangıç tarihinden önce olamaz!'
+      };
+    }
+
+    return { isValid: true };
+  }
+
   async function handleAddTask() {
     try {
       setLoading(true);
       setError(null);
 
-      // responsible_id'nin number olduğundan emin olalım
+      const dateValidation = validateDates(newTask.start_date, newTask.due_date);
+      if (!dateValidation.isValid) {
+        setError(dateValidation.message);
+        setLoading(false);
+        return;
+      }
+
       const responsibleId = newTask.responsible_id ? parseInt(newTask.responsible_id) : user.id;
 
       const taskData = {
@@ -491,18 +568,16 @@ function App() {
         description: newTask.description,
         priority: newTask.priority,
         status: newTask.status,
+        task_type: newTask.task_type,
         responsible_id: responsibleId,
-        assigned_users: newTask.assigned_users, // Atanan kullanıcıları doğrudan ekle
+        assigned_users: newTask.assigned_users,
         start_date: newTask.start_date || null,
         due_date: newTask.due_date || null,
       };
 
-      console.log('Sending task data:', taskData); // Debug için
 
-      // Dosyaları da create isteğinde gönder
       let response;
       if (newTask.attachments.length > 0) {
-        // FormData ile dosyalar dahil görev oluştur
         const form = new FormData();
         Object.keys(taskData).forEach(key => {
           if (taskData[key] !== null && taskData[key] !== undefined) {
@@ -514,7 +589,6 @@ function App() {
           }
         });
 
-        // Dosyaları ekle
         newTask.attachments.forEach(file => {
           form.append('attachments[]', file);
         });
@@ -523,14 +597,10 @@ function App() {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       } else {
-        // Dosya yoksa normal JSON isteği
         response = await Tasks.create(taskData);
       }
 
-      console.log('Response received:', response);
-      console.log('Response data:', response.data);
 
-      // Response'u güvenli bir şekilde işle
       let createdTask;
       if (response && response.data) {
         createdTask = response.data.task || response.data;
@@ -540,9 +610,7 @@ function App() {
         createdTask = response;
       }
 
-      console.log('Created task:', createdTask);
 
-      // Görev listesini güncelle
       setTasks(prevTasks => {
         const currentTasks = Array.isArray(prevTasks) ? prevTasks : [];
         return [...currentTasks, createdTask];
@@ -550,10 +618,11 @@ function App() {
 
       addNotification('Görev başarıyla eklendi', 'success');
 
-      // Hata mesajını temizle
       setError(null);
 
-      // Form'u temizle ve modal'ı kapat
+      // Bildirimleri yenile
+      await loadNotifications();
+
       resetNewTask();
       setShowAddForm(false);
     } catch (err) {
@@ -570,9 +639,20 @@ function App() {
       setLoading(true);
       setError(null);
 
-      console.log('Updating task:', { taskId, updates });
+      if (updates.start_date !== undefined || updates.due_date !== undefined) {
+        const currentTask = tasks.find(t => t.id === taskId);
+        const startDate = updates.start_date !== undefined ? updates.start_date : currentTask?.start_date;
+        const dueDate = updates.due_date !== undefined ? updates.due_date : currentTask?.due_date;
+
+        const dateValidation = validateDates(startDate, dueDate);
+        if (!dateValidation.isValid) {
+          setError(dateValidation.message);
+          setLoading(false);
+          return;
+        }
+      }
+
       const response = await Tasks.update(taskId, updates);
-      console.log('Update response:', response);
       const updatedTask = response.task || response;
 
       setTasks(prevTasks => {
@@ -584,6 +664,24 @@ function App() {
 
       if (selectedTask && selectedTask.id === taskId) {
         setSelectedTask(updatedTask);
+        // Görev güncellendiğinde geçmişi de yenile
+        try {
+          const history = await Tasks.getHistory(taskId);
+          setTaskHistory(Array.isArray(history) ? history : []);
+        } catch (err) {
+          console.error('Task history refresh error:', err);
+        }
+      }
+
+      // Tooltip için taskHistories state'ini de güncelle
+      try {
+        const history = await Tasks.getHistory(taskId);
+        setTaskHistories(prev => ({
+          ...prev,
+          [taskId]: Array.isArray(history) ? history : []
+        }));
+      } catch (err) {
+        console.error('Task histories update error:', err);
       }
 
       addNotification('Görev başarıyla güncellendi', 'success');
@@ -607,7 +705,6 @@ function App() {
       setLoading(true);
       setError(null);
 
-      // Görevi silmek yerine durumunu "cancelled" yap
       await handleUpdateTask(taskId, { status: 'cancelled' });
 
       addNotification('Görev başarıyla iptal edildi', 'success');
@@ -656,6 +753,18 @@ function App() {
   }
 
   async function handleDateChange(taskId, field, newDate) {
+    const currentTask = tasks.find(t => t.id === taskId);
+    if (!currentTask) return;
+
+    const startDate = field === 'start_date' ? newDate : currentTask.start_date;
+    const dueDate = field === 'due_date' ? newDate : currentTask.due_date;
+
+    const dateValidation = validateDates(startDate, dueDate);
+    if (!dateValidation.isValid) {
+      setError(dateValidation.message);
+      return;
+    }
+
     await handleUpdateTask(taskId, { [field]: newDate });
   }
 
@@ -665,10 +774,8 @@ function App() {
 
     try {
       const history = await Tasks.getHistory(task.id);
-      console.log('Task history loaded:', history); // Debug için
       setTaskHistory(Array.isArray(history) ? history : []);
 
-      // Eski mock yorumlar kaldırıldı
     } catch (err) {
       console.error('Task history load error:', err);
       if (err.response?.status === 404) {
@@ -682,10 +789,8 @@ function App() {
   }
 
   async function handleCloseModal() {
-    // Eğer açıklama değişmişse otomatik kaydet
     if (selectedTask && descDraft !== (selectedTask.description ?? '') && user?.role === 'admin') {
       try {
-        console.log('Auto-saving description before closing modal');
         await handleUpdateTask(selectedTask.id, { description: descDraft ?? '' });
         addNotification('Değişiklikler kaydedildi', 'success');
       } catch (error) {
@@ -708,15 +813,17 @@ function App() {
 
     try {
       const res = await Tasks.comment(selectedTask.id, text);
-      // Arayüzde de gösterelim
-      // Sunucudan en güncel history'yi çekelim; duplikasyon olmaması için tek kaynağı backend yapıyoruz
       try {
         const h = await Tasks.getHistory(selectedTask.id);
         setTaskHistory(Array.isArray(h) ? h : []);
+
+        setTaskHistories(prev => ({
+          ...prev,
+          [selectedTask.id]: Array.isArray(h) ? h : []
+        }));
       } catch (err) {
         console.warn('Task history operation failed:', err.message);
       }
-      // Yorum kutusunu boşalt
       setNewComment('');
       addNotification('Yorum eklendi', 'success');
     } catch (e) {
@@ -796,6 +903,32 @@ function App() {
     }
   }
 
+  function getTaskTypeText(taskType) {
+    switch (taskType) {
+      case 'new_product': return 'Yeni Ürün';
+      case 'fixture': return 'Fikstür';
+      case 'apparatus': return 'Aparat';
+      case 'development': return 'Geliştirme';
+      case 'revision': return 'Revizyon';
+      case 'mold': return 'Kalıp';
+      case 'test_device': return 'Test Cihazı';
+      default: return 'Geliştirme';
+    }
+  }
+
+  function getTaskTypeColor(taskType) {
+    switch (taskType) {
+      case 'new_product': return '#10b981';
+      case 'fixture': return '#3b82f6';
+      case 'apparatus': return '#8b5cf6';
+      case 'development': return '#f59e0b';
+      case 'revision': return '#ef4444';
+      case 'mold': return '#06b6d4';
+      case 'test_device': return '#84cc16';
+      default: return '#6b7280';
+    }
+  }
+
   function formatDate(dateLike) {
     if (!dateLike) return '-';
     const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
@@ -810,6 +943,44 @@ function App() {
     if (Number.isNaN(d.getTime())) return '-';
     const pad = (n) => n.toString().padStart(2, '0');
     return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+  }
+
+  function getLastAddedDescription(taskHistory) {
+    if (!Array.isArray(taskHistory) || taskHistory.length === 0) {
+      return 'Henüz açıklama eklenmemiş';
+    }
+
+    // Sadece comment field'ı olan yorumları al
+    const comments = taskHistory.filter(h => h.field === 'comment' && h.new_value && h.new_value.trim().length > 0);
+
+    if (comments.length > 0) {
+      // En son yorumu al
+      const sortedComments = comments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return sortedComments[0].new_value;
+    }
+
+    return 'Henüz açıklama eklenmemiş';
+  }
+
+  async function loadTaskHistoryForTooltip(taskId) {
+    if (taskHistories[taskId]) {
+      return;
+    }
+
+    try {
+      const history = await Tasks.getHistory(taskId);
+
+      setTaskHistories(prev => ({
+        ...prev,
+        [taskId]: Array.isArray(history) ? history : []
+      }));
+    } catch (err) {
+      console.warn('Failed to load task history for tooltip:', err);
+      setTaskHistories(prev => ({
+        ...prev,
+        [taskId]: []
+      }));
+    }
   }
 
   function formatRelativeTime(dateLike) {
@@ -830,7 +1001,6 @@ function App() {
     }
   }
 
-  // Tarihi input[type=datetime-local] formatına güvenli çevir
   function toInputDT(value) {
     if (!value) return '';
     const d = value instanceof Date ? value : new Date(value);
@@ -838,14 +1008,12 @@ function App() {
     return d.toISOString().slice(0, 16);
   }
 
-  // Inputtan gelen 'YYYY-MM-DDTHH:mm' değerini ISO stringe çevir
   function toISO(localDTString) {
     if (!localDTString) return '';
     const d = new Date(localDTString);
     return Number.isNaN(d.getTime()) ? '' : d.toISOString();
   }
 
-  // Güvenli küçük harf çevirici
   function lowerSafe(v) {
     return (v ?? '').toString().toLowerCase();
   }
@@ -857,13 +1025,24 @@ function App() {
     return u?.name ?? String(userId);
   }
 
-  // Geçmiş değerlerini alan bazında okunur hale getir
   function renderHistoryValue(field, value) {
     if (field === 'status') return getStatusText(value);
     if (field === 'priority') return getPriorityText(value);
+    if (field === 'task_type') return getTaskTypeText(value);
     if (field === 'comment') return value ?? '';
     if (field === 'responsible_id' || field === 'created_by') return resolveUserName(value);
-    if (field === 'start_date' || field === 'due_date' || field === 'end_date') return formatDate(value);
+    if (field === 'start_date' || field === 'due_date' || field === 'end_date') return formatDateOnly(value);
+    if (field === 'assigned_users') {
+      try {
+        const userIds = typeof value === 'string' ? JSON.parse(value) : value;
+        if (Array.isArray(userIds)) {
+          return userIds.map(id => resolveUserName(id)).join(', ');
+        }
+      } catch (e) {
+        console.error('Error parsing assigned_users:', e);
+      }
+      return value ?? 'boş';
+    }
     return value ?? 'boş';
   }
 
@@ -877,6 +1056,8 @@ function App() {
         return 'durumu';
       case 'priority':
         return 'önceliği';
+      case 'task_type':
+        return 'görev türünü';
       case 'responsible_id':
         return 'sorumluyu';
       case 'created_by':
@@ -915,40 +1096,29 @@ function App() {
     }
   }
 
-  // Sorumlu seçimi için kullanıcıları filtrele
   function getEligibleResponsibleUsers() {
     if (!users || !user) return [];
 
     return users.filter(u => {
-      // Observer'lar sorumlu olamaz
       if (u.role === 'observer') return false;
 
-      // Team leader ise admin'lere görev atayamaz
       if (user.role === 'team_leader' && u.role === 'admin') return false;
 
       return true;
     });
   }
 
-  // Atanan kullanıcılar için filtrele
   function getEligibleAssignedUsers(responsibleId = null) {
     if (!users || !user) return [];
 
     return users.filter(u => {
-      // Observer'lar atanan olamaz
       if (u.role === 'observer') return false;
-
-      // Team leader ise admin'lere görev atayamaz
       if (user.role === 'team_leader' && u.role === 'admin') return false;
-
-      // Sorumlu olan aynı görevde atanan olamaz
       if (responsibleId && u.id === parseInt(responsibleId)) return false;
-
       return true;
     });
   }
 
-  // Excel dosyasından kullanıcı verilerini okuma fonksiyonu
   function parseExcelUsers(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -960,13 +1130,11 @@ function App() {
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-          // İlk satırı başlık olarak kabul et, veri satırlarını al
           const userRows = jsonData.slice(1).filter(row => row.length >= 4);
 
           const users = userRows.map((row, index) => {
             const [name, email, role, password] = row;
 
-            // Rol validasyonu
             const validRoles = ['admin', 'team_leader', 'team_member', 'observer'];
             const validRole = validRoles.includes(role?.toLowerCase()) ? role.toLowerCase() : 'team_member';
 
@@ -974,10 +1142,10 @@ function App() {
               name: name?.toString().trim() || '',
               email: email?.toString().trim() || '',
               role: validRole,
-              password: password?.toString().trim() || '123456', // Varsayılan şifre
-              rowIndex: index + 2 // Excel satır numarası (başlık + 1)
+              password: password?.toString().trim() || '123456',
+              rowIndex: index + 2
             };
-          }).filter(user => user.name && user.email); // Boş satırları filtrele
+          }).filter(user => user.name && user.email);
 
           resolve(users);
         } catch (error) {
@@ -989,7 +1157,6 @@ function App() {
     });
   }
 
-  // Toplu kullanıcı ekleme fonksiyonu
   async function handleBulkUserImport(file) {
     try {
       setLoading(true);
@@ -1020,7 +1187,6 @@ function App() {
         }
       }
 
-      // Sonuçları bildir
       if (successCount > 0) {
         addNotification(`${successCount} kullanıcı başarıyla eklendi`, 'success');
       }
@@ -1029,7 +1195,6 @@ function App() {
         console.error('Toplu kullanıcı ekleme hataları:', errors);
       }
 
-      // Kullanıcı listesini yenile
       await loadUsers();
 
     } catch (error) {
@@ -1040,15 +1205,14 @@ function App() {
     }
   }
 
-  // Inline components inside App for brevity
   function PasswordChangeInline({ onDone }) {
     const [form, setForm] = useState({ current: '', next: '', again: '' });
     const can = form.current && form.next && form.again && form.next === form.again;
     return (
       <div className="space-y-3">
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px]" placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px]" placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px]" placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
         <button disabled={!can} className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" onClick={async () => { try { await changePassword(form.current, form.next); onDone?.(); setForm({ current: '', next: '', again: '' }); } catch (err) { console.error('Password change error:', err); addNotification('Şifre güncellenemedi', 'error'); } }}>Güncelle</button>
       </div>
     );
@@ -1065,12 +1229,23 @@ function App() {
           <label className="block font-medium text-neutral-300 !text-[24px]">
             Mevcut Şifre
           </label>
+          {/* Gizli input alanları otomatik doldurmayı engellemek için */}
+          <input type="text" style={{ display: 'none' }} autoComplete="username" />
+          <input type="password" style={{ display: 'none' }} autoComplete="current-password" />
           <input
             type="password"
             className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
             placeholder="Mevcut şifrenizi girin"
             value={form.current}
             onChange={e => setForm({ ...form, current: e.target.value })}
+            autoComplete="new-password"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-form-type="other"
+            name="current-password-hidden"
+            id="current-password-hidden"
           />
         </div>
 
@@ -1078,12 +1253,23 @@ function App() {
           <label className="block font-medium text-neutral-300 !text-[24px]">
             Yeni Şifre
           </label>
+          {/* Gizli input alanları otomatik doldurmayı engellemek için */}
+          <input type="text" style={{ display: 'none' }} autoComplete="username" />
+          <input type="password" style={{ display: 'none' }} autoComplete="new-password" />
           <input
             type="password"
             className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
             placeholder="Yeni şifrenizi girin"
             value={form.next}
             onChange={e => setForm({ ...form, next: e.target.value })}
+            autoComplete="new-password"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-form-type="other"
+            name="new-password-hidden"
+            id="new-password-hidden"
           />
         </div>
 
@@ -1091,12 +1277,23 @@ function App() {
           <label className="block font-medium text-neutral-300 !text-[24px]">
             Yeni Şifre (Tekrar)
           </label>
+          {/* Gizli input alanları otomatik doldurmayı engellemek için */}
+          <input type="text" style={{ display: 'none' }} autoComplete="username" />
+          <input type="password" style={{ display: 'none' }} autoComplete="new-password" />
           <input
             type="password"
             className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
             placeholder="Yeni şifrenizi tekrar girin"
             value={form.again}
             onChange={e => setForm({ ...form, again: e.target.value })}
+            autoComplete="new-password"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-form-type="other"
+            name="confirm-password-hidden"
+            id="confirm-password-hidden"
           />
         </div>
 
@@ -1131,21 +1328,19 @@ function App() {
 
     return (
       <div className="space-y-6">
-        {/* Tekil Kullanıcı Ekleme */}
         <div className="border-b border-white/10 pb-4">
           <div className="space-y-4">
-            <input className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px]" placeholder="İsim" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-            <input type="email" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px]" placeholder="E-posta" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px]" placeholder="Şifre" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px]" placeholder="Şifre (tekrar)" value={form.password_confirmation} onChange={e => setForm({ ...form, password_confirmation: e.target.value })} />
-            <select className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px]" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-              <option value="admin">Yönetici</option>
-              <option value="team_leader">Takım Lideri</option>
-              <option value="team_member">Takım Üyesi</option>
-              <option value="observer">Gözlemci</option>
+            <input className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="İsim" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+            <input type="email" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="E-posta" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="Şifre" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="Şifre (tekrar)" value={form.password_confirmation} onChange={e => setForm({ ...form, password_confirmation: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+            <select className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+              <option value="admin" className="bg-gray-800 text-white">Yönetici</option>
+              <option value="team_leader" className="bg-gray-800 text-white">Takım Lideri</option>
+              <option value="team_member" className="bg-gray-800 text-white">Takım Üyesi</option>
+              <option value="observer" className="bg-gray-800 text-white">Gözlemci</option>
             </select>
             <button className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" onClick={async () => {
-              // Form validasyonu
               if (!form.name.trim() || !form.email.trim() || !form.password || !form.password_confirmation) {
                 addNotification('Lütfen tüm alanları doldurun', 'error');
                 return;
@@ -1155,7 +1350,6 @@ function App() {
                 return;
               }
               try {
-                console.log('Registering user with data:', form);
                 await registerUser(form);
                 addNotification('Kullanıcı eklendi', 'success');
                 setForm({ name: '', email: '', password: '', password_confirmation: '', role: 'team_member' });
@@ -1168,20 +1362,19 @@ function App() {
           </div>
         </div>
 
-        {/* Excel'den Toplu Kullanıcı Ekleme */}
         <div className="border-b border-white/10 pb-4">
           <h4 className="!text-[18px] font-medium text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h4>
 
           <div className="space-y-4">
             <div className="bg-blue-900/20 border-blue-500/30 rounded-lg p-4">
               <div className="!text-[16px] text-blue-200 space-y-1">
-                <div>• A1: Kullanıcı Adı Soyadı</div>
-                <div>• B1: E-posta Adresi</div>
-                <div>• C1: Rol (admin/team_leader/team_member/observer)</div>
-                <div>• D1: Şifre (boşsa varsayılan: 123456)</div>
-              </div>
-              <div className="mt-3 !text-[16px] text-blue-300">
-                İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.
+                <div className="mt-3 !text-[16px] text-blue-300">
+                  İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.
+                </div>
+                <div>• A2: Kullanıcı Adı Soyadı</div>
+                <div>• B2: E-posta Adresi</div>
+                <div>• C2: Rol (admin/team_leader/team_member/observer)</div>
+                <div>• D2: Şifre (boşsa varsayılan: 123456)</div>
               </div>
             </div>
 
@@ -1192,7 +1385,7 @@ function App() {
                 const file = e.target.files[0];
                 if (file) {
                   handleBulkUserImport(file);
-                  e.target.value = ''; // Input'u temizle
+                  e.target.value = '';
                 }
               }}
               className="w-full !text-[18px] text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
@@ -1207,14 +1400,12 @@ function App() {
     );
   }
 
-  // Multi-select chips combobox for assignees
   function AssigneeMultiSelect({ allUsers, selected, onChange, responsibleId = null }) {
     const boxRef = useRef(null);
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
 
     const selectedIds = new Set((selected || []).map(u => u.id));
-    // Önce rol filtresi uygula, sonra query filtresi
     const eligibleUsers = getEligibleAssignedUsers(responsibleId);
     const all = Array.isArray(eligibleUsers) ? eligibleUsers : [];
     const q = query.trim().toLowerCase();
@@ -1236,7 +1427,6 @@ function App() {
       return () => document.removeEventListener('mousedown', onDown);
     }, []);
 
-    // Sync ref so background refresh knows dropdown state
     useEffect(() => { assigneeOpenRef.current = open; }, [open]);
 
     function removeOne(id) {
@@ -1257,12 +1447,12 @@ function App() {
     return (
       <div ref={boxRef} className="relative w-full ">
         <div
-          className="min-h-[56px] w-full rounded-lg border border-white/10 bg-[#0d1b2a]/60 px-4 flex items-center gap-1 overflow-x-auto overflow-y-hidden whitespace-nowrap text-slate-100 focus-within:ring-2 focus-within:ring-sky-500/40 focus-within:border-sky-500/40 no-scrollbar"
+          className="min-h-[56px] w-full rounded-lg border border-white/10 bg-[#0d1b2a]/60 px-4 py-2 flex flex-wrap items-center gap-2 text-slate-100 focus-within:ring-2 focus-within:ring-sky-500/40 focus-within:border-sky-500/40"
           onClick={() => setOpen(true)}
         >
           {(selected || []).map(u => (
-            <span key={u.id} className="inline-flex items-center !text-[18px] gap-1 rounded-full bg-white/10 border border-white/10 px-2 py-1 text-[11px] shrink-0 text-slate-100">
-              {u.name}{u.email ? ` (${u.email})` : ''}
+            <span key={u.id} className="inline-flex items-center !text-[18px] gap-1 rounded-full bg-white/10 border border-white/10 px-2 py-1 text-[11px] shrink-0 text-slate-100" style={{ padding: '0px 10px 0px 10px' }}>
+              {u.name}
             </span>
           ))}
           <input
@@ -1279,21 +1469,20 @@ function App() {
         {open && (
           <div className="absolute z-[100300] mt-1 w-full max-h-72 overflow-auto rounded-md border border-white/10 bg-[#0f172a] shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-[#0f172a] border-b border-white/10">
-              <div className="text-[24px] text-neutral-300">{q ? 'Filtrelenmiş' : 'Tümü'} • Seçili: {selectedIds.size}</div>
+              <div className="!text-[18px] text-neutral-300">• Seçili: {selectedIds.size}</div>
               {selectedIds.size > 0 && (
                 <button className="text-xs rounded px-2 py-1 bg-white/10 hover:bg-white/20" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Tümünü kaldır</button>
               )}
             </div>
 
             {filteredSelected.length > 0 && (
-              <div className="px-3 pt-2 pb-1 text-[11px] text-neutral-400">Seçili</div>
+              <div className="px-3 pt-2 pb-1 !text-[18px] text-neutral-400"></div>
             )}
             {filteredSelected.map(u => (
-              <div key={u.id} className="px-3 py-2 text-sm flex items-center justify-between gap-2 bg-blue-900/20 hover:bg-blue-900/30">
+              <div key={u.id} className="px-3 py-2 !text-[18px] flex items-center justify-between gap-2 bg-blue-900/20 hover:bg-blue-900/30">
                 <label className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => toggleOne(u.id)}>
                   <input type="checkbox" checked readOnly className="accent-sky-500" />
-                  <span className="text-[11px]">{u.name}</span>
-                  <span className="text-[11px]">{u.email ? ` (${u.email})` : ''}</span>
+                  <span className="text-[18px]">{u.name}</span>
                 </label>
                 <button className="text-neutral-300 hover:text-white text-sm" title="Kaldır" onClick={(e) => { e.stopPropagation(); removeOne(u.id); }}>×</button>
               </div>
@@ -1303,13 +1492,12 @@ function App() {
               <div className="px-3 pt-2 pb-1 text-[24px] text-neutral-400">Kullanıcılar</div>
             )}
             {filteredOthers.length === 0 && filteredSelected.length === 0 && (
-              <div className="px-3 py-2 text-sm text-neutral-400">Sonuç yok</div>
+              <div className="px-3 py-2 !text-[32px] text-neutral-400">Sonuç yok</div>
             )}
             {filteredOthers.map(u => (
-              <div key={u.id} className="px-3 py-2 text-sm flex items-center gap-2 cursor-pointer hover:bg-white/10" onClick={() => toggleOne(u.id)}>
+              <div key={u.id} className="px-3 py-2 !text-[24px] flex items-center gap-2 cursor-pointer hover:bg-white/10" onClick={() => toggleOne(u.id)}>
                 <input type="checkbox" checked={false} readOnly className="accent-sky-500" />
-                <span className="text-slate-100">{u.name}</span>
-                <span className="text-neutral-300">{u.email ? ` (${u.email})` : ''}</span>
+                <span className="text-[24px] text-slate-100">{u.name}</span>
               </div>
             ))}
           </div>
@@ -1319,9 +1507,8 @@ function App() {
   }
 
 
-  // Sekme ve arama filtrelerini uygula
   let filteredTasks = Array.isArray(tasks) ? tasks.filter(task => {
-    // Önce sekme filtresini uygula
+    // Durum filtresi
     if (activeTab === 'active' && (task.status === 'completed' || task.status === 'cancelled')) {
       return false;
     }
@@ -1332,7 +1519,12 @@ function App() {
       return false;
     }
 
-    // Sonra arama filtresini uygula
+    // Görev türü filtresi
+    if (selectedTaskType !== 'all' && task.task_type !== selectedTaskType) {
+      return false;
+    }
+
+    // Arama filtresi
     const q = lowerSafe(searchTerm);
     if (!q) return true;
     const title = lowerSafe(task?.title);
@@ -1340,10 +1532,9 @@ function App() {
     return title.includes(q) || desc.includes(q);
   }) : [];
 
-  // Sorting
   if (Array.isArray(filteredTasks) && sortConfig?.key) {
     const key = sortConfig.key;
-    const dir = sortConfig.dir === 'asc' ? 1 : -1; // 'Yeni' -> desc
+    const dir = sortConfig.dir === 'asc' ? 1 : -1;
     filteredTasks = [...filteredTasks].sort((a, b) => {
       let av = a?.[key];
       let bv = b?.[key];
@@ -1386,7 +1577,6 @@ function App() {
         if (at === bt) return 0;
         return at > bt ? dir : -dir;
       }
-      // fallback string compare
       av = (av ?? '').toString();
       bv = (bv ?? '').toString();
       return av.localeCompare(bv) * dir;
@@ -1407,7 +1597,6 @@ function App() {
     return sortConfig.dir === 'asc' ? '▲' : '▼';
   }
 
-  // Login Screen
   if (!user && !loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
@@ -1427,20 +1616,12 @@ function App() {
           <form onSubmit={async (e) => {
             e.preventDefault();
             if (showForgotPassword) {
-              // Şifre sıfırlama işlemi
               try {
                 setLoading(true);
-                const result = await forgotPassword(loginForm.email);
+                const result = await PasswordReset.requestReset(loginForm.email);
                 setError(null);
-                // Email gönderildi, kullanıcı kodu kendisi girecek
-                setResetPasswordForm({
-                  ...resetPasswordForm,
-                  email: loginForm.email,
-                  token: '' // Token'ı boş bırak, kullanıcı e-postadan girecek
-                });
                 setShowForgotPassword(false);
-                setShowResetPassword(true);
-                addNotification(result.message, 'success');
+                addNotification('Şifre sıfırlama talebi admin\'lere gönderildi', 'success');
               } catch (err) {
                 console.error('Forgot password error:', err);
                 setError(err.response?.data?.message || 'Bir hata oluştu');
@@ -1448,7 +1629,6 @@ function App() {
                 setLoading(false);
               }
             } else {
-              // Normal giriş işlemi
               doLogin();
             }
           }} className="space-y-6">
@@ -1466,7 +1646,6 @@ function App() {
               />
             </div>
             <br />
-            {/* Şifre alanı - sadece normal giriş modunda göster */}
             {!showForgotPassword && (
               <div>
                 <label className="block text-white text-[24px] font-medium mb-3 items-left flex">
@@ -1480,6 +1659,10 @@ function App() {
                     className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 pr-12 text-gray-900 focus:outline-none focus:ring-0 text-base text-[32px]"
                     placeholder="Şifrenizi Giriniz"
                     required
+                    autoComplete="current-password"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                   />
                 </div>
                 <br />
@@ -1501,11 +1684,9 @@ function App() {
               type="button"
               onClick={() => {
                 if (showForgotPassword) {
-                  // Geri dön - normal giriş ekranına
                   setShowForgotPassword(false);
                   setError(null);
                 } else {
-                  // Şifre sıfırlama moduna geç
                   setShowForgotPassword(true);
                   setError(null);
                 }
@@ -1517,139 +1698,6 @@ function App() {
           </div>
         </div>
 
-        {/* Şifre Sıfırlama Modal */}
-        {showResetPassword && (
-          <div
-            className="fixed inset-0 flex items-center justify-center z-[9999]"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(4px)' }}
-            onClick={() => setShowResetPassword(false)}
-          >
-            <div
-              className="rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-gray-700/50 overflow-hidden"
-              style={{ backgroundColor: '#1f2937' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="bg-gradient-to-r from-green-500 to-blue-500 px-6 py-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                    <span className="text-xl text-white">🔑</span>
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Şifre Sıfırla</h2>
-                    <p className="text-green-100 text-sm">Yeni şifrenizi belirleyin</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-8">
-                <form onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (resetPasswordForm.password !== resetPasswordForm.password_confirmation) {
-                    setError('Şifreler eşleşmiyor');
-                    return;
-                  }
-                  try {
-                    setLoading(true);
-                    const result = await resetPassword(
-                      resetPasswordForm.email,
-                      resetPasswordForm.token,
-                      resetPasswordForm.password,
-                      resetPasswordForm.password_confirmation
-                    );
-                    setError(null);
-                    setShowResetPassword(false);
-                    setResetPasswordForm({ email: '', token: '', password: '', password_confirmation: '' });
-                    setForgotPasswordForm({ email: '' });
-                    addNotification(result.message, 'success');
-                  } catch (err) {
-                    console.error('Reset password error:', err);
-                    setError(err.response?.data?.message || 'Bir hata oluştu');
-                  } finally {
-                    setLoading(false);
-                  }
-                }}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block font-medium text-white mb-3 text-lg">
-                        📧 E-posta
-                      </label>
-                      <input
-                        type="email"
-                        value={resetPasswordForm.email}
-                        onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, email: e.target.value })}
-                        className="w-full bg-gray-700/50 border border-gray-600/50 text-gray-400 rounded-xl px-4 py-4 text-lg"
-                        readOnly
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-medium text-white mb-3 text-lg">
-                        🔢 Sıfırlama Kodu
-                      </label>
-                      <input
-                        type="text"
-                        value={resetPasswordForm.token}
-                        onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, token: e.target.value })}
-                        className="w-full bg-gray-700/50 border border-gray-600/50 text-white rounded-xl px-4 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors placeholder-gray-400"
-                        placeholder="E-posta ile gelen kodu girin"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-medium text-white mb-3 text-lg">
-                        🔒 Yeni Şifre
-                      </label>
-                      <input
-                        type="password"
-                        value={resetPasswordForm.password}
-                        onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, password: e.target.value })}
-                        className="w-full bg-gray-700/50 border border-gray-600/50 text-white rounded-xl px-4 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors placeholder-gray-400"
-                        placeholder="Yeni şifrenizi girin"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-medium text-white mb-3 text-lg">
-                        🔒 Yeni Şifre (Tekrar)
-                      </label>
-                      <input
-                        type="password"
-                        value={resetPasswordForm.password_confirmation}
-                        onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, password_confirmation: e.target.value })}
-                        className="w-full bg-gray-700/50 border border-gray-600/50 text-white rounded-xl px-4 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors placeholder-gray-400"
-                        placeholder="Yeni şifrenizi tekrar girin"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 mt-6">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowResetPassword(false);
-                        setShowForgotPassword(true);
-                      }}
-                      className="flex-1 bg-gray-600/50 hover:bg-gray-600/70 text-white font-medium rounded-xl transition-colors border border-gray-500/50 px-6 py-4 text-lg"
-                    >
-                      ← Geri
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 disabled:from-gray-600 disabled:to-gray-600 text-white font-medium rounded-xl transition-all px-6 py-4 text-lg"
-                    >
-                      {loading ? '🔄 Sıfırlanıyor...' : '✅ Şifreyi Sıfırla'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -1660,7 +1708,6 @@ function App() {
       <div className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-2 xs:px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14 xs:h-16 sm:h-18 lg:h-20">
-            {/* Left Side - Brand */}
             <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-4 lg:space-x-6">
               <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-3">
                 <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
@@ -1669,9 +1716,8 @@ function App() {
                     alt="Vaden Logo"
                     style={{ width: '200px', height: '100px' }}
                     className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
-                    onLoad={() => console.log('Header logo başarıyla yüklendi')}
+                    onLoad={() => { }}
                     onError={(e) => {
-                      console.error('Header logo yüklenemedi, fallback text gösteriliyor');
                       e.target.style.display = 'none';
                       e.target.nextSibling.style.display = 'block';
                     }}
@@ -1679,31 +1725,26 @@ function App() {
                 </div>
               </div>
             </div>
-            {/* Right Side - Controls: Yeni Görev, Kullanıcı, Zil, Çıkış */}
             <div className="flex items-center space-x-1 xs:space-x-2 sm:space-x-3 lg:space-x-4">
-              {(user?.role === 'admin' || user?.role === 'team_leader') && (
+              {user?.role !== 'observer' && (
                 <button
                   onClick={() => {
                     resetNewTask();
                     setShowAddForm(!showAddForm);
                   }}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-2 xs:px-3 sm:px-4 py-1.5 xs:py-2 rounded-lg transition-all duration-200 flex items-center space-x-1 sm:space-x-2 shadow-md text-xs sm:text-sm"
+                  className="add-task-button bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
                 >
-                  <span className="text-sm xs:text-base sm:text-lg lg:text-xl">+</span>
-                  <span className="font-medium hidden lg:inline text-xs xs:text-sm">Yeni Görev Ekle</span>
-                  <span className="font-medium hidden sm:inline lg:hidden text-xs xs:text-sm">Yeni Görev</span>
-                  <span className="font-medium sm:hidden text-xs xs:text-sm">Ekle</span>
+                  <span className="add-icon">➕</span>
                 </button>
               )}
 
-              {/* Profil Menüsü */}
               <div className="relative profile-menu">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-2 xs:px-3 sm:px-3 py-1.5 xs:py-2 rounded-lg transition-colors flex items-center space-x-1 shadow-md"
+                  className="profile-icon text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
                   title={user?.email || ''}
                 >
-                  <span className="text-xs xs:text-sm">👤</span>
+                  <span className="user-icon">👤</span>
                   <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
                   <span className="text-xs hidden sm:inline">▼</span>
                 </button>
@@ -1750,7 +1791,7 @@ function App() {
                       className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                       style={{ padding: '10px' }}
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-2 whitespace-nowrap">
                         <span>🚪</span>
                         <span>Çıkış Yap</span>
                       </span>
@@ -1759,35 +1800,24 @@ function App() {
                 )}
               </div>
 
-              {/* Notifications */}
               <div className="relative">
                 <button
                   ref={bellRef}
                   onClick={async () => {
                     const next = !showNotifications;
-                    if (next) await loadNotifications(); // açarken çek
+                    if (next) await loadNotifications();
                     setShowNotifications(next);
                   }}
-                  className="relative rounded-lg p-2 text-gray-300 hover:bg-white/5 hover:text-white overflow-visible"
+                  className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible"
                   aria-label="Bildirimler"
                 >
-                  {/* KIRMIZI ROZET */}
                   {badgeCount > 0 && (
-                    <span
-                      className="
-          pointer-events-none absolute -top-1 -left-1
-          grid place-items-center z-10
-          w-5 h-5 rounded-full text-white text-[11px] font-bold
-          border-2 border-neutral-900
-        "
-                      style={{ backgroundColor: '#ef4444' }}  // bg-red-600 garanti
-                    >
+                    <span className="notification-badge">
                       {badgeCount > 99 ? '99+' : badgeCount}
                     </span>
                   )}
 
-                  {/* zil ikonu */}
-                  <span className="text-lg">🔔</span>
+                  <span>🔔</span>
                 </button>
               </div>
 
@@ -1795,14 +1825,12 @@ function App() {
 
               {showNotifications && createPortal(
                 <>
-                  {/* (varsa) yarı saydam arkaplan */}
                   <div className="fixed inset-0 z-[9998] bg-black/80"
                     onClick={() => setShowNotifications(false)} />
 
-                  {/* PANEL KAPSAYICI */}
                   <div
                     ref={notifPanelRef}
-                    className="fixed z-[99999] p-3"              // <— kenarlara boşluk
+                    className="fixed z-[99999] p-3"
                     style={{
                       top: `${notifPos.top}px`,
                       right: `${notifPos.right}px`,
@@ -1811,34 +1839,24 @@ function App() {
                       WebkitBackdropFilter: 'none',
                     }}
                   >
-                    {/* ASIL KART */}
                     <div
-                      className="w-[360px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                      className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
                     >
                       {/* Header */}
                       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
-                          {/* istersen toplam sayıyı burada göstermeyebilirsin */}
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={async () => { try { await Notifications.markAllAsRead(); await loadNotifications(); } catch (err) { console.error('Mark all notifications error:', err); addNotification('İşlem başarısız', 'error'); } }}
                             className="rounded-lg px-2 py-1 text-xs font-medium text-blue-300 border border-blue-400/40 bg-blue-500/10"
                           >
-                            Tümünü okundu
-                          </button>
-                          <button
-                            onClick={() => setShowNotifications(false)}
-                            className="rounded-lg p-1 text-neutral-300 hover:bg-white/10 hover:text-white"
-                            aria-label="Kapat"
-                          >
-                            ✕
+                            Tümünü okundu yap
                           </button>
                         </div>
                       </div>
 
-                      {/* Liste alanı */}
                       <div className="overflow-y-auto notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
                         {(!Array.isArray(notifications) || notifications.length === 0) ? (
                           <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
@@ -1851,7 +1869,7 @@ function App() {
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                   <p className="text-sm text-white">{n.message}</p>
-                                  <p className="text-xs text-neutral-400 mt-1">{formatRelativeTime(n.created_at)}</p>
+                                  <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
                                 </div>
                                 <div className="flex gap-1 ml-2">
                                   {!n.read_at && (
@@ -1890,7 +1908,6 @@ function App() {
         </div>
       </div>
 
-      {/* Add Task Modal */}
       {showAddForm && (
         <div className="fixed inset-0 z-[100300]">
           <div
@@ -1902,7 +1919,6 @@ function App() {
             }}
           />
           <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full">
-            {/* Dark modal container aligned with other panels */}
             <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
@@ -1914,9 +1930,14 @@ function App() {
                   }} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
                 </div>
               </div>
-              <div className="overflow-y-auto flex flex-col gap-4 sm:gap-6" style={{ height: 'calc(95vh - 80px)', padding: '20px' }}>
+              <div className="overflow-y-auto flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
+                {/* Error Display */}
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
+                    {error}
+                  </div>
+                )}
                 <br />
-                {/* Görev Başlığı */}
                 <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
                   <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Görev Başlığı</label>
                   <input
@@ -1942,6 +1963,25 @@ function App() {
                     <option value="medium">Orta</option>
                     <option value="high">Yüksek</option>
                     <option value="critical">Kritik</option>
+                  </select>
+                </div>
+                <br />
+                {/* Görev Türü */}
+                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Görev Türü</label>
+                  <select
+                    value={newTask.task_type}
+                    onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ minHeight: '48px' }}
+                  >
+                    <option value="new_product">Yeni Ürün</option>
+                    <option value="fixture">Fikstür</option>
+                    <option value="apparatus">Aparat</option>
+                    <option value="development">Geliştirme</option>
+                    <option value="revision">Revizyon</option>
+                    <option value="mold">Kalıp</option>
+                    <option value="test_device">Test Cihazı</option>
                   </select>
                 </div>
                 <br />
@@ -2048,7 +2088,6 @@ function App() {
                         }}
                         onFocus={() => setShowAssigneeDropdown(true)}
                         onBlur={() => {
-                          // Dropdown'ın kapanması için kısa bir gecikme
                           setTimeout(() => setShowAssigneeDropdown(false), 200);
                         }}
                       />
@@ -2156,7 +2195,6 @@ function App() {
                   </div>
                 </div>
                 <br />
-                {/* Görev Açıklaması */}
                 <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] font-medium text-slate-200 text-left">Görev Açıklaması</label>
                   <textarea
@@ -2167,22 +2205,13 @@ function App() {
                   />
                 </div>
                 <br />
-                <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-4 sm:mt-6">
+                <div className="mt-4 sm:mt-6 mb-4">
                   <button
                     onClick={handleAddTask}
                     disabled={loading || !newTask.title}
                     className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
                   >
                     {loading ? 'Ekleniyor...' : 'Ekle'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddForm(false);
-                      resetNewTask();
-                    }}
-                    className="w-full bg-gray-600 hover:bg-gray-700 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
-                  >
-                    İptal
                   </button>
                 </div>
               </div>
@@ -2191,16 +2220,13 @@ function App() {
         </div>
       )}
 
-      {/* Main Content - Task List */}
       <div className="bg-white">
         <div className="px-2 xs:px-3 sm:px-4 lg:px-6">
           <h2 className="text-xs xs:text-sm sm:text-base lg:text-lg font-semibold text-gray-900 py-2 xs:py-3 sm:py-4 border-b border-gray-200">
             Görev Takip Sistemi
           </h2>
 
-          {/* Sekmeler ve Arama */}
           <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto">
-            {/* Sekmeler */}
             <button
               onClick={() => setActiveTab('active')}
               className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
@@ -2229,73 +2255,103 @@ function App() {
               İptal ({taskCounts.deleted})
             </button>
 
-            {/* Arama Kutusu */}
+            {/* Görev Türü Filtresi */}
+            <div className="relative">
+              <select
+                value={selectedTaskType}
+                onChange={(e) => setSelectedTaskType(e.target.value)}
+                className="px-3 xs:px-4 sm:px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
+                style={{ height: '40px', minWidth: '140px' }}
+              >
+                <option value="all">Tüm Türler</option>
+                <option value="new_product">Yeni Ürün</option>
+                <option value="fixture">Fikstür</option>
+                <option value="apparatus">Aparat</option>
+                <option value="development">Geliştirme</option>
+                <option value="revision">Revizyon</option>
+                <option value="mold">Kalıp</option>
+                <option value="test_device">Test Cihazı</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+
             <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
               <input
                 type="text"
                 placeholder="Görev ara..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-48 xs:w-56 sm:w-64 px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                className="w-48 xs:w-56 sm:w-64 px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
                 style={{ height: '30px' }}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                data-lpignore="true"
+                data-form-type="other"
+                name="search"
+                id="task-search"
+                onFocus={(e) => {
+                  e.target.setAttribute('autocomplete', 'off');
+                  e.target.setAttribute('autocorrect', 'off');
+                  e.target.setAttribute('autocapitalize', 'off');
+                  e.target.setAttribute('spellcheck', 'false');
+                }}
+                onInput={(e) => {
+                  // Otomatik doldurma tespit edilirse temizle
+                  if (e.target.value && !e.isTrusted) {
+                    e.target.value = '';
+                    setSearchTerm('');
+                  }
+                }}
               />
             </div>
           </div>
         </div>
 
-        {/* Table Header + Column Sorts */}
         <div className="bg-gray-50 border-b border-gray-200 min-w-[400px]">
-          <div className="grid grid-cols-[64px_128px_80px_96px_128px_160px_112px_96px_96px_112px_80px_80px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
-            <button onClick={() => toggleSort('id')} className="flex items-center justify-between px-2">
-              <span>ID</span><span className="text-[10px]">{sortIndicator('id')}</span>
+          <div className="grid grid-cols-[180px_100px_100px_180px_140px_140px_120px_80px_100px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
+            <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
+              <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
             </button>
-            <button onClick={() => toggleSort('title')} className="flex items-center justify-between px-2">
-              <span>Başlık</span><span className="text-[10px]">{sortIndicator('title')}</span>
+            <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
+              <span>Öncelik</span><span className="text-[10px] ml-1">{sortIndicator('priority')}</span>
             </button>
-            <button onClick={() => toggleSort('priority')} className="flex items-center justify-between px-2">
-              <span>Öncelik</span><span className="text-[10px]">{sortIndicator('priority')}</span>
+            <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
+              <span>Tür</span><span className="text-[10px] ml-1">{sortIndicator('task_type')}</span>
             </button>
-            <button onClick={() => toggleSort('status')} className="flex items-center justify-between px-2">
-              <span>Durum</span><span className="text-[10px]">{sortIndicator('status')}</span>
+            <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-center px-2">
+              <span>Sorumlu</span><span className="text-[10px] ml-1">{sortIndicator('responsible_name')}</span>
             </button>
-            <button onClick={() => toggleSort('description')} className="flex items-center justify-between px-2">
-              <span>Açıklama</span><span className="text-[10px]">{sortIndicator('description')}</span>
+            <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-center px-2">
+              <span>Oluşturan</span><span className="text-[10px] ml-1">{sortIndicator('creator_name')}</span>
             </button>
-            <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-between px-2">
-              <span>Sorumlu</span><span className="text-[10px]">{sortIndicator('responsible_name')}</span>
+            <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
+              <span>Başlangıç</span><span className="text-[10px] ml-1">{sortIndicator('start_date')}</span>
             </button>
-            <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-between px-2">
-              <span>Oluşturan</span><span className="text-[10px]">{sortIndicator('creator_name')}</span>
+            <button onClick={() => toggleSort('assigned_count')} className="flex items-center justify-center px-2">
+              <span>Atananlar</span><span className="text-[10px] ml-1">{sortIndicator('assigned_count')}</span>
             </button>
-            <button onClick={() => toggleSort('start_date')} className="flex items-center justify-between px-2">
-              <span>Başlangıç</span><span className="text-[10px]">{sortIndicator('start_date')}</span>
-            </button>
-            <button onClick={() => toggleSort('due_date')} className="flex items-center justify-between px-2">
-              <span>Bitiş</span><span className="text-[10px]">{sortIndicator('due_date')}</span>
-            </button>
-            <button onClick={() => toggleSort('assigned_count')} className="flex items-center justify-between px-2">
-              <span>Atananlar</span><span className="text-[10px]">{sortIndicator('assigned_count')}</span>
-            </button>
-            <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-between px-2">
-              <span>Dosyalar</span><span className="text-[10px]">{sortIndicator('attachments_count')}</span>
+            <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
+              <span>Dosyalar</span><span className="text-[10px] ml-1">{sortIndicator('attachments_count')}</span>
             </button>
             <button className="flex items-center justify-center px-2">
-              <span>İşlemler</span>
+              <span>Güncel Durum</span>
             </button>
           </div>
         </div>
 
-        {/* Task List */}
         <div className="divide-y divide-gray-200">
           {filteredTasks.map((task) => (
             <div
               key={task.id}
               onClick={() => handleTaskClick(task)}
-              className="grid grid-cols-[64px_128px_80px_96px_128px_160px_112px_96px_96px_112px_80px_80px] gap-0 px-3 xs:px-4 sm:px-6 py-2 xs:py-3 sm:py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+              className="grid grid-cols-[180px_100px_100px_180px_140px_140px_120px_80px_100px] gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors"
             >
-              <div className="px-2">
-                <div className="text-xs xs:text-sm text-gray-900">{task.id}</div>
-              </div>
               <div className="px-2">
                 <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
                   {task.title || `Görev ${task.id}`}
@@ -2314,17 +2370,14 @@ function App() {
               </div>
               <div className="px-2">
                 <span
-                  className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
+                  className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
                   style={{
-                    backgroundColor: getStatusColor(task.status) + '20',
-                    color: getStatusColor(task.status)
+                    backgroundColor: getTaskTypeColor(task.task_type) + '20',
+                    color: getTaskTypeColor(task.task_type)
                   }}
                 >
-                  {getStatusText(task.status)}
+                  {getTaskTypeText(task.task_type)}
                 </span>
-              </div>
-              <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
-                {task.description || 'Açıklama yok'}
               </div>
               <div className="px-2 text-xs xs:text-sm text-gray-900">
                 {task.responsible?.name || 'Atanmamış'}
@@ -2335,9 +2388,6 @@ function App() {
               <div className="px-2 text-xs xs:text-sm text-gray-900">
                 {task.start_date ? formatDateOnly(task.start_date) : '-'}
               </div>
-              <div className="px-2 text-xs xs:text-sm text-gray-900">
-                {task.due_date ? formatDateOnly(task.due_date) : '-'}
-              </div>
               <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
                 {task.assigned_users?.length > 0
                   ? task.assigned_users.map(u => u.name).join(', ')
@@ -2346,73 +2396,43 @@ function App() {
               </div>
               <div className="px-2 text-xs xs:text-sm text-gray-900">
                 {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
-
               </div>
-              <div className="px-2 flex space-x-1 xs:space-x-2 justify-center items-center">
-                {activeTab === 'active' && user?.role !== 'observer' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStatusChange(task.id, 'completed');
+              <div className="px-2 flex justify-center items-center">
+                <div
+                  className="relative group"
+                  onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
+                    style={{
+                      backgroundColor: getStatusColor(task.status),
+                      border: '3px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
+                      width: '24px',
+                      height: '24px'
                     }}
-                    className="text-green-600 hover:text-green-800 text-xs p-1 rounded hover:bg-green-50"
-                    title="Tamamla"
+                    title={getStatusText(task.status)}
+                  ></div>
+                  <div
+                    className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
+                    style={{
+                      backgroundColor: 'rgba(17, 24, 39, 0.98)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      minWidth: '300px',
+                      maxWidth: '400px',
+                      padding: '20px 16px'
+                    }}
                   >
-                    ✓
-                  </button>
-                )}
-                {(activeTab === 'completed') && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTaskClick(task);
-                      }}
-                      className="text-blue-600 hover:text-blue-800 text-xs p-1 rounded hover:bg-blue-50"
-                      title="Görüntüle"
-                    >
-                      👁️
-                    </button>
-                    {user?.role === 'admin' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePermanentDelete(task.id);
-                        }}
-                        className="text-red-600 hover:text-red-800 text-xs p-1 rounded hover:bg-red-50"
-                        title="Kalıcı Sil"
-                      >
-                        🗑️
-                      </button>
-                    )}
-                  </>
-                )}
-                {(activeTab === 'deleted') && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleTaskClick(task);
-                      }}
-                      className="text-blue-600 hover:text-blue-800 text-xs p-1 rounded hover:bg-blue-50"
-                      title="Görüntüle"
-                    >
-                      👁️
-                    </button>
-                    {user?.role === 'admin' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePermanentDelete(task.id);
-                        }}
-                        className="text-red-600 hover:text-red-800 text-xs p-1 rounded hover:bg-red-50"
-                        title="Kalıcı Sil"
-                      >
-                        🗑️
-                      </button>
-                    )}
-                  </>
-                )}
+                    <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
+                    <div className="text-justify">Durum: {getStatusText(task.status)}</div>
+                    <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
+                    <div
+                      className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
+                      style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
+                    ></div>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -2433,13 +2453,10 @@ function App() {
         )}
       </div>
 
-      {/* Detail Modal */}
       {showDetailModal && selectedTask && createPortal(
         <div className="fixed inset-0 z-[100100]">
-          {/* OPak arka plan */}
           <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} />
 
-          {/* İçerik taşıyıcı – tam ortalı */}
           <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4">
             <div
               className="
@@ -2451,19 +2468,15 @@ function App() {
               style={{ backgroundColor: '#111827', color: '#e5e7eb' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header (flex-none) */}
               <div
                 className="border-b flex-none"
                 style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}
               >
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                  {/* Left: Share button */}
                   <div className="justify-self-start">
 
                   </div>
-                  {/* Center: Title */}
                   <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Detayı</h2>
-                  {/* Right: Close */}
                   <div className="justify-self-end">
                     <button
                       onClick={handleCloseModal}
@@ -2476,11 +2489,15 @@ function App() {
                 </div>
               </div>
 
-              {/* Gövde (flex-1) */}
               <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden divide-x divide-white/10">
-                {/* Sol panel – kaydırılabilir */}
                 <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" style={{ padding: '0px 24px' }}>
                   <div className="py-6 flex flex-col gap-4 sm:gap-6 min-h-[calc(105vh-280px)]">
+                    {/* Error Display */}
+                    {error && (
+                      <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
+                        {error}
+                      </div>
+                    )}
                     {/* ID */}
                     <br />
                     <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
@@ -2554,6 +2571,36 @@ function App() {
                       )}
                     </div>
                     <br />
+                    {/* Görev Türü */}
+                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                        Görev Türü
+                      </label>
+                      {user?.role === 'admin' ? (
+                        <select
+                          value={selectedTask.task_type || 'development'}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            try { await handleUpdateTask(selectedTask.id, { task_type: val }); } catch { }
+                          }}
+                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ minHeight: '24px' }}
+                        >
+                          <option value="new_product">Yeni Ürün</option>
+                          <option value="fixture">Fikstür</option>
+                          <option value="apparatus">Aparat</option>
+                          <option value="development">Geliştirme</option>
+                          <option value="revision">Revizyon</option>
+                          <option value="mold">Kalıp</option>
+                          <option value="test_device">Test Cihazı</option>
+                        </select>
+                      ) : (
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                          {getTaskTypeText(selectedTask.task_type)}
+                        </div>
+                      )}
+                    </div>
+                    <br />
                     {/* Sorumlu */}
                     <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
@@ -2616,11 +2663,13 @@ function App() {
                         ) : (
                           <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
                             {(selectedTask.assigned_users || []).length > 0 ? (
-                              selectedTask.assigned_users.map(u => (
-                                <span key={u.id} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-[24px]">
-                                  {u.name}
-                                </span>
-                              ))
+                              <div className="flex flex-wrap gap-2">
+                                {selectedTask.assigned_users.map(u => (
+                                  <span key={u.id} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-[24px]">
+                                    {u.name}
+                                  </span>
+                                ))}
+                              </div>
                             ) : (
                               <span className="text-gray-500">-</span>
                             )}
@@ -2764,7 +2813,7 @@ function App() {
                         </div>
                         <div className="flex-1">
                           <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
-                          {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin')) ? (
+                          {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin' || user?.role === 'team_leader')) ? (
                             <input
                               type="date"
                               value={selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : ''}
@@ -2809,11 +2858,10 @@ function App() {
                   </div>
                 </div>
 
-                {/* Sağ panel – Açıklamalar (seninkiyle aynı, küçük revizyon yok) */}
                 <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 bg-[#0f172a] flex flex-col overflow-hidden">
                   <div className="border-b border-white/10 flex-none" style={{ padding: '1px' }}>
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg md:text-xl font-semibold text-white">📢 Açıklamalar</h3>
+                      <h3 className="text-lg md:text-xl font-semibold text-white">📢 Görev Geçmişi</h3>
                       <button
                         onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
                         className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'}`}
@@ -2825,17 +2873,29 @@ function App() {
                   <div className="flex-1 overflow-y-auto space-y-4" style={{ padding: '10px' }}>
                     {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
                       taskHistory.map((h) => (
-                        <div key={h.id} className="bg-white/5 border-white/10 p-3 rounded">
+                        <div key={h.id} className="bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[11px] text-blue-300 mb-1">{formatDate(h.created_at)}</div>
+                            <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                              <div className="text-[11px] text-blue-300 mb-1">{formatDateOnly(h.created_at)}</div>
                               {h.field === 'comment' ? (
-                                <div className="text-sm">
+                                <div className="text-sm max-w-full overflow-hidden">
                                   <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
-                                  <span className="text-neutral-200">{renderHistoryValue(h.field, h.new_value)}</span>
+                                  <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{renderHistoryValue(h.field, h.new_value)}</span>
                                 </div>
-                              ) : h.field === 'assigned_users' ? (
-                                <div className="text-sm text-neutral-200 truncate">{h.user?.name || 'Kullanıcı'} kullanıcıları güncelledi.</div>
+                              ) : (h.new_value && typeof h.new_value === 'string' && h.new_value.trim().length > 0 &&
+                                !h.field.includes('status') && !h.field.includes('priority') &&
+                                !h.field.includes('task_type') && !h.field.includes('date') &&
+                                !h.field.includes('attachments') && !h.field.includes('assigned') &&
+                                !h.field.includes('responsible') && !h.field.includes('assigned_users') &&
+                                !h.new_value.toLowerCase().includes('dosya') &&
+                                !h.new_value.toLowerCase().includes('eklendi') &&
+                                !h.new_value.toLowerCase().includes('silindi') &&
+                                !h.new_value.toLowerCase().includes('değiştirildi') &&
+                                !h.new_value.toLowerCase().includes('→')) ? (
+                                <div className="text-sm max-w-full overflow-hidden">
+                                  <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
+                                  <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{h.new_value}</span>
+                                </div>
                               ) : h.field === 'attachments' ? (
                                 <div className="text-sm text-neutral-200">
                                   {(() => {
@@ -2919,6 +2979,83 @@ function App() {
                                     );
                                   })()}
                                 </div>
+                              ) : h.field === 'assigned_users' ? (
+                                <div className="text-sm">
+                                  {(() => {
+                                    const normalizeToNames = (val) => {
+                                      let arr;
+                                      try {
+                                        const v = typeof val === 'string' ? JSON.parse(val) : val;
+                                        arr = Array.isArray(v) ? v : (v != null ? [v] : []);
+                                      } catch {
+                                        arr = val != null ? [val] : [];
+                                      }
+                                      return arr.map((id) => {
+                                        return resolveUserName(id);
+                                      });
+                                    };
+                                    const oldUsers = normalizeToNames(h.old_value);
+                                    const newUsers = normalizeToNames(h.new_value);
+
+                                    // Yeni eklenen kullanıcıları bul
+                                    const added = newUsers.filter(user => !oldUsers.includes(user));
+                                    // Kaldırılan kullanıcıları bul
+                                    const removed = oldUsers.filter(user => !newUsers.includes(user));
+
+                                    const actor = h.user?.name || 'Kullanıcı';
+                                    if (added.length > 0 && removed.length === 0) {
+                                      return (
+                                        <>
+                                          <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
+                                          <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
+                                          <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                            {added.map((name, idx) => (
+                                              <li key={`a-${idx}`} className="break-all">{name}</li>
+                                            ))}
+                                          </ul>
+                                        </>
+                                      );
+                                    }
+                                    if (removed.length > 0 && added.length === 0) {
+                                      return (
+                                        <>
+                                          <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
+                                          <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
+                                          <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                            {removed.map((name, idx) => (
+                                              <li key={`r-${idx}`} className="break-all">{name}</li>
+                                            ))}
+                                          </ul>
+                                        </>
+                                      );
+                                    }
+                                    return (
+                                      <>
+                                        <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
+                                        {added.length > 0 && (
+                                          <>
+                                            <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
+                                            <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                              {added.map((name, idx) => (
+                                                <li key={`a2-${idx}`} className="break-all">{name}</li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        )}
+                                        {removed.length > 0 && (
+                                          <>
+                                            <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
+                                            <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                              {removed.map((name, idx) => (
+                                                <li key={`r2-${idx}`} className="break-all">{name}</li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
                               ) : (
                                 <div className="text-sm">
                                   <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}</span>{' '}
@@ -2929,7 +3066,7 @@ function App() {
                             </div>
                             {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
                               <button
-                                onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
+                                onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); setTaskHistories(prev => ({ ...prev, [selectedTask.id]: Array.isArray(h2) ? h2 : [] })); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
                                 className="shrink-0 rounded px-2 py-1 text-rose-300 hover:text-white hover:bg-rose-600/30 text-xs"
                                 title="Yorumu sil"
                               >🗑️</button>
@@ -2953,31 +3090,81 @@ function App() {
                   </div>
 
                   {user?.role !== 'observer' && (
-                    <div className="border-t border-white/10 flex-none" style={{ padding: '5px' }}>
-                      <textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Yorum yap/Not ekle"
-                        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[18px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        rows={2}
-                      />
-                      <div className="mt-2 flex items-center justify-between">
-                        <div className="flex gap-2 text-neutral-300" />
-                        <button
-                          onClick={handleAddComment}
-                          disabled={!newComment.trim()}
-                          className="rounded-md px-3 py-2 text-sm text-white disabled:opacity-60"
-                          style={{ backgroundColor: '#2563eb' }}
-                        >
-                          Gönder
-                        </button>
+                    <div className="border-t border-white/10 flex-none p-4">
+                      <div className="relative flex items-center bg-gray-800 rounded-2xl border border-gray-600 py-2">
+                        {/* Input alanı */}
+                        <textarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Yorum yap/Not ekle"
+                          className="flex-1 bg-transparent border-none outline-none px-4 text-white placeholder-gray-400 resize-none"
+                          style={{
+                            minHeight: '48px',
+                            maxHeight: '120px',
+                            fontSize: '16px',
+                            lineHeight: '1.5'
+                          }}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleAddComment();
+                            }
+                          }}
+                          onInput={(e) => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                          }}
+                        />
+
+                        <div className="pr-3 flex items-center">
+                          <button
+                            onClick={handleAddComment}
+                            disabled={!newComment.trim()}
+                            className="rounded-full flex items-center justify-center transition-all duration-300"
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              backgroundColor: newComment.trim() ? '#10b981' : '#4b5563',
+                              boxShadow: newComment.trim() ? '0 4px 12px rgba(16, 185, 129, 0.4)' : '0 2px 4px rgba(0, 0, 0, 0.2)',
+                              transform: newComment.trim() ? 'scale(1)' : 'scale(0.9)',
+                              cursor: newComment.trim() ? 'pointer' : 'not-allowed',
+                              border: newComment.trim() ? '2px solid rgba(255, 255, 255, 0.2)' : '2px solid rgba(255, 255, 255, 0.1)',
+                              opacity: newComment.trim() ? '1' : '0.6'
+                            }}
+                            onMouseEnter={(e) => {
+                              if (newComment.trim()) {
+                                e.target.style.backgroundColor = '#059669';
+                                e.target.style.transform = 'scale(1.1)';
+                                e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.5)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (newComment.trim()) {
+                                e.target.style.backgroundColor = '#10b981';
+                                e.target.style.transform = 'scale(1)';
+                                e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                              }
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '0',
+                                height: '0',
+                                borderLeft: '6px solid transparent',
+                                borderRight: '6px solid transparent',
+                                borderTop: '8px solid white',
+                                transform: 'rotate(-90deg)',
+                                marginLeft: '2px'
+                              }}
+                            ></div>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* /Gövde */}
             </div>
           </div>
         </div>,
@@ -2985,7 +3172,6 @@ function App() {
       )
       }
 
-      {/* Kullanıcı Profil Modeli */}
       {showUserProfile && createPortal(
         <div className="fixed inset-0 z-[100200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} />
@@ -3001,7 +3187,6 @@ function App() {
 
               {/* Body */}
               <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-                {/* Kullanıcı Bilgileri */}
                 <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
                   <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
                     <div className="text-neutral-300 !text-[18px]">İsim</div>
@@ -3015,7 +3200,6 @@ function App() {
                   </div>
                 </div>
                 <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                {/* Şifre Değiştirme */}
                 <div className="bg-white/5 rounded-xl p-6 mx-4">
                   <div className="!text-[20px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
                     🔐 <span className="ml-2">Şifre Değiştir</span>
@@ -3029,7 +3213,6 @@ function App() {
         document.body
       )}
 
-      {/* Kullanıcı Paneli - basit placeholder, admin/üye ayrımı daha sonra */}
       {showUserPanel && createPortal(
         <div className="fixed inset-0 z-[100200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} />
@@ -3044,7 +3227,6 @@ function App() {
               </div>
               {/* Body */}
               <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto" style={{ height: 'calc(80vh - 72px)' }}>
-                {/* Left - profile / admin create */}
                 <div className="flex-1 min-w-0 space-y-6" style={{ padding: '20px' }}>
                   <div className="grid items-center gap-x-10 gap-y-4" style={{ gridTemplateColumns: '220px 1fr' }}>
                     <div className="text-neutral-300 !text-[32px]">İsim</div>
@@ -3056,7 +3238,6 @@ function App() {
                     <div className="text-neutral-300 !text-[32px]">Rol</div>
                     <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 !text-[32px]">{getRoleText(user?.role)}</div>
                   </div>
-                  {/* Şifre değiştirme kısayolu */}
                   <div className="border-t border-white/10 pt-4 mt-2">
                     <div className="!text-[24px] font-medium mb-2">Şifre Değiştir</div>
                     <PasswordChangeInline onDone={() => addNotification('Şifre güncellendi', 'success')} />
@@ -3068,11 +3249,9 @@ function App() {
                     </div>
                   )}
                 </div>
-                {/* Right - users list for admin */}
-                <div className="w-[480px] shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
+                <div className="w-[600px] shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
                   <div className="text-[24px] font-semibold mb-3">Kullanıcılar</div>
 
-                  {/* Kullanıcı Arama */}
                   <div className="mb-4">
                     <input
                       type="text"
@@ -3080,6 +3259,27 @@ function App() {
                       value={userSearchTerm}
                       onChange={(e) => setUserSearchTerm(e.target.value)}
                       className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[16px] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      data-lpignore="true"
+                      data-form-type="other"
+                      name="user-search"
+                      id="user-search"
+                      onFocus={(e) => {
+                        e.target.setAttribute('autocomplete', 'off');
+                        e.target.setAttribute('autocorrect', 'off');
+                        e.target.setAttribute('autocapitalize', 'off');
+                        e.target.setAttribute('spellcheck', 'false');
+                      }}
+                      onInput={(e) => {
+                        // Otomatik doldurma tespit edilirse temizle
+                        if (e.target.value && !e.isTrusted) {
+                          e.target.value = '';
+                          setUserSearchTerm('');
+                        }
+                      }}
                     />
                   </div>
 
@@ -3096,32 +3296,61 @@ function App() {
                             getRoleText(u.role)?.toLowerCase().includes(searchTerm)
                           );
                         })
-                        .map((u, index) => (
-                          <div key={u.id} className="bg-white/5 border-white/10 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1 min-w-0">
-                                <div className="text-base font-medium truncate text-white">{u.name}</div>
-                                <div className="text-xs text-gray-400 truncate mt-1">{u.email}</div>
-                              </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <select
-                                  className="text-xs rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  value={u.role}
-                                  onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
-                                >
-                                  <option value="admin">Yönetici</option>
-                                  <option value="team_leader">Takım Lideri</option>
-                                  <option value="team_member">Takım Üyesi</option>
-                                  <option value="observer">Gözlemci</option>
-                                </select>
-                                <button className="text-xs rounded px-3 py-2 bg-rose-600 hover:bg-rose-700 transition-colors" onClick={async () => { if (!confirm('Silinsin mi?')) return; try { await deleteUserAdmin(u.id); addNotification('Kullanıcı silindi', 'success'); await loadUsers(); } catch (err) { console.error('Delete user error:', err); addNotification('Silinemedi', 'error'); } }}>Sil</button>
+                        .map((u, index) => {
+                          const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
+                          console.log(`User ${u.name} (${u.id}): hasResetRequest = ${hasResetRequest}`, passwordResetRequests);
+                          return (
+                            <div 
+                              key={u.id} 
+                              className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
+                              style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0 flex items-center gap-3">
+                                  <div>
+                                    <div className="text-base font-medium truncate text-white">{u.name}</div>
+                                    <div className="text-xs text-gray-400 truncate mt-1">{u.email}</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                   <button
+                                     className="text-xs rounded px-3 py-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+                                     onClick={async () => {
+                                       if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
+                                       
+                                       try {
+                                         setLoading(true);
+                                         await PasswordReset.adminResetPassword(u.id, '123456');
+                                         addNotification('Şifre başarıyla "123456" olarak sıfırlandı', 'success');
+                                         await loadPasswordResetRequests();
+                                       } catch (err) {
+                                         console.error('Admin reset password error:', err);
+                                         addNotification(err.response?.data?.message || 'Şifre sıfırlanamadı', 'error');
+                                       } finally {
+                                         setLoading(false);
+                                       }
+                                     }}
+                                   >
+                                     Şifre Sıfırla
+                                   </button>
+                                  <select
+                                    className="text-xs rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={u.role}
+                                    onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
+                                  >
+                                    <option value="admin">Yönetici</option>
+                                    <option value="team_leader">Takım Lideri</option>
+                                    <option value="team_member">Takım Üyesi</option>
+                                    <option value="observer">Gözlemci</option>
+                                  </select>
+
+                                  <button className="text-xs rounded px-3 py-2 bg-rose-600 hover:bg-rose-700 transition-colors" onClick={async () => { if (!confirm('Silinsin mi?')) return; try { await deleteUserAdmin(u.id); addNotification('Kullanıcı silindi', 'success'); await loadUsers(); } catch (err) { console.error('Delete user error:', err); addNotification('Silinemedi', 'error'); } }}>Sil</button>
+                                </div>
                               </div>
                             </div>
-                            <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                          </div>
-                        ))}
+                          );
+                        })}
 
-                      {/* Arama sonucu bulunamadığında */}
                       {Array.isArray(users) && users.filter(u => {
                         if (!userSearchTerm) return true;
                         const searchTerm = userSearchTerm.toLowerCase();
@@ -3146,6 +3375,8 @@ function App() {
         </div>,
         document.body
       )}
+
+
 
       {/* Error Display */}
       {

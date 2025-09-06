@@ -1,15 +1,10 @@
-// src/api.js
 import axios from 'axios';
 
-// Dinamik API URL - geliştirme ortamında IP kullan, production'da domain
 const getApiBaseURL = () => {
-  // Geliştirme ortamında WAMP kullan (task-tracker-api klasörü)
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')) {
-    // CORS sorunu için geçici olarak aynı origin kullan
     return `http://${window.location.hostname}:8000/api`;
   }
-  // Production ortamında domain kullan
-  return 'http://api.gorevtakip.vaden:800/api';
+  return 'http://api.gorevtakip.vaden:8000/api';
 };
 
 export const api = axios.create({
@@ -21,7 +16,6 @@ export const api = axios.create({
   }
 });
 
-// API origin (without trailing /api) to compose absolute asset links when needed
 export const apiOrigin = (() => {
   try {
     const u = new URL(api.defaults.baseURL);
@@ -31,7 +25,6 @@ export const apiOrigin = (() => {
   }
 })();
 
-// Request interceptor - her istekte token'ı ekle
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('jwt');
@@ -45,7 +38,6 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor - hataları yakala
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -59,7 +51,6 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('jwt');
       console.error('Token geçersiz, oturum sonlandırıldı');
-      // Sadece kritik olmayan isteklerde sayfa yenileme yapma
       if (window.location.pathname !== '/login' && 
           !error.config?.url?.includes('/notifications') &&
           !error.config?.url?.includes('/history')) {
@@ -77,7 +68,6 @@ export async function login(email, password) {
     
     if (data.access_token) {
       localStorage.setItem('jwt', data.access_token);
-      // Login sonrası garantili kullanıcı bilgisi getir
       try {
         const me = await api.get('/user');
         return me.data;
@@ -439,6 +429,68 @@ export const Notifications = {
       return response.data;
     } catch (error) {
       console.error('Notifications cleanup error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
+// Şifre sıfırlama API'leri
+export const PasswordReset = {
+  requestReset: async (email) => {
+    try {
+      const response = await api.post('/password-reset-request', { email });
+      return response.data;
+    } catch (error) {
+      console.error('Password reset request error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  resetPassword: async (token, password, passwordConfirmation) => {
+    try {
+      const response = await api.post('/password-reset', {
+        token,
+        password,
+        password_confirmation: passwordConfirmation
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Password reset error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  getResetRequests: async () => {
+    try {
+      const response = await api.get('/password-reset-requests');
+      return response.data;
+    } catch (error) {
+      console.error('Get reset requests error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  adminResetPassword: async (userId, newPassword) => {
+    try {
+      const response = await api.post('/admin-reset-password', {
+        user_id: userId,
+        new_password: newPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Admin reset password error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  cancelResetRequest: async (requestId) => {
+    try {
+      const response = await api.post('/cancel-reset-request', {
+        request_id: requestId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Cancel reset request error:', error.response?.data || error.message);
       throw error;
     }
   }

@@ -85,4 +85,17 @@ class User extends Authenticatable
     {
         return $this->role === 'user';
     }
+
+    public function passwordResetRequests()
+    {
+        return $this->hasMany(PasswordResetRequest::class);
+    }
+
+    public function hasPendingPasswordResetRequest()
+    {
+        return $this->passwordResetRequests()
+            ->where('status', 'pending')
+            ->where('expires_at', '>', now())
+            ->exists();
+    }
 }
