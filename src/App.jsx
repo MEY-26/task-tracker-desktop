@@ -240,6 +240,8 @@ function App() {
   async function checkAuth() {
     try {
       setLoading(true);
+      console.log('🔍 Checking authentication...');
+      console.log('🌐 API Base URL:', api.defaults.baseURL);
       const isAuthenticated = await restore();
       if (isAuthenticated) {
         try {
@@ -2314,7 +2316,7 @@ function App() {
         </div>
 
         <div className="bg-gray-50 border-b border-gray-200 min-w-[400px]">
-          <div className="grid grid-cols-[180px_100px_100px_180px_140px_140px_120px_80px_100px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
+          <div className="grid grid-cols-[180px_100px_100px_220px_140px_140px_120px_80px_100px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
             <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
               <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
             </button>
@@ -2350,7 +2352,7 @@ function App() {
             <div
               key={task.id}
               onClick={() => handleTaskClick(task)}
-              className="grid grid-cols-[180px_100px_100px_180px_140px_140px_120px_80px_100px] gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors"
+              className="grid grid-cols-[180px_100px_100px_220px_140px_140px_120px_80px_100px] gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors"
             >
               <div className="px-2">
                 <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
