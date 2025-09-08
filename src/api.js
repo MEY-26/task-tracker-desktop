@@ -4,11 +4,11 @@ const getApiBaseURL = () => {
   if (window.location.protocol === 'file:') {
     return 'http://localhost:8000/api';
   }
-  
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')) {
-    return `http://${window.location.hostname}:8000/api`;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:8000/api';
   }
-  return 'http://api.gorevtakip.vaden:8000/api';
+
+  return 'http://10.11.23.64:8000/api'; // ipconfig - IPv4 Address
 };
 
 export const api = axios.create({
