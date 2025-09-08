@@ -10,7 +10,7 @@ export default defineConfig({
     strictPort: false,
     hmr: {
       clientPort: 5173,
-      host: '172.17.0.22'
+      host: 'localhost'//172.17.0.22
     }
   }
 })

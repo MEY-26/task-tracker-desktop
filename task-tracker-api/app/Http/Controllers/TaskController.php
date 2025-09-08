@@ -181,6 +181,9 @@ class TaskController extends Controller
             }
         }
 
+        // Mail gönderimi geçici olarak devre dışı bırakıldı
+        // TODO: TaskNotificationMail sınıfı oluşturulduktan sonra aktif edilecek
+        /*
         try {
             if ($task->responsible && $task->responsible->id !== $currentUserId) {
                 Mail::to($task->responsible->email)->send(new TaskNotificationMail(
@@ -204,6 +207,7 @@ class TaskController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to send email notifications: ' . $e->getMessage());
         }
+        */
 
         return response()->json([
             'message' => 'Görev oluşturuldu.',

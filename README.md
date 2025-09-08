@@ -71,10 +71,10 @@ Uygulamayı local ağınızdaki diğer cihazlardan erişilebilir hale getirmek i
 
 ```bash
 # Windows
-scripts\start-network.bat
+scripts\setup.bat
 
 # Linux/Mac
-./scripts/start-network.sh
+./scripts/setup.sh
 
 # NPM
 npm run start:network
@@ -87,8 +87,8 @@ npm run start:network
 - API: `http://localhost:8000`
 
 **Ağ:**
-- Frontend: `http://192.168.1.180:5173`
-- API: `http://192.168.1.180:8000`
+- Frontend: `http://[YOUR_IP]:5173`
+- API: `http://[YOUR_IP]:8000`
 
 ### 🔧 Manuel Başlatma
 
@@ -120,29 +120,9 @@ npm run dev:web
 - `.env` dosyasının mevcut olduğundan emin olun
 - `php artisan key:generate` komutunu çalıştırın
 
-## 🚀 Farklı Sunucularda Deployment
-
-### Yeni Sistemde İlk Kurulum
-```bash
-# Basit IP konfigürasyonu (önerilen)
-scripts\simple-ip-config.bat
-
-# Uygulamayı başlat
-scripts\start-network.bat
-```
-
-### Otomatik Deployment
-```bash
-scripts\auto-deploy.bat
-```
-
-### Manuel Deployment
-1. Projeyi kopyalayın
-2. `npm install` ve `composer install` çalıştırın
-3. `php artisan key:generate` ve `php artisan migrate` çalıştırın
-4. `npm run start:network` ile başlatın
-
-Detaylı bilgi için yukarıdaki adımları takip edin.
+**Mail Hatası:**
+- `TaskNotificationMail` sınıfı eksikse, mail gönderimi devre dışı bırakılmıştır
+- Mail ayarlarını `.env` dosyasında yapılandırın
 
 ## 🏗️ Geliştirme
 
@@ -164,20 +144,13 @@ npm run build
 ## 📜 Kullanılabilir Scripts
 
 ### Ağ Erişimi
-- `scripts\start-network.bat` - Windows için ağ erişimi
-- `scripts\start-network.sh` - Linux/Mac için ağ erişimi
+- `scripts\setup.bat` - Windows için kurulum ve başlatma
+- `scripts\setup.sh` - Linux/Mac için kurulum ve başlatma
 - `npm run start:network` - NPM ile ağ erişimi
 
-### Yeni Sistem Konfigürasyonu
-- `scripts\simple-ip-config.bat` - Basit IP konfigürasyonu (önerilen)
-
-### Deployment
-- `scripts\auto-deploy.bat` - Otomatik deployment
-- `scripts\setup-firewall.bat` - Firewall kuralları
-
 ### Kurulum
-- `scripts\setup.bat` - Windows kurulum
-- `scripts\setup.sh` - Linux/Mac kurulum
+- `npm run setup` - Tüm bağımlılıkları yükle
+- `npm run setup:dev` - Geliştirme ortamı kurulumu
 
 ## 📁 Proje Yapısı
 
@@ -188,10 +161,24 @@ task-tracker-desktop/
 ├── task-tracker-api/        # Laravel API
 │   ├── app/
 │   │   ├── Http/Controllers/
+│   │   │   ├── AuthController.php
+│   │   │   ├── TaskController.php
+│   │   │   ├── UserController.php
+│   │   │   ├── PasswordResetController.php
+│   │   │   └── NotificationController.php
 │   │   ├── Models/
+│   │   │   ├── Task.php
+│   │   │   ├── User.php
+│   │   │   ├── TaskHistory.php
+│   │   │   └── TaskAttachment.php
 │   │   └── Notifications/
+│   │       └── TaskUpdated.php
 │   ├── database/
+│   │   ├── migrations/
+│   │   └── seeders/
 │   └── routes/
+│       └── api.php
+├── scripts/                 # Kurulum ve başlatma scriptleri
 └── public/                  # Statik dosyalar
 ```
 
@@ -202,10 +189,10 @@ task-tracker-desktop/
 
 ```javascript
 // Localhost için
-const API_BASE_URL = 'http://localhost:800/api';
+const API_BASE_URL = 'http://localhost:8000/api';
 
 // Local Network için
-const API_BASE_URL = 'http://192.168.1.180:800/api';
+const API_BASE_URL = 'http://192.168.1.180:8000/api';
 ```
 
 **Not**: Local network kullanımı için IP adresinizi değiştirin.
@@ -216,6 +203,18 @@ const API_BASE_URL = 'http://192.168.1.180:800/api';
 ```env
 DB_CONNECTION=sqlite
 DB_DATABASE=database/database.sqlite
+```
+
+### Mail Ayarları
+E-posta bildirimleri için `.env` dosyasında mail ayarlarını yapılandırın:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_ENCRYPTION=tls
 ```
 
 ## 🚀 Deployment
@@ -247,6 +246,13 @@ Herhangi bir sorun yaşarsanız:
 - Geliştirici ile iletişime geçin
 
 ## 🆕 Son Güncellemeler
+
+### v2.1.0 - Hata Düzeltmeleri ve İyileştirmeler
+- ✅ **PasswordResetController Eklendi**: Eksik controller sınıfı oluşturuldu
+- ✅ **Mail Sistemi Düzeltildi**: TaskNotificationMail hatası çözüldü
+- ✅ **WebSocket Bağlantı Sorunu**: Vite HMR ayarları düzeltildi
+- ✅ **Mobil Responsive İyileştirmeleri**: Tab butonları ve layout düzeltildi
+- ✅ **Gereksiz Dosyalar Temizlendi**: Kullanılmayan script dosyaları kaldırıldı
 
 ### v2.0.0 - Observer Rolü ve Görev Türü Filtreleme
 - ✅ **Observer (Gözlemci) Rolü**: Sadece görevleri görüntüleyebilen, hiçbir değişiklik yapamayan kullanıcı rolü
@@ -280,3 +286,9 @@ cd task-tracker-api
 composer install
 php artisan migrate
 ```
+
+## 📞 İletişim
+
+- **Geliştirici**: MEY-26
+- **GitHub**: https://github.com/MEY-26/task-tracker-desktop
+- **Lisans**: MIT

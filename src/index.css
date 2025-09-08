@@ -36,6 +36,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: auto;
 }
 
 h1 {
@@ -125,6 +126,25 @@ button:focus-visible {
 @media (max-width: 768px) {
   .notification-scrollbar {
     -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Mobil cihazlarda tab butonları için minimum genişlik */
+  .tab-button {
+    min-width: 80px !important;
+    font-size: 0.875rem !important;
+  }
+  
+  /* Mobil cihazlarda tab container için padding */
+  .tab-container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    margin-left: 0 !important;
+  }
+  
+  /* Mobil cihazlarda ana container için ekstra padding */
+  .main-container {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
   }
 }
 
