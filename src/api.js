@@ -3,7 +3,7 @@ import axios from 'axios';
 const getApiBaseURL = () => {
   // Electron uygulaması için
   if (window.location.protocol === 'file:') {
-    return 'http://10.11.23.64:8000/api';
+    return 'http://172.17.0.22:8000/api';
   }
 
   // Yerel geliştirme için
@@ -11,13 +11,8 @@ const getApiBaseURL = () => {
     return 'http://localhost:8000/api';
   }
 
-  // Yerel ağ üzerinden erişim için
-  if (window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.') || window.location.hostname.match(/^172\.(1[6-9]|2[0-9]|3[0-1])/)) {
-    return `http://${window.location.hostname}:8000/api`;
-  }
-
-  // Varsayılan olarak sabit IP
-  return 'http://10.11.23.64:8000/api';
+  // Her durumda aynı IP'yi kullanalım
+  return 'http://172.17.0.22:8000/api';
 };
 
 export const api = axios.create({

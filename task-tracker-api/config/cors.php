@@ -20,25 +20,24 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'http://192.168.1.180:5173',
-    'http://192.168.1.180:5174',
-    'http://192.168.1.180:3000',
-    'http://0.0.0.0:5173',
-    'http://0.0.0.0:5174',
-    'http://gorevtakip.vaden:5173',
-    'http://gorevtakip.vaden:5174',
-    'http://api.gorevtakip.vaden:800',
-    'app://./',
-    '*'
-],
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
+        'http://172.17.0.22:5173',
+        'http://172.17.0.22:5174',
+        'http://172.17.0.22:8000',
+        'http://172.20.10.7:5173',
+        'http://172.20.10.7:5174',
+        'http://172.20.10.7:8000',
+        'http://0.0.0.0:5173',
+        'app://./',
+        '*'
+    ],
 
     'allowed_origins_patterns' => [
+        '/^http:\/\/172\.17\.\d+\.\d+:\d+$/',
         '/^http:\/\/192\.168\.\d+\.\d+:\d+$/',
         '/^http:\/\/10\.\d+\.\d+\.\d+:\d+$/',
-        '/^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+:\d+$/',
     ],
 
     'allowed_headers' => ['*'],
