@@ -18,6 +18,16 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::post('/password-reset-request', [PasswordResetController::class, 'requestReset']);
 Route::post('/password-reset', [PasswordResetController::class, 'resetPassword']);
 
+// Health check endpoint
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now()->toISOString(),
+        'version' => config('app.version', '1.0.0'),
+        'environment' => config('app.env'),
+    ]);
+});
+
 
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
@@ -40,6 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/tasks/{id}/reject', [TaskController::class, 'reject']);
     Route::put('/tasks/{id}/toggle-status', [TaskController::class, 'toggleStatus']);
     Route::post('/tasks/{id}/seen', [TaskController::class, 'markAsSeen']);
+    Route::get('/tasks/{task}/can-delete', [TaskController::class, 'canDelete']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 
     Route::put('/users/{id}', [UserController::class, 'update']);

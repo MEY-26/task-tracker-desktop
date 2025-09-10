@@ -464,30 +464,81 @@ class TaskController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
-        if ($user->role !== 'admin') {
-            return response()->json(['message' => 'Görevleri kalıcı olarak silme yetkiniz yok. Sadece admin kullanıcılar kalıcı silme yapabilir.'], 403);
+
+        // İptal edilen görevler: Admin yetkisi olan kullanıcılar silebilir
+        if ($task->status === 'cancelled') {
+            if (!$user->isAdmin() && $user->role !== 'team_leader') {
+                return response()->json(['message' => 'İptal edilen görevleri sadece admin yetkisi olan kullanıcılar silebilir.'], 403);
+            }
         }
+        // Tamamlanan görevler: Sadece admin silebilir
+        elseif ($task->status === 'completed') {
+            if (!$user->isAdmin()) {
+                return response()->json(['message' => 'Tamamlanan görevleri sadece admin kullanıcılar silebilir.'], 403);
+            }
+        }
+        // Diğer durumlar: Sadece admin silebilir
+        else {
+            if (!$user->isAdmin()) {
+                return response()->json(['message' => 'Bu görev durumundaki görevleri sadece admin kullanıcılar silebilir.'], 403);
+            }
+        }
+
+        // Görev geçmişini logla
+        TaskHistory::create([
+            'task_id'    => $task->id,
+            'user_id'    => $user->id,
+            'field'      => 'task_deleted',
+            'old_value'  => json_encode($task->toArray()),
+            'new_value'  => 'deleted',
+        ]);
+
+        // Tüm ekleri ve dosyaları sil
+        $deletedFiles = 0;
+        $failedFiles = 0;
+        
         foreach ($task->attachments as $attachment) {
             try {
+                // Fiziksel dosyayı sil
                 if (Storage::disk('public')->exists($attachment->path)) {
                     Storage::disk('public')->delete($attachment->path);
+                    $deletedFiles++;
                 } else {
-                    Log::warning('Attachment file not found: ' . $attachment->path);
+                    Log::warning('Attachment file not found: ' . $attachment->path, [
+                        'attachment_id' => $attachment->id,
+                        'original_name' => $attachment->original_name
+                    ]);
                 }
+                
+                // Veritabanı kaydını sil
                 $attachment->delete();
             } catch (\Exception $e) {
+                $failedFiles++;
                 Log::error('Failed to delete attachment: ' . $e->getMessage(), [
                     'attachment_id' => $attachment->id,
-                    'file_path' => $attachment->path
+                    'file_path' => $attachment->path,
+                    'original_name' => $attachment->original_name
                 ]);
             }
         }
 
+        // Görev ilişkilerini temizle
         $task->assignedUsers()->detach();
         $task->histories()->delete();
+        
+        // Görevi sil
         $task->delete();
 
-        return response()->json(['message' => 'Görev silindi.']);
+        $message = 'Görev ve tüm ekleri başarıyla silindi.';
+        if ($failedFiles > 0) {
+            $message .= " ({$failedFiles} dosya silinemedi, loglara bakın)";
+        }
+
+        return response()->json([
+            'message' => $message,
+            'deleted_files' => $deletedFiles,
+            'failed_files' => $failedFiles
+        ]);
     }
 
     public function destroyAttachment($id)
@@ -739,5 +790,52 @@ class TaskController extends Controller
         ]);
 
         return response()->json(['message' => 'Görev görüldü olarak işaretlendi.']);
+    }
+
+    /**
+     * Check if user can delete a specific task
+     */
+    public function canDelete(Request $request, Task $task)
+    {
+        $user = $request->user();
+        
+        if (!$user) {
+            return response()->json(['can_delete' => false, 'reason' => 'Kullanıcı doğrulanamadı.'], 401);
+        }
+
+        $canDelete = false;
+        $reason = '';
+
+        // İptal edilen görevler: Admin yetkisi olan kullanıcılar silebilir
+        if ($task->status === 'cancelled') {
+            if ($user->isAdmin() || $user->role === 'team_leader') {
+                $canDelete = true;
+            } else {
+                $reason = 'İptal edilen görevleri sadece admin yetkisi olan kullanıcılar silebilir.';
+            }
+        }
+        // Tamamlanan görevler: Sadece admin silebilir
+        elseif ($task->status === 'completed') {
+            if ($user->isAdmin()) {
+                $canDelete = true;
+            } else {
+                $reason = 'Tamamlanan görevleri sadece admin kullanıcılar silebilir.';
+            }
+        }
+        // Diğer durumlar: Sadece admin silebilir
+        else {
+            if ($user->isAdmin()) {
+                $canDelete = true;
+            } else {
+                $reason = 'Bu görev durumundaki görevleri sadece admin kullanıcılar silebilir.';
+            }
+        }
+
+        return response()->json([
+            'can_delete' => $canDelete,
+            'reason' => $reason,
+            'task_status' => $task->status,
+            'user_role' => $user->role
+        ]);
     }
 }

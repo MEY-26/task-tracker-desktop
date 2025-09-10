@@ -3,7 +3,7 @@ import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, 
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import logo from './assets/logo.svg';
 
 
@@ -14,6 +14,7 @@ function App() {
   const [error, setError] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [editingDates, setEditingDates] = useState({ start_date: '', due_date: '' });
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -514,35 +515,14 @@ function App() {
     setSelectedTask(null);
   }
 
-  function validateDates(startDate, endDate) {
-    if (!startDate || !endDate) {
-      return { isValid: true };
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (end < start) {
-      return {
-        isValid: false,
-        message: 'Bitiş tarihi başlangıç tarihinden önce olamaz!'
-      };
-    }
-
-    return { isValid: true };
-  }
+  // validateDates fonksiyonu kaldırıldı - tarih validasyonu yapılmıyor
 
   async function handleAddTask() {
     try {
       setLoading(true);
       setError(null);
 
-      const dateValidation = validateDates(newTask.start_date, newTask.due_date);
-      if (!dateValidation.isValid) {
-        setError(dateValidation.message);
-        setLoading(false);
-        return;
-      }
+      // Tarih validasyonu kaldırıldı - kullanıcı istediği tarihi girebilir
 
       const responsibleId = newTask.responsible_id ? parseInt(newTask.responsible_id) : user.id;
 
@@ -621,21 +601,15 @@ function App() {
       setLoading(true);
       setError(null);
 
-      if (updates.start_date !== undefined || updates.due_date !== undefined) {
-        const currentTask = tasks.find(t => t.id === taskId);
-        const startDate = updates.start_date !== undefined ? updates.start_date : currentTask?.start_date;
-        const dueDate = updates.due_date !== undefined ? updates.due_date : currentTask?.due_date;
-
-        const dateValidation = validateDates(startDate, dueDate);
-        if (!dateValidation.isValid) {
-          setError(dateValidation.message);
-          setLoading(false);
-          return;
-        }
-      }
+      // Tarih validasyonu handleDateChange'de yapılıyor, burada tekrar yapmaya gerek yok
 
       const response = await Tasks.update(taskId, updates);
-      const updatedTask = response.task || response;
+      const updatedTask = response.task;
+      
+      if (!updatedTask) {
+        console.error('No task data in update response:', response);
+        throw new Error('Görev güncelleme yanıtında görev verisi bulunamadı');
+      }
 
       setTasks(prevTasks => {
         const currentTasks = Array.isArray(prevTasks) ? prevTasks : [];
@@ -645,7 +619,21 @@ function App() {
       });
 
       if (selectedTask && selectedTask.id === taskId) {
-        setSelectedTask(updatedTask);
+        // Tarih güncellemesi için selectedTask'ı güncelle
+        const isDateUpdate = Object.keys(updates).some(key => 
+          key === 'start_date' || key === 'due_date' || key === 'end_date'
+        );
+        
+        if (isDateUpdate) {
+          // Tarih güncellemesi için sadece ilgili alanı güncelle
+          setSelectedTask(prev => ({
+            ...prev,
+            ...updates
+          }));
+        } else {
+          setSelectedTask(updatedTask);
+        }
+        
         try {
           const history = await Tasks.getHistory(taskId);
           setTaskHistory(Array.isArray(history) ? history : []);
@@ -662,14 +650,19 @@ function App() {
         }));
       } catch (err) {
         console.error('Task histories update error:', err);
+        // Geçmiş güncelleme hatası ana işlemi etkilememeli
       }
 
       addNotification('Görev başarıyla güncellendi', 'success');
       return response;
     } catch (err) {
       console.error('Update task error:', err);
-      setError('Görev güncellenemedi');
-      addNotification('Görev güncellenemedi', 'error');
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+      
+      const errorMessage = err.response?.data?.message || err.message || 'Görev güncellenemedi';
+      setError(errorMessage);
+      addNotification(errorMessage, 'error');
       throw err;
     } finally {
       setLoading(false);
@@ -687,18 +680,40 @@ function App() {
 
       await handleUpdateTask(taskId, { status: 'cancelled' });
 
-      addNotification('Görev başarıyla iptal edildi', 'success');
+      // handleUpdateTask zaten başarı mesajı gösteriyor, burada tekrar göstermeye gerek yok
     } catch (err) {
       console.error('Delete task error:', err);
-      setError('Görev iptal edilemedi');
-      addNotification('Görev iptal edilemedi', 'error');
+      // handleUpdateTask zaten hata mesajı gösteriyor, burada tekrar göstermeye gerek yok
     } finally {
       setLoading(false);
     }
   }
 
+  // Check if user can delete a specific task
+  async function canDeleteTask(taskId) {
+    try {
+      const response = await api.get(`/tasks/${taskId}/can-delete`);
+      return response.data;
+    } catch (err) {
+      console.error('Check delete permission error:', err);
+      return { can_delete: false, reason: 'Yetki kontrolü yapılamadı' };
+    }
+  }
+
   async function handlePermanentDelete(taskId) {
-    if (!window.confirm('Bu görevi kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!')) {
+    // First check if user can delete this task
+    const permissionCheck = await canDeleteTask(taskId);
+    
+    if (!permissionCheck.can_delete) {
+      addNotification(permissionCheck.reason || 'Bu görevi silme yetkiniz yok', 'error');
+      return;
+    }
+
+    const task = tasks.find(t => t.id === taskId);
+    const statusText = task?.status === 'cancelled' ? 'iptal edilen' : 
+                      task?.status === 'completed' ? 'tamamlanan' : 'bu durumdaki';
+    
+    if (!window.confirm(`Bu ${statusText} görevi kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm ekleri de silinecektir!`)) {
       return;
     }
 
@@ -706,7 +721,7 @@ function App() {
       setLoading(true);
       setError(null);
 
-      await Tasks.delete(taskId);
+      const response = await Tasks.delete(taskId);
 
       setTasks(prevTasks => {
         const currentTasks = Array.isArray(prevTasks) ? prevTasks : [];
@@ -716,40 +731,58 @@ function App() {
       if (selectedTask && selectedTask.id === taskId) {
         setSelectedTask(null);
         setShowDetailModal(false);
+        setEditingDates({ start_date: '', due_date: '' });
       }
 
-      addNotification('Görev kalıcı olarak silindi', 'success');
+      const message = response.data?.message || 'Görev kalıcı olarak silindi';
+      addNotification(message, 'success');
+      
+      // Show additional info if some files failed to delete
+      if (response.data?.failed_files > 0) {
+        addNotification(`${response.data.failed_files} dosya silinemedi, loglara bakın`, 'warning');
+      }
     } catch (err) {
       console.error('Permanent delete task error:', err);
-      setError('Görev silinemedi');
-      addNotification('Görev silinemedi', 'error');
+      const errorMessage = err.response?.data?.message || 'Görev silinemedi';
+      setError(errorMessage);
+      addNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
   }
 
   async function handleStatusChange(taskId, newStatus) {
-    await handleUpdateTask(taskId, { status: newStatus });
+    try {
+      await handleUpdateTask(taskId, { status: newStatus });
+    } catch (err) {
+      console.error('Status change error:', err);
+      // handleUpdateTask zaten hata mesajı gösteriyor
+    }
   }
 
   async function handleDateChange(taskId, field, newDate) {
     const currentTask = tasks.find(t => t.id === taskId);
     if (!currentTask) return;
 
-    const startDate = field === 'start_date' ? newDate : currentTask.start_date;
-    const dueDate = field === 'due_date' ? newDate : currentTask.due_date;
-
-    const dateValidation = validateDates(startDate, dueDate);
-    if (!dateValidation.isValid) {
-      setError(dateValidation.message);
-      return;
+    try {
+      await handleUpdateTask(taskId, { [field]: newDate || null });
+      // Başarılı güncelleme sonrası editingDates'i güncelle
+      setEditingDates(prev => ({
+        ...prev,
+        [field]: newDate || ''
+      }));
+    } catch (err) {
+      console.error('Date change error:', err);
+      // handleUpdateTask zaten hata mesajı gösteriyor
     }
-
-    await handleUpdateTask(taskId, { [field]: newDate });
   }
 
   async function handleTaskClick(task) {
     setSelectedTask(task);
+    setEditingDates({
+      start_date: task.start_date ? task.start_date.slice(0, 10) : '',
+      due_date: task.due_date ? task.due_date.slice(0, 10) : ''
+    });
     setShowDetailModal(true);
 
     try {
@@ -783,6 +816,7 @@ function App() {
     setSelectedTask(null);
     setNewComment('');
     setHistoryDeleteMode(false);
+    setEditingDates({ start_date: '', due_date: '' });
   }
 
 
@@ -1100,13 +1134,25 @@ function App() {
   function parseExcelUsers(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = function (e) {
+      reader.onload = async function (e) {
         try {
           const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(data);
+          
+          const worksheet = workbook.worksheets[0];
+          if (!worksheet) {
+            throw new Error('Excel dosyasında çalışma sayfası bulunamadı');
+          }
+
+          const jsonData = [];
+          worksheet.eachRow((row, rowNumber) => {
+            const rowData = [];
+            row.eachCell((cell, colNumber) => {
+              rowData[colNumber - 1] = cell.value;
+            });
+            jsonData.push(rowData);
+          });
 
           const userRows = jsonData.slice(1).filter(row => row.length >= 4);
 
@@ -2289,7 +2335,7 @@ function App() {
         </div>
         <div className="flex justify-center">
           <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
-            <div className="grid grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px] gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider">
+            <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider ${(activeTab === 'completed' || activeTab === 'deleted') ? 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px_60px]' : 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]'}`}>
               <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
                 <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
               </button>
@@ -2314,9 +2360,15 @@ function App() {
               <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
                 <span>Dosyalar</span><span className="text-[10px] ml-1">{sortIndicator('attachments_count')}</span>
               </button>
-              <button className="flex items-center justify-center px-2">
-                <span>Güncel Durum</span>
-              </button>
+              {activeTab === 'active' ? (
+                <button className="flex items-center justify-center px-2">
+                  <span>Güncel Durum</span>
+                </button>
+              ) : (
+                <div className="flex items-center justify-center px-2">
+                  <span>Eylem</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2327,7 +2379,7 @@ function App() {
               <div
                 key={task.id}
                 onClick={() => handleTaskClick(task)}
-                className="grid grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px] gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200"
+                className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 ${(activeTab === 'completed' || activeTab === 'deleted') ? 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px_60px]' : 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]'}`}
                 style={{ paddingTop: '10px', paddingBottom: '10px' }}
               >
                 <div className="px-2">
@@ -2384,41 +2436,54 @@ function App() {
                   {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
                 </div>
                 <div className="px-2 flex justify-center items-center">
-                  <div
-                    className="relative group"
-                    onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
-                  >
+                  {activeTab === 'active' ? (
                     <div
-                      className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
-                      style={{
-                        backgroundColor: getStatusColor(task.status),
-                        border: '3px solid rgba(255, 255, 255, 0.3)',
-                        boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
-                        width: '24px',
-                        height: '24px'
-                      }}
-                      title={getStatusText(task.status)}
-                    ></div>
-                    <div
-                      className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
-                      style={{
-                        backgroundColor: 'rgba(17, 24, 39, 0.98)',
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                        minWidth: '300px',
-                        maxWidth: '400px',
-                        padding: '20px 16px'
-                      }}
+                      className="relative group"
+                      onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
                     >
-                      <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
-                      <div className="text-justify">Durum: {getStatusText(task.status)}</div>
-                      <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
                       <div
-                        className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
-                        style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
+                        className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
+                        style={{
+                          backgroundColor: getStatusColor(task.status),
+                          border: '3px solid rgba(255, 255, 255, 0.3)',
+                          boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
+                          width: '24px',
+                          height: '24px'
+                        }}
+                        title={getStatusText(task.status)}
                       ></div>
+                      <div
+                        className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
+                        style={{
+                          backgroundColor: 'rgba(17, 24, 39, 0.98)',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          minWidth: '300px',
+                          maxWidth: '400px',
+                          padding: '20px 16px'
+                        }}
+                      >
+                        <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
+                        <div className="text-justify">Durum: {getStatusText(task.status)}</div>
+                        <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
+                        <div
+                          className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
+                          style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
+                        ></div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePermanentDelete(task.id);
+                      }}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-colors"
+                      title="Görevi kalıcı olarak sil"
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -2789,8 +2854,14 @@ function App() {
                           {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin')) ? (
                             <input
                               type="date"
-                              value={selectedTask.start_date ? selectedTask.start_date.slice(0, 10) : ''}
-                              onChange={(e) => handleDateChange(selectedTask.id, 'start_date', e.target.value)}
+                              value={editingDates.start_date}
+                              onChange={(e) => {
+                                setEditingDates(prev => ({
+                                  ...prev,
+                                  start_date: e.target.value
+                                }));
+                              }}
+                              onBlur={(e) => handleDateChange(selectedTask.id, 'start_date', e.target.value)}
                               className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               style={{ minHeight: '24px' }}
                             />
@@ -2805,8 +2876,14 @@ function App() {
                           {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin' || user?.role === 'team_leader')) ? (
                             <input
                               type="date"
-                              value={selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : ''}
-                              onChange={(e) => handleDateChange(selectedTask.id, 'due_date', e.target.value)}
+                              value={editingDates.due_date}
+                              onChange={(e) => {
+                                setEditingDates(prev => ({
+                                  ...prev,
+                                  due_date: e.target.value
+                                }));
+                              }}
+                              onBlur={(e) => handleDateChange(selectedTask.id, 'due_date', e.target.value)}
                               className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               style={{ minHeight: '24px' }}
                             />

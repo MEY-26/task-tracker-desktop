@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class Task extends Model
 {
@@ -67,8 +69,28 @@ class Task extends Model
     protected static function booted()
     {
         static::deleting(function ($task) {
-            // Doğru ilişki adı: histories()
+            // Tüm ekleri ve dosyaları sil
+            foreach ($task->attachments as $attachment) {
+                try {
+                    // Fiziksel dosyayı sil
+                    if (Storage::disk('public')->exists($attachment->path)) {
+                        Storage::disk('public')->delete($attachment->path);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to delete attachment file in model: ' . $e->getMessage(), [
+                        'attachment_id' => $attachment->id,
+                        'file_path' => $attachment->path
+                    ]);
+                }
+                
+                // Veritabanı kaydını sil
+                $attachment->delete();
+            }
+            
+            // Görev geçmişini sil
             $task->histories()->delete();
+            
+            // Atanan kullanıcı ilişkilerini temizle
             $task->assignedUsers()->detach();
         });
     }
