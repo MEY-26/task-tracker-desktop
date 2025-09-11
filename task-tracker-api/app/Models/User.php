@@ -12,7 +12,6 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
     use HasApiTokens, HasFactory, Notifiable;
     /**
      * The attributes that are mass assignable.
@@ -76,26 +75,5 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
-    public function isReadonly()
-    {
-        return $this->role === 'readonly';
-    }
-
-    public function isUser()
-    {
-        return $this->role === 'user';
-    }
-
-    public function passwordResetRequests()
-    {
-        return $this->hasMany(PasswordResetRequest::class);
-    }
-
-    public function hasPendingPasswordResetRequest()
-    {
-        return $this->passwordResetRequests()
-            ->where('status', 'pending')
-            ->where('expires_at', '>', now())
-            ->exists();
-    }
+    // removed unused helpers and relations
 }

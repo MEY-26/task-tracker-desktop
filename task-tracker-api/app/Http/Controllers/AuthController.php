@@ -6,9 +6,6 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
-use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -123,7 +120,7 @@ class AuthController extends Controller
                 'message' => 'Şifre sıfırlama kodu e-posta adresinize gönderildi.',
                 'email' => $request->email
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('Password reset email error: ' . $e->getMessage());
             
             return response()->json([

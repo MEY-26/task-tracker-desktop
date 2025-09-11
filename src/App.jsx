@@ -75,6 +75,7 @@ function App() {
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [selectedTaskType, setSelectedTaskType] = useState('all');
   const [passwordResetRequests, setPasswordResetRequests] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(null); // { percent: number|null, label: string }
 
   const taskCounts = {
     active: Array.isArray(tasks) ? tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length : 0,
@@ -541,6 +542,7 @@ function App() {
 
       let response;
       if (newTask.attachments.length > 0) {
+        setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
         const form = new FormData();
         Object.keys(taskData).forEach(key => {
           if (taskData[key] !== null && taskData[key] !== undefined) {
@@ -557,7 +559,17 @@ function App() {
         });
 
         response = await api.post('/tasks', form, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 0, // large files: disable per-request timeout
+          onUploadProgress: (e) => {
+            try {
+              const total = e.total || 0;
+              const percent = total ? Math.min(100, Math.round((e.loaded * 100) / total)) : null;
+              setUploadProgress({ percent, label: 'Dosyalar yükleniyor' });
+            } catch (_) {
+              setUploadProgress({ percent: null, label: 'Dosyalar yükleniyor' });
+            }
+          }
         });
       } else {
         response = await Tasks.create(taskData);
@@ -592,6 +604,7 @@ function App() {
       setError('Görev eklenemedi');
       addNotification('Görev eklenemedi', 'error');
     } finally {
+      setUploadProgress(null);
       setLoading(false);
     }
   }
@@ -2738,22 +2751,50 @@ function App() {
                         Dosyalar
                       </label>
                       <div className="w-full border !text-[18px] border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '18px', height: 'fit-content', padding: '5px' }}>
+                        {uploadProgress && (
+                          <div className="mb-3">
+                            <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
+                              <div
+                                className="h-full bg-blue-600 transition-all duration-150"
+                                style={{ width: `${Math.max(0, Math.min(100, uploadProgress.percent ?? 10))}%` }}
+                              />
+                            </div>
+                            <div className="text-right text-xs text-gray-500 mt-1">
+                              {typeof uploadProgress.percent === 'number' ? `${uploadProgress.percent}%` : '...'}
+                            </div>
+                          </div>
+                        )}
                         {(user?.role === 'admin' || (user?.role === 'team_leader' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id))) ? (
                           <div className="space-y-3 !text-[18px]">
                             <input
                               type="file"
                               multiple
+                              accept={[
+                                'image/*',
+                                '.pdf',
+                                '.doc','.docx','.xls','.xlsx','.ppt','.pptx',
+                                '.zip','.rar','.7z',
+                                // SolidWorks and common CAD formats
+                                '.sldprt','.sldasm','.slddrw',
+                                '.step','.stp','.iges','.igs',
+                                '.x_t','.x_b','.stl','.3mf',
+                                '.dwg','.dxf','.eprt','.easm','.edrw'
+                              ].join(',')}
                               onChange={async (e) => {
                                 const files = Array.from(e.target.files || []);
                                 if (files.length === 0) return;
                                 try {
-                                  await Tasks.uploadAttachments(selectedTask.id, files);
+                                  setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
+                                  await Tasks.uploadAttachments(selectedTask.id, files, (p) => {
+                                    setUploadProgress({ percent: p, label: 'Dosyalar yükleniyor' });
+                                  });
                                   const t = await Tasks.get(selectedTask.id);
                                   setSelectedTask(t.task || t);
                                   addNotification('Dosyalar yüklendi', 'success');
                                 } catch {
                                   addNotification('Yükleme başarısız', 'error');
                                 } finally {
+                                  setUploadProgress(null);
                                   e.target.value = '';
                                 }
                               }}

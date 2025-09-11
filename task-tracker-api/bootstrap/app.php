@@ -25,6 +25,18 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         // Global exception handling to prevent application crashes
         $exceptions->render(function (Throwable $e, $request) {
+            // Return validation errors with 422 instead of generic 500
+            if ($e instanceof \Illuminate\Validation\ValidationException) {
+                if ($request->is('api/*') || $request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Doğrulama hatası',
+                        'errors' => $e->errors(),
+                        'code' => 422,
+                        'timestamp' => now()->toISOString(),
+                    ], 422);
+                }
+            }
             // Log the error for debugging
             Log::channel('errors')->error('Application Error: ' . $e->getMessage(), [
                 'exception' => $e,

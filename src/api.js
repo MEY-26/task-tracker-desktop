@@ -256,13 +256,25 @@ export const Tasks = {
     }
   },
 
-  uploadAttachments: async (taskId, files) => {
+  uploadAttachments: async (taskId, files, onProgress = null) => {
     try {
       const form = new FormData();
       form.append('_method', 'PUT');
       for (const f of files) form.append('attachments[]', f);
       const response = await api.post(`/tasks/${taskId}`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 0, // large files: disable per-request timeout
+        onUploadProgress: (e) => {
+          if (typeof onProgress === 'function') {
+            try {
+              const total = e.total || e.srcElement?.getResponseHeader?.('Content-Length') || 0;
+              const percent = total ? Math.min(100, Math.round((e.loaded * 100) / total)) : Math.round((e.loaded % (5 * 1024 * 1024)) / (5 * 1024 * 1024) * 100);
+              onProgress(percent);
+            } catch (_) {
+              onProgress(null);
+            }
+          }
+        }
       });
       return response.data;
     } catch (error) {
@@ -473,7 +485,8 @@ export const PasswordReset = {
   getResetRequests: async () => {
     try {
       const response = await api.get('/password-reset-requests');
-      return response.data;
+      // normalize to array of requests
+      return response.data?.data || response.data || [];
     } catch (error) {
       console.error('Get reset requests error:', error.response?.data || error.message);
       throw error;

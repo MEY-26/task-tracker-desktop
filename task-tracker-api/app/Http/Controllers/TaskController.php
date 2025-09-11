@@ -9,11 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TaskAttachment;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\TaskNotificationMail;
 use App\Models\User;
+use Illuminate\Validation\Rule;
 
 
 class TaskController extends Controller
@@ -64,7 +64,11 @@ class TaskController extends Controller
             'priority' => 'required|in:low,medium,high,critical',
             'status' => 'required|in:waiting,in_progress,investigating,completed,cancelled',
             'task_type' => 'required|in:new_product,fixture,apparatus,development,revision,mold,test_device',
-            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip|max:10240',
+            // Allow images, office docs, archives and CAD-related extensions; max ~1GB per file (by extension)
+            'attachments.*' => [
+                Rule::file()->max(1048576), // in KB
+                'extensions:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,sldprt,sldasm,slddrw,step,stp,iges,igs,x_t,x_b,stl,3mf,dwg,dxf,eprt,easm,edrw',
+            ],
             'responsible_id' => 'required|exists:users,id',
             'assigned_users' => 'array|nullable',
             'assigned_users.*' => 'exists:users,id',
@@ -264,7 +268,11 @@ class TaskController extends Controller
             'priority' => 'in:low,medium,high,critical',
             'status' => 'in:waiting,in_progress,investigating,completed,cancelled',
             'task_type' => 'in:new_product,fixture,apparatus,development,revision,mold,test_device',
-            'attachments.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip|max:10240',
+            // Allow images, office docs, archives and CAD-related extensions; max ~1GB per file (by extension)
+            'attachments.*' => [
+                Rule::file()->max(1048576), // in KB
+                'extensions:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,sldprt,sldasm,slddrw,step,stp,iges,igs,x_t,x_b,stl,3mf,dwg,dxf,eprt,easm,edrw',
+            ],
             'responsible_id' => 'exists:users,id',
             'start_date' => 'nullable|date',
             'due_date' => 'nullable|date|after_or_equal:start_date',
@@ -447,7 +455,7 @@ class TaskController extends Controller
                     ));
                 }
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send email notifications for task update: ' . $e->getMessage());
         }
 
@@ -723,7 +731,7 @@ class TaskController extends Controller
                     ));
                 }
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send reminder emails: ' . $e->getMessage());
         }
 

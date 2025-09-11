@@ -32,6 +32,9 @@ COPY --chown=www-data:www-data . /var/www/html
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
 
+# Increase PHP upload limits for large files
+RUN echo "upload_max_filesize=1024M\npost_max_size=1024M\nmemory_limit=1024M\nmax_execution_time=600\nmax_input_time=600" > /usr/local/etc/php/conf.d/uploads.ini
+
 # Copy environment file
 RUN cp env.example .env
 
