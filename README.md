@@ -31,41 +31,31 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - PHP 8.2 veya üzeri
 - Composer
 - MySQL/PostgreSQL/SQLite
-- Laravel 11
+- Laravel 12
 - SMTP Mail Server (Gmail, Outlook, vb.)
 
 ## 🛠️ Kurulum
 
 ### 1. Projeyi İndirin
 ```bash
-git clone https://github.com/MEY-26/task-tracker-desktop.git
-cd task-tracker-desktop
+git clone https://github.com/MEY-26/task-tracker-desktop.git; cd task-tracker-desktop
 ```
 
 ### 2. Bağımlılıkları Yükleyin
 ```bash
-npm install
-cd task-tracker-api
-composer install
+npm install; cd task-tracker-api; composer install
 ```
 
 ### 3. Laravel'i Hazırlayın
 **Not**: Bu komutlar migration ve seeding sırasında çıkan onay sorularına otomatik "yes" yanıtı verir.
 
 ```bash
-copy .env.example .env
-php artisan key:generate
-php artisan migrate
-yes
-php artisan db:seed
-yes
+copy .env.example .env; php artisan key:generate; php artisan migrate; yes; php artisan db:seed; yes
 ```
 
 ### 4. Uygulamayı Başlatın
 ```bash
-cd ..
-scripts\setup.bat
-npm run start:network
+cd ..; scripts\setup.bat; npm run start:network
 ```
 
 ## 🌐 Ağ Erişimi
@@ -99,10 +89,9 @@ npm run start:network
 
 ```bash
 # Terminal 1 - API
-cd task-tracker-api
-php artisan serve --host=0.0.0.0 --port=8000
+cd task-tracker-api; php artisan serve --host=0.0.0.0 --port=8000
 
-# Terminal 2 - Frontend
+# Terminal 2 - Frontend (yeni terminal açın)
 npm run dev:web
 ```
 
@@ -133,11 +122,10 @@ npm run dev:web
 
 ### Geliştirme Modunda Çalıştırma
 ```bash
-# Backend
-cd task-tracker-api
-php artisan serve
+# Backend - Terminal 1
+cd task-tracker-api; php artisan serve
 
-# Frontend (yeni terminal)
+# Frontend - Terminal 2 (yeni terminal açın)
 npm run dev
 ```
 
@@ -285,11 +273,7 @@ Herhangi bir sorun yaşarsanız:
 
 Projeyi güncellemek için:
 ```bash
-git pull origin main
-npm install
-cd task-tracker-api
-composer install
-php artisan migrate
+git pull origin main; npm install; cd task-tracker-api; composer install; php artisan migrate
 ```
 
 ## 📞 İletişim
