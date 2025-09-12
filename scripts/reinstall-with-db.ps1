@@ -147,12 +147,18 @@ if (-not $FromTemp -and $scriptFull.StartsWith($projFull, [System.StringComparis
     }
     $forwardArgs += '-FromTemp'
 
-    $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue)?.Source
-    if (-not $pwsh) { $pwsh = (Get-Command powershell -ErrorAction SilentlyContinue)?.Source }
+    $pwsh = $null
+    $cmdPwsh = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($cmdPwsh) { $pwsh = $cmdPwsh.Source }
+    if (-not $pwsh) {
+      $cmdPs = Get-Command powershell -ErrorAction SilentlyContinue
+      if ($cmdPs) { $pwsh = $cmdPs.Source }
+    }
     if (-not $pwsh) { throw 'PowerShell yürütülebilir dosyası bulunamadı.' }
 
     $argList = @('-NoLogo','-NoProfile','-File', $tempScript) + $forwardArgs
-    Start-Process -FilePath $pwsh -ArgumentList $argList | Out-Null
+    # Aynı konsolde çıktı görmek için -NoNewWindow, kilitleri engellememek için -Wait kullanmıyoruz
+    Start-Process -FilePath $pwsh -ArgumentList $argList -WorkingDirectory $tempDir -NoNewWindow
     Write-Info "Script geçici dizinden yeniden başlatıldı: $tempScript"
     exit 0
   } catch {
