@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\PasswordResetRequested;
 use App\Models\User;
 use Illuminate\Support\Str;
 
@@ -39,6 +41,17 @@ class PasswordResetController extends Controller
                     'created_at' => now(),
                 ]
             );
+
+            // fetch the request to get ID
+            $requestRow = DB::table('password_reset_requests')
+                ->where('user_id', $user->id)
+                ->first();
+
+            // notify admins via database notifications
+            $admins = User::where('role', 'admin')->get();
+            if ($admins->count() > 0 && $requestRow) {
+                Notification::send($admins, new PasswordResetRequested($user, $requestRow->id));
+            }
 
             // Optionally notify the user/admin here (email/SMS) if desired
             Log::info("Password reset requested for user: {$user->email}");
@@ -153,6 +166,7 @@ class PasswordResetController extends Controller
                     'password_reset_requests.created_at',
                     'password_reset_requests.updated_at'
                 )
+                ->where('password_reset_requests.status', 'pending')
                 ->orderBy('password_reset_requests.created_at', 'desc')
                 ->get();
 

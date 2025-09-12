@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\TaskNotificationMail;
 use App\Models\User;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 
 class TaskController extends Controller
@@ -351,6 +352,74 @@ class TaskController extends Controller
 
         $task->save();
         $after = $task->fresh()->toArray();
+
+        // Collect human-readable change summaries
+        $changeSummaries = [];
+        $statusMap = [
+            'waiting' => 'Beklemede',
+            'in_progress' => 'Devam Ediyor',
+            'investigating' => 'İnceleniyor',
+            'completed' => 'Tamamlandı',
+            'cancelled' => 'İptal'
+        ];
+        $priorityMap = [
+            'low' => 'Düşük',
+            'medium' => 'Orta',
+            'high' => 'Yüksek',
+            'critical' => 'Kritik'
+        ];
+        $typeMap = [
+            'new_product' => 'Yeni Ürün',
+            'fixture' => 'Fikstür',
+            'apparatus' => 'Aparat',
+            'development' => 'Geliştirme',
+            'revision' => 'Revizyon',
+            'mold' => 'Kalıp',
+            'test_device' => 'Test Cihazı',
+        ];
+
+        $formatDate = function ($v) {
+            if (!$v) return '-';
+            try { return \Carbon\Carbon::parse($v)->format('Y-m-d'); } catch (\Throwable $e) { return (string)$v; }
+        };
+
+        foreach ($validated as $key => $newValue) {
+            if (in_array($key, ['attachments', 'assigned_users'])) continue;
+            $oldValue = $before[$key] ?? null;
+            if ($oldValue == $newValue) continue;
+
+            switch ($key) {
+                case 'title':
+                    $changeSummaries[] = 'Başlık güncellendi';
+                    break;
+                case 'description':
+                    $changeSummaries[] = 'Açıklama güncellendi';
+                    break;
+                case 'priority':
+                    $changeSummaries[] = 'Öncelik: ' . ($priorityMap[$oldValue] ?? $oldValue ?? '-') . ' → ' . ($priorityMap[$newValue] ?? $newValue ?? '-');
+                    break;
+                case 'status':
+                    $changeSummaries[] = 'Durum: ' . ($statusMap[$oldValue] ?? $oldValue ?? '-') . ' → ' . ($statusMap[$newValue] ?? $newValue ?? '-');
+                    break;
+                case 'task_type':
+                    $changeSummaries[] = 'Tür: ' . ($typeMap[$oldValue] ?? $oldValue ?? '-') . ' → ' . ($typeMap[$newValue] ?? $newValue ?? '-');
+                    break;
+                case 'responsible_id':
+                    $oldUser = $before['responsible_id'] ? \App\Models\User::find($before['responsible_id']) : null;
+                    $newUser = $after['responsible_id'] ? \App\Models\User::find($after['responsible_id']) : null;
+                    $changeSummaries[] = 'Sorumlu: ' . ($oldUser->name ?? '-') . ' → ' . ($newUser->name ?? '-');
+                    break;
+                case 'start_date':
+                    $changeSummaries[] = 'Başlangıç: ' . $formatDate($oldValue) . ' → ' . $formatDate($newValue);
+                    break;
+                case 'due_date':
+                    $changeSummaries[] = 'Bitiş: ' . $formatDate($oldValue) . ' → ' . $formatDate($newValue);
+                    break;
+                default:
+                    // generic fallback
+                    $changeSummaries[] = ucfirst(str_replace('_', ' ', $key)) . ' güncellendi';
+            }
+        }
         
 
         foreach ($validated as $key => $newValue) {
@@ -391,6 +460,10 @@ class TaskController extends Controller
                 'old_value'  => null,
                 'new_value'  => json_encode(array_map(fn($f)=>$f['original_name'], $uploadedFiles)),
             ]);
+            $addedNames = array_map(fn($f)=>$f['original_name'], $uploadedFiles);
+            if (!empty($addedNames)) {
+                $changeSummaries[] = 'Ekler: +' . implode(', +', array_slice($addedNames, 0, 3)) . (count($addedNames) > 3 ? '…' : '');
+            }
         }
 
 
@@ -399,31 +472,49 @@ class TaskController extends Controller
             $newUsers = collect(array_unique($request->assigned_users))->sort()->values()->all();
 
             if ($oldUsers != $newUsers) {
+                // Store names instead of IDs for better readability on UI
+                $oldUserNames = $task->assignedUsers->pluck('name')->sort()->values()->all();
+                $newUserNames = \App\Models\User::whereIn('id', $newUsers)->pluck('name')->sort()->values()->all();
+
                 TaskHistory::create([
                     'task_id'    => $task->id,
                     'user_id'    => $user->id,
                     'field'      => 'assigned_users',
-                    'old_value'  => json_encode($oldUsers),
-                    'new_value'  => json_encode($newUsers),
+                    'old_value'  => json_encode($oldUserNames),
+                    'new_value'  => json_encode($newUserNames),
                 ]);
             }
 
             $task->assignedUsers()->sync($newUsers);
             $newlyAssigned = array_diff($newUsers, $oldUsers);
+            $removed = array_diff($oldUsers, $newUsers);
+            $addedNames = [];
+            $removedNames = [];
             foreach ($newlyAssigned as $userId) {
                 $assignedUser = User::find($userId);
                 if ($assignedUser && $assignedUser->id !== $user->id) {
                     try {
                         $assignedMessage = 'Size yeni bir görev atandı: "' . $task->title . '"';
                         $assignedUser->notify(new TaskUpdated($task, $assignedMessage));
+                        $addedNames[] = $assignedUser->name;
                     } catch (\Exception $e) {
                         Log::error('Failed to send notification to newly assigned user: ' . $e->getMessage());
                     }
                 }
             }
+            foreach ($removed as $userId) {
+                $u = User::find($userId);
+                if ($u) $removedNames[] = $u->name;
+            }
+            if (!empty($addedNames) || !empty($removedNames)) {
+                $parts = [];
+                if (!empty($addedNames)) $parts[] = '+' . implode(', +', array_slice($addedNames, 0, 3)) . (count($addedNames) > 3 ? '…' : '');
+                if (!empty($removedNames)) $parts[] = '-' . implode(', -', array_slice($removedNames, 0, 3)) . (count($removedNames) > 3 ? '…' : '');
+                $changeSummaries[] = 'Atananlar: ' . implode(' ', $parts);
+            }
         }
-
-        $message = 'Göreviniz güncellendi: "' . $task->title . '"';
+        $summary = empty($changeSummaries) ? 'güncellendi' : ('güncellendi: ' . implode('; ', $changeSummaries));
+        $message = 'Görev "' . $task->title . '" ' . $summary;
         $bildirimGidecekler = collect();
         if ($task->responsible && $task->responsible->id !== $user->id) {
             $bildirimGidecekler->push($task->responsible);
@@ -845,5 +936,75 @@ class TaskController extends Controller
             'task_status' => $task->status,
             'user_role' => $user->role
         ]);
+    }
+
+    /**
+     * Record a task view by responsible/assigned users only.
+     */
+    public function viewTask(Request $request, Task $task)
+    {
+        $user = $request->user();
+        $task->load('assignedUsers');
+
+        $isAllowed = ($task->responsible_id === $user->id) || $task->assignedUsers->contains('id', $user->id);
+        if (!$isAllowed) {
+            // Do not track views for non-responsible/non-assigned users
+            return response()->json(['message' => 'View not tracked for this user'], 200);
+        }
+
+        DB::table('task_last_views')->updateOrInsert(
+            [
+                'task_id' => $task->id,
+                'user_id' => $user->id,
+            ],
+            [
+                'last_viewed_at' => now(),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        return response()->json(['message' => 'View recorded']);
+    }
+
+    /**
+     * Get last views for responsible and assigned users.
+     */
+    public function lastViews(Request $request, Task $task)
+    {
+        $task->load(['assignedUsers', 'responsible']);
+        $users = collect();
+        if ($task->responsible) $users->push($task->responsible);
+        foreach ($task->assignedUsers as $u) $users->push($u);
+        $users = $users->unique('id')->values();
+
+        $rows = DB::table('task_last_views')
+            ->where('task_id', $task->id)
+            ->whereIn('user_id', $users->pluck('id'))
+            ->get()
+            ->keyBy('user_id');
+
+        $views = $users->map(function ($u) use ($task, $rows) {
+            $row = $rows->get($u->id);
+            $tz = 'Europe/Istanbul';
+            $lastViewed = null;
+            if ($row && $row->last_viewed_at) {
+                try {
+                    $lastViewed = \Carbon\Carbon::parse($row->last_viewed_at)->timezone($tz)->toIso8601String();
+                } catch (\Throwable $e) {
+                    $lastViewed = (string) $row->last_viewed_at;
+                }
+            }
+            return [
+                'user_id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'role' => $u->role,
+                'is_responsible' => $task->responsible_id === $u->id,
+                'last_viewed_at' => $lastViewed,
+            ];
+        });
+
+        return response()->json(['views' => $views->values()]);
     }
 }

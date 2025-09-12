@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, resetPassword, forgotPassword, apiOrigin, PasswordReset } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -57,6 +57,7 @@ function App() {
   const [newComment, setNewComment] = useState('');
   const [users, setUsers] = useState([]);
   const [taskHistory, setTaskHistory] = useState([]);
+  const [taskLastViews, setTaskLastViews] = useState([]);
   const [taskHistories, setTaskHistories] = useState({});
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [descDraft, setDescDraft] = useState('');
@@ -64,7 +65,7 @@ function App() {
   const notifPanelRef = useRef(null);
   const [notifPos, setNotifPos] = useState({ top: 64, right: 16 });
   const badgeCount = Array.isArray(notifications)
-    ? notifications.filter(n => !n.isFrontendNotification && !n.read_at).length
+    ? notifications.filter(n => !n.isFrontendNotification).length
     : 0;
   const [historyDeleteMode, setHistoryDeleteMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -235,11 +236,11 @@ function App() {
         try {
           const userData = await getUser();
           setUser(userData);
-          await Promise.all([
-            loadTasks(),
-            loadUsers(),
-            loadNotifications()
-          ]);
+          const jobs = [loadTasks(), loadNotifications()];
+          if (['admin', 'team_leader', 'observer'].includes(userData?.role)) {
+            jobs.push(loadUsers());
+          }
+          await Promise.all(jobs);
         } catch (err) {
           console.error('User fetch error:', err);
           handleLogout();
@@ -250,6 +251,42 @@ function App() {
       setError('Oturum kontrolü başarısız');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openTaskById(taskId) {
+    try {
+      const inList = (Array.isArray(tasks) ? tasks : []).find(t => t.id === taskId);
+      if (inList) {
+        await handleTaskClick(inList);
+        return true;
+      }
+      const t = await Tasks.get(taskId);
+      const task = t.task || t;
+      if (task) {
+        await handleTaskClick(task);
+        return true;
+      }
+    } catch (err) {
+      console.error('Open task by id error:', err);
+      addNotification('Görev yüklenemedi', 'error');
+    }
+    return false;
+  }
+
+  async function handleNotificationClick(n) {
+    try {
+      if (n.action === 'open_task' && n.task_id) {
+        await openTaskById(n.task_id);
+        setShowNotifications(false);
+      } else if ((n.action === 'open_user_settings' || n.type === 'password_reset_request') && (user?.role === 'admin')) {
+        if (!showUserPanel) setShowUserPanel(true);
+        if (n.user_email) setUserSearchTerm(n.user_email);
+        setShowNotifications(false);
+      }
+    } finally {
+      // Bildirim kalıcı değil: tıklanınca silinir
+      try { await Notifications.delete(n.id); await loadNotifications(); } catch (_) {}
     }
   }
 
@@ -348,6 +385,12 @@ function App() {
               } catch (err) {
                 console.warn('Task history refresh failed:', err.message);
               }
+              try {
+                const v = await TaskViews.getLast(currentSelected.id);
+                setTaskLastViews(Array.isArray(v) ? v : []);
+              } catch (err) {
+                console.warn('Task last views refresh failed:', err.message);
+              }
             } else {
             }
           }
@@ -382,6 +425,10 @@ function App() {
 
   async function loadUsers() {
     try {
+      if (!user || !['admin','team_leader','observer'].includes(user.role)) {
+        setUsers([]);
+        return;
+      }
       const usersList = await getUsers();
       setUsers(usersList);
     } catch (err) {
@@ -420,9 +467,16 @@ function App() {
         read_at: n.read_at ?? null,
         isFrontendNotification: false,
         raw: n,
+        type: n.data?.type || n.type || null,
+        action: n.data?.action || null,
+        task_id: n.data?.task_id || null,
+        task_title: n.data?.task_title || null,
+        user_id: n.data?.user_id || null,
+        user_email: n.data?.user_email || null,
+        request_id: n.data?.request_id || null,
       }));
 
-      list = list.filter(n => !n.read_at);
+      // okundu bilgisi kullanılmıyor; tüm bildirimleri göster
 
       list = list.filter(n => {
         const message = n.message || '';
@@ -457,12 +511,14 @@ function App() {
       setUser(u);
 
       addNotification('Başarıyla giriş yapıldı', 'success');
-      await Promise.all([
-        loadTasks(),
-        loadUsers(),
-        loadNotifications(),
-        loadPasswordResetRequests()
-      ]);
+      const jobs = [loadTasks(), loadNotifications()];
+      if (['admin', 'team_leader', 'observer'].includes(u?.role)) {
+        jobs.push(loadUsers());
+      }
+      if (u?.role === 'admin') {
+        jobs.push(loadPasswordResetRequests());
+      }
+      await Promise.all(jobs);
     } catch (err) {
       console.error('Login error:', err);
 
@@ -798,19 +854,31 @@ function App() {
     });
     setShowDetailModal(true);
 
+    // Kaydı bağımsız çalıştır: geçmiş başarısız olsa bile görüntüleme/veriler yüklensin
+    try { await Tasks.recordView(task.id); } catch (_) {}
+
+    // Geçmişi yükle (başarısız olabilir)
     try {
       const history = await Tasks.getHistory(task.id);
       setTaskHistory(Array.isArray(history) ? history : []);
-
     } catch (err) {
       console.error('Task history load error:', err);
-      if (err.response?.status === 404) {
+      if (err?.response?.status === 404) {
         console.warn('Task history not found for task:', task.id);
-      } else if (err.response?.status === 403) {
+      } else if (err?.response?.status === 403) {
         console.warn('Access denied to task history for task:', task.id);
       }
       setTaskHistory([]);
       setComments([]);
+    }
+
+    // Son görüntülemeleri yükle (her durumda dene)
+    try {
+      const v = await TaskViews.getLast(task.id);
+      setTaskLastViews(Array.isArray(v) ? v : []);
+    } catch (err) {
+      console.warn('Task last views load error:', err?.message);
+      setTaskLastViews([]);
     }
   }
 
@@ -960,16 +1028,26 @@ function App() {
     if (!dateLike) return '-';
     const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
     if (Number.isNaN(d.getTime())) return '-';
-    const pad = (n) => n.toString().padStart(2, '0');
-    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    try {
+      const opts = { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
+      return new Intl.DateTimeFormat('tr-TR', opts).format(d);
+    } catch {
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
   }
 
   function formatDateOnly(dateLike) {
     if (!dateLike) return '-';
     const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
     if (Number.isNaN(d.getTime())) return '-';
-    const pad = (n) => n.toString().padStart(2, '0');
-    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+    try {
+      const opts = { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' };
+      return new Intl.DateTimeFormat('tr-TR', opts).format(d);
+    } catch {
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+    }
   }
 
   function getLastAddedDescription(taskHistory) {
@@ -1146,51 +1224,61 @@ function App() {
 
   function parseExcelUsers(file) {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async function (e) {
+      (async () => {
         try {
-          const data = new Uint8Array(e.target.result);
+          // Only .xlsx reliably supported by exceljs
+          const ext = (file.name || '').split('.').pop()?.toLowerCase();
+          if (ext === 'xls') {
+            throw new Error('Eski .xls formatı desteklenmiyor. Lütfen .xlsx yükleyin.');
+          }
+
+          const buffer = await file.arrayBuffer();
           const workbook = new ExcelJS.Workbook();
-          await workbook.xlsx.load(data);
-          
+          await workbook.xlsx.load(buffer);
+
           const worksheet = workbook.worksheets[0];
           if (!worksheet) {
             throw new Error('Excel dosyasında çalışma sayfası bulunamadı');
           }
 
-          const jsonData = [];
-          worksheet.eachRow((row, rowNumber) => {
+          const jsonRows = [];
+          worksheet.eachRow((row) => {
             const rowData = [];
             row.eachCell((cell, colNumber) => {
-              rowData[colNumber - 1] = cell.value;
+              let v = cell.value;
+              if (v && typeof v === 'object' && 'text' in v) v = v.text; // handle rich text
+              rowData[colNumber - 1] = v;
             });
-            jsonData.push(rowData);
+            jsonRows.push(rowData);
           });
 
-          const userRows = jsonData.slice(1).filter(row => row.length >= 4);
+          // Accept at least Name + Email; Role and Password optional
+          const userRows = jsonRows.slice(1).filter(row => (row?.[0] && row?.[1]));
 
+          const validRoles = ['admin', 'team_leader', 'team_member', 'observer'];
           const users = userRows.map((row, index) => {
-            const [name, email, role, password] = row;
+            const name = row[0];
+            const email = row[1];
+            const role = row[2];
+            const password = row[3];
 
-            const validRoles = ['admin', 'team_leader', 'team_member', 'observer'];
-            const validRole = validRoles.includes(role?.toLowerCase()) ? role.toLowerCase() : 'team_member';
+            const roleStr = (role ?? '').toString().trim().toLowerCase();
+            const validatedRole = validRoles.includes(roleStr) ? roleStr : 'team_member';
 
             return {
-              name: name?.toString().trim() || '',
-              email: email?.toString().trim() || '',
-              role: validRole,
-              password: password?.toString().trim() || '123456',
-              rowIndex: index + 2
+              name: (name ?? '').toString().trim(),
+              email: (email ?? '').toString().trim(),
+              role: validatedRole,
+              password: (password ?? '').toString().trim() || '123456',
+              rowIndex: index + 2,
             };
-          }).filter(user => user.name && user.email);
+          }).filter(u => u.name && u.email);
 
           resolve(users);
-        } catch (error) {
-          reject(new Error('Excel dosyası okunamadı: ' + error.message));
+        } catch (err) {
+          reject(new Error('Excel dosyası okunamadı: ' + (err?.message || String(err))));
         }
-      };
-      reader.onerror = () => reject(new Error('Dosya okunamadı'));
-      reader.readAsArrayBuffer(file);
+      })();
     });
   }
 
@@ -1429,7 +1517,7 @@ function App() {
             />
 
             <div className="!text-[16px] text-gray-400" style={{ paddingBottom: '10px' }}>
-              Excel dosyası seçin (.xlsx veya .xls formatında)
+              Excel dosyası seçin (.xlsx önerilir)
             </div>
           </div>
         </div>
@@ -1650,7 +1738,7 @@ function App() {
             if (showForgotPassword) {
               try {
                 setLoading(true);
-                try { await forgotPassword(loginForm.email); } catch (_) { await PasswordReset.requestReset(loginForm.email); }
+                await PasswordReset.requestReset(loginForm.email);
                 setError(null);
                 setShowForgotPassword(false);
                 addNotification('Şifre sıfırlama talebi admin\'lere gönderildi', 'success');
@@ -1706,8 +1794,8 @@ function App() {
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl disabled:opacity-50"
             >
               {loading
-                ? (showForgotPassword ? 'Kod Gönderiliyor...' : 'Giriş yapılıyor...')
-                : (showForgotPassword ? 'Kodu Gönder' : 'Giriş Yap')
+                ? (showForgotPassword ? 'Talep Gönderiliyor...' : 'Giriş yapılıyor...')
+                : (showForgotPassword ? 'Talep Gönder' : 'Giriş Yap')
               }
             </button>
           </form>
@@ -1876,17 +1964,7 @@ function App() {
                         >
                           {/* Header */}
                           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={async () => { try { await Notifications.markAllAsRead(); await loadNotifications(); } catch (err) { console.error('Mark all notifications error:', err); addNotification('İşlem başarısız', 'error'); } }}
-                                className="rounded-lg px-2 py-1 text-xs font-medium text-blue-300 border border-blue-400/40 bg-blue-500/10"
-                              >
-                                Tümünü okundu yap
-                              </button>
-                            </div>
+                            <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
                           </div>
 
                           <div className="overflow-y-auto notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
@@ -1896,32 +1974,13 @@ function App() {
                               notifications.map(n => (
                                 <div
                                   key={n.id}
-                                  className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors`}
+                                  className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
+                                  onClick={() => handleNotificationClick(n)}
                                 >
-                                  <div className="flex justify-between items-start">
+                                  <div className="flex items-start">
                                     <div className="flex-1">
                                       <p className="text-sm text-white">{n.message}</p>
                                       <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
-                                    </div>
-                                    <div className="flex gap-1 ml-2">
-                                      {!n.read_at && (
-                                        <button
-                                          onClick={async () => {
-                                            try { await Notifications.markAsRead(n.id); await loadNotifications(); }
-                                            catch (err) { console.error('Mark notification error:', err); addNotification('Bildirim işaretlenemedi', 'error'); }
-                                          }}
-                                          className="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-blue-500/20 transition-colors"
-                                          title="Okundu olarak işaretle"
-                                        >✓</button>
-                                      )}
-                                      <button
-                                        onClick={async () => {
-                                          try { await Notifications.delete(n.id); await loadNotifications(); addNotification('Bildirim silindi', 'success'); }
-                                          catch (err) { console.error('Delete notification error:', err); addNotification('Bildirim silinemedi', 'error'); }
-                                        }}
-                                        className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-red-500/20 transition-colors"
-                                        title="Bildirimi sil"
-                                      >🗑️</button>
                                     </div>
                                   </div>
                                 </div>
@@ -2966,6 +3025,25 @@ function App() {
                 </div>
 
                 <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 bg-[#0f172a] flex flex-col overflow-hidden">
+                  {/* Son Görüntüleme */}
+                  <div className="border-b border-white/10 flex-none" style={{ padding: '10px' }}>
+                    <h3 className="text-lg md:text-xl font-semibold text-white">👁️ Son Görüntüleme</h3>
+                    <div className="mt-3 space-y-2">
+                      {Array.isArray(taskLastViews) && taskLastViews.length > 0 ? (
+                        taskLastViews.map(v => (
+                          <div key={v.user_id} className="flex items-center justify-between text-sm">
+                            <div className="text-neutral-200 truncate mr-3">
+                              {v.name}
+                              {v.is_responsible ? <span className="ml-2 text-xs text-blue-300"></span> : null}
+                            </div>
+                            <div className="text-neutral-400 whitespace-nowrap">{v.last_viewed_at ? formatDate(v.last_viewed_at) : '-'}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-neutral-400 text-sm">Kayıt bulunamadı</div>
+                      )}
+                    </div>
+                  </div>
                   <div className="border-b border-white/10 flex-none" style={{ padding: '1px' }}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg md:text-xl font-semibold text-white">📢 Görev Geçmişi</h3>

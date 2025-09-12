@@ -12,8 +12,7 @@ use App\Http\Controllers\PasswordResetController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+// Email-based password reset flow removed. Use admin-driven reset flow below.
 
 Route::post('/password-reset-request', [PasswordResetController::class, 'requestReset']);
 Route::post('/password-reset', [PasswordResetController::class, 'resetPassword']);
@@ -50,6 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/tasks/{id}/reject', [TaskController::class, 'reject']);
     Route::put('/tasks/{id}/toggle-status', [TaskController::class, 'toggleStatus']);
     Route::post('/tasks/{id}/seen', [TaskController::class, 'markAsSeen']);
+    Route::post('/tasks/{task}/view', [TaskController::class, 'viewTask']);
+    Route::get('/tasks/{task}/last-views', [TaskController::class, 'lastViews']);
     Route::get('/tasks/{task}/can-delete', [TaskController::class, 'canDelete']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 

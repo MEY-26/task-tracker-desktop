@@ -144,30 +144,7 @@ export async function changePassword(currentPassword, newPassword) {
   }
 }
 
-export async function forgotPassword(email) {
-  try {
-    const response = await api.post('/forgot-password', { email });
-    return response.data;
-  } catch (error) {
-    console.error('Forgot password error:', error.response?.data || error.message);
-    throw error;
-  }
-}
-
-export async function resetPassword(email, token, password, passwordConfirmation) {
-  try {
-    const response = await api.post('/reset-password', {
-      email,
-      token,
-      password,
-      password_confirmation: passwordConfirmation
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Reset password error:', error.response?.data || error.message);
-    throw error;
-  }
-}
+// Email-based password reset flow removed. Use PasswordReset.requestReset + admin action.
 
 export async function registerUser({ name, email, password, password_confirmation, role }) {
   try {
@@ -333,6 +310,16 @@ export const Tasks = {
     }
   },
 
+  recordView: async (taskId) => {
+    try {
+      const response = await api.post(`/tasks/${taskId}/view`);
+      return response.data;
+    } catch (error) {
+      console.error('Task record view error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
   respond: async (taskId, response) => {
     try {
       const apiResponse = await api.post(`/tasks/${taskId}/respond`, { response });
@@ -390,6 +377,19 @@ export const Tasks = {
       return response.data.history || response.data || [];
     } catch (error) {
       console.error('Task history error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
+export const TaskViews = {
+  getLast: async (taskId) => {
+    try {
+      const response = await api.get(`/tasks/${taskId}/last-views`);
+      const v = response.data?.views;
+      return Array.isArray(v) ? v : (v ? Object.values(v) : []);
+    } catch (error) {
+      console.error('Task last views error:', error.response?.data || error.message);
       throw error;
     }
   }
