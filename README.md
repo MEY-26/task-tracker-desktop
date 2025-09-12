@@ -1,6 +1,8 @@
 # Task Tracker Desktop
 
-Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak geliştirilmiştir.
+Modern bir masaüstü görev takip uygulamas- Token'lar tarayıcı `localStorage`'da tutuluyor. XSS risklerini azaltmak için gelecekte OS anahtar zinciri (örn. keytar) gibi seçenekler değerlendirilebilir.
+
+### 3. Laravel'i Hazırlayınlectron ve React kullanılarak geliştirilmiştir.
 
 ## 🚀 Özellikler
 

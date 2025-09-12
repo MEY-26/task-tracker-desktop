@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, resetPassword, apiOrigin, PasswordReset } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, resetPassword, forgotPassword, apiOrigin, PasswordReset } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -1650,7 +1650,7 @@ function App() {
             if (showForgotPassword) {
               try {
                 setLoading(true);
-                const result = await PasswordReset.requestReset(loginForm.email);
+                try { await forgotPassword(loginForm.email); } catch (_) { await PasswordReset.requestReset(loginForm.email); }
                 setError(null);
                 setShowForgotPassword(false);
                 addNotification('Şifre sıfırlama talebi admin\'lere gönderildi', 'success');
