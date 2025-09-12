@@ -40,6 +40,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 ```bash
 git clone https://github.com/MEY-26/task-tracker-desktop.git
 cd task-tracker-desktop
+
 ```
 
 ### 2. Bağımlılıkları Yükleyin
@@ -47,20 +48,25 @@ cd task-tracker-desktop
 npm install
 cd task-tracker-api
 composer install
+
 ```
 
 ### 3. Laravel'i Hazırlayın
 ```bash
-cp .env.example .env
+copy .env.example .env
 php artisan key:generate
 php artisan migrate
+yes
 php artisan db:seed
+yes
 ```
 
 ### 4. Uygulamayı Başlatın
 ```bash
 cd ..
-npm run dev
+scripts\setup.bat
+npm run start:network
+
 ```
 
 ## 🌐 Ağ Erişimi
