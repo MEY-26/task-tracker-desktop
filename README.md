@@ -31,7 +31,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - PHP 8.2 veya üzeri
 - Composer
 - MySQL/PostgreSQL/SQLite
-- Laravel 12
+- Laravel 11
 - SMTP Mail Server (Gmail, Outlook, vb.)
 
 ## 🛠️ Kurulum
@@ -40,7 +40,6 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 ```bash
 git clone https://github.com/MEY-26/task-tracker-desktop.git
 cd task-tracker-desktop
-
 ```
 
 ### 2. Bağımlılıkları Yükleyin
@@ -48,10 +47,11 @@ cd task-tracker-desktop
 npm install
 cd task-tracker-api
 composer install
-
 ```
 
 ### 3. Laravel'i Hazırlayın
+**Not**: Bu komutlar migration ve seeding sırasında çıkan onay sorularına otomatik "yes" yanıtı verir.
+
 ```bash
 copy .env.example .env
 php artisan key:generate
@@ -66,7 +66,6 @@ yes
 cd ..
 scripts\setup.bat
 npm run start:network
-
 ```
 
 ## 🌐 Ağ Erişimi
@@ -198,7 +197,7 @@ task-tracker-desktop/
 const API_BASE_URL = 'http://localhost:8000/api';
 
 // Local Network için
-const API_BASE_URL = 'http://192.168.1.180:8000/api';
+const API_BASE_URL = 'http://[YOUR_IP]:8000/api';
 ```
 
 **Not**: Local network kullanımı için IP adresinizi değiştirin.
