@@ -16,8 +16,8 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
             nodeIntegration: false,
-            webSecurity: false,
-            allowRunningInsecureContent: true
+            webSecurity: true,
+            allowRunningInsecureContent: false
         }
     });
 

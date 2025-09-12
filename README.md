@@ -44,6 +44,28 @@ git clone https://github.com/MEY-26/task-tracker-desktop.git; cd task-tracker-de
 ### 2. Bağımlılıkları Yükleyin
 ```bash
 npm install; cd task-tracker-api; composer install
+
+## CI/CD Pipeline
+
+Bu repo için GitHub Actions tabanlı bir CI yapılandırması eklendi (`.github/workflows/ci.yml`). Pipeline şu işleri yapar:
+
+- frontend-tests: Node 20 ile `npm ci` ve `npm run build:ui` çalıştırır (vite derlemesi doğrulanır).
+- code-quality: ESLint çalıştırır (`npm run lint`). Electron ana süreç dosyaları Node ortamında lint edilir.
+- backend-tests: PHP 8.3 ile Laravel testlerini çalıştırır (`php artisan test`).
+- security-scan: `npm audit` (prod, yüksek seviye+) ve `composer audit` çalıştırır. Raporlar üretir; pipeline’ı bloklamaz.
+- build-electron: Sadece tag push’larında Electron’u `--dir` modunda paketler ve artifact olarak yükler.
+
+Yerel doğrulama için hızlı komutlar:
+
+- Frontend derleme: `npm ci && npm run build:ui`
+- Lint: `npm run lint`
+- Backend test: `cd task-tracker-api && composer install && php artisan test`
+
+## Güvenlik Notları
+
+- Electron penceresinde `webSecurity` açıldı ve `allowRunningInsecureContent` kapatıldı.
+- CORS artık `.env` ile yönetilebilir. Üretimde `CORS_ALLOWED_ORIGINS` belirleyip `*` kullanmaktan kaçının.
+- Token’lar tarayıcı `localStorage`’da tutuluyor. XSS risklerini azaltmak için gelecekte OS anahtar zinciri (örn. keytar) gibi seçenekler değerlendirilebilir.
 ```
 
 ### 3. Laravel'i Hazırlayın

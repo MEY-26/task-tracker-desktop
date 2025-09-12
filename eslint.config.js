@@ -26,4 +26,21 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // Electron main/preload dosyaları Node ortamında çalışır.
+  {
+    files: ['electron/**/*.js', 'electron/**/*.cjs'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: {
+        ...globals.node,
+      },
+      parserOptions: {
+        sourceType: 'module',
+      },
+    },
+    rules: {
+      // main process'te "process" ve benzeri Node global'leri kullanılabilir.
+      'no-undef': 'off',
+    },
+  },
 ])

@@ -1,5 +1,22 @@
 <?php
 
+$defaultOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'http://127.0.0.1:3000',
+    'app://./',
+];
+
+$envOrigins = array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', ''))));
+$allowedOrigins = array_values(array_unique(array_merge($defaultOrigins, $envOrigins)));
+if (env('APP_ENV', 'local') !== 'production') {
+    // Geliştirme ortamında esneklik için '*' ekleyebiliriz.
+    $allowedOrigins[] = '*';
+}
+
 return [
 
     /*
@@ -19,31 +36,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174',
-    'http://127.0.0.1:3000',
-    'http://0.0.0.0:5173',
-    'http://0.0.0.0:5174',
-    'http://0.0.0.0:3000',
-    'http://172.23.16.1:5173',
-    'http://172.23.16.1:5174',
-    'http://172.23.16.1:3000',
-    'http://172.17.0.22:5173',
-    'http://172.17.0.22:5174',
-    'http://172.17.0.22:3000',
-    'http://172.20.10.7:5173',
-    'http://172.20.10.7:5174',
-    'http://172.20.10.7:8000',
-    'http://gorevtakip.vaden:5173',
-    'http://gorevtakip.vaden:5174',
-    'http://api.gorevtakip.vaden:800',
-    'app://./',
-    '*'
-],
+    'allowed_origins' => $allowedOrigins,
 
     'allowed_origins_patterns' => [
         '/^http:\/\/192\.168\.\d+\.\d+:\d+$/',
