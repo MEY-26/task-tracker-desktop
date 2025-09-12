@@ -150,8 +150,14 @@ npm run build
 ```
 task-tracker-desktop/
 ├── electron/                 # Electron ana süreç dosyaları
-├── src/                     # React uygulaması
-├── task-tracker-api/        # Laravel API
+│   ├── main.js              # Electron main process
+│   └── preload.cjs          # Preload script
+├── src/                     # React frontend uygulaması
+│   ├── App.jsx              # Ana uygulama komponenti
+│   ├── main.jsx             # Uygulama giriş noktası
+│   ├── api.js               # API bağlantı ayarları
+│   └── assets/              # Statik dosyalar
+├── task-tracker-api/        # Laravel API backend
 │   ├── app/
 │   │   ├── Http/Controllers/
 │   │   │   ├── AuthController.php
@@ -167,12 +173,20 @@ task-tracker-desktop/
 │   │   └── Notifications/
 │   │       └── TaskUpdated.php
 │   ├── database/
-│   │   ├── migrations/
-│   │   └── seeders/
-│   └── routes/
-│       └── api.php
-├── scripts/                 # Kurulum ve başlatma scriptleri
-└── public/                  # Statik dosyalar
+│   │   ├── database.sqlite  # SQLite veritabanı
+│   │   ├── migrations/      # Veritabanı şemaları
+│   │   └── seeders/         # Başlangıç verileri
+│   ├── routes/
+│   │   └── api.php          # API rotaları
+│   └── .env                 # Ortam değişkenleri
+├── scripts/                 # Kurulum scriptleri
+│   ├── backup-sqlite.ps1    # Veritabanı yedekleme
+│   ├── restore-sqlite.ps1   # Veritabanı geri yükleme
+│   ├── setup.bat           # Windows kurulum
+│   └── setup.sh            # Linux/Mac kurulum
+├── public/                  # Statik web dosyaları
+├── package.json             # Node.js bağımlılıkları
+└── index.html              # Ana HTML dosyası
 ```
 
 ## 🔧 Yapılandırma
