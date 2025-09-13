@@ -82,7 +82,8 @@ export async function login(email, password) {
       try {
         const me = await api.get('/user');
         return me.data;
-      } catch (e) {
+      } catch (error) {
+        console.warn('User fetch failed:', error);
         return data.user || data;
       }
     }
@@ -247,7 +248,8 @@ export const Tasks = {
               const total = e.total || e.srcElement?.getResponseHeader?.('Content-Length') || 0;
               const percent = total ? Math.min(100, Math.round((e.loaded * 100) / total)) : Math.round((e.loaded % (5 * 1024 * 1024)) / (5 * 1024 * 1024) * 100);
               onProgress(percent);
-            } catch (_) {
+            } catch (error) {
+              console.warn('Upload progress error:', error);
               onProgress(null);
             }
           }

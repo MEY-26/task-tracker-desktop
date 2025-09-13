@@ -250,7 +250,7 @@ function App() {
     }
   }
 
-  async function handleFileImport(event) {
+  // Removed unused function handleFileImport
     const file = event.target.files[0];
     if (!file) return;
 
@@ -996,7 +996,8 @@ function App() {
               const total = e.total || 0;
               const percent = total ? Math.min(100, Math.round((e.loaded * 100) / total)) : null;
               setUploadProgress({ percent, label: 'Dosyalar yükleniyor' });
-            } catch (_) {
+            } catch (error) {
+              console.warn('Upload progress error:', error);
               setUploadProgress({ percent: null, label: 'Dosyalar yükleniyor' });
             }
           }
@@ -1262,7 +1263,7 @@ function App() {
     if (!text || !selectedTask) return;
 
     try {
-      const res = await Tasks.comment(selectedTask.id, text);
+      await Tasks.comment(selectedTask.id, text);
       try {
         const h = await Tasks.getHistory(selectedTask.id);
         setTaskHistory(Array.isArray(h) ? h : []);
@@ -2501,7 +2502,7 @@ function App() {
                     {/* Seçilen kullanıcılar */}
                     {newTask.assigned_users.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {newTask.assigned_users.map((userId, index) => {
+                        {newTask.assigned_users.map((userId) => {
                           const user = users.find(u => u.id === userId);
                           return (
                             <span key={userId} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
@@ -3490,7 +3491,7 @@ function App() {
                           <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
                             {(() => {
                               const arr = Array.isArray(selectedTask.assigned_users) ? selectedTask.assigned_users : [];
-                              const names = arr.map((u, idx) => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).filter(n => n && n.trim().length > 0);
+                              const names = arr.map((u) => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).filter(n => n && n.trim().length > 0);
                               if (names.length === 0) return (<span className="text-gray-500">-</span>);
                               return (<div className="text-gray-900 text-[18px] leading-6">{names.join(', ')}</div>);
                             })()}
@@ -4374,7 +4375,7 @@ function App() {
                           }
                           return true;
                         })
-                        .map((u, index) => {
+                        .map((u) => {
                           const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
                           return (
                             <div

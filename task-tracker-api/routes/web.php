@@ -8,6 +8,10 @@ Route::get('/attachments/{attachment}', [TaskController::class, 'showAttachment'
     ->middleware('signed');
 
 // Error page route
+Route::get('/', function () {
+    return view('welcome'); // or return a simple response if you don't have a welcome view
+});
+
 Route::get('/error', function () {
     return view('errors.generic', [
         'message' => session('error', 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'),
