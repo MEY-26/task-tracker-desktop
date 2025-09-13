@@ -59,10 +59,14 @@ api.interceptors.response.use(
       data: error.response?.data
     });
     
-    // 401 Unauthorized - kesin authentication hatası
-    if (error.response?.status === 401) {
+    // 401 Unauthorized veya 500 + "Unauthenticated" - authentication hatası
+    const isAuthError = error.response?.status === 401 || 
+                       (error.response?.status === 500 && 
+                        error.response?.data?.error === 'Unauthenticated.');
+    
+    if (isAuthError) {
       localStorage.removeItem('jwt');
-      console.error('Token geçersiz, oturum sonlandırıldı');
+      console.error('Token geçersiz veya süresi dolmuş, oturum sonlandırıldı');
       
       // Sadece kritik sayfalarda reload yap, notification gibi arka plan isteklerinde yapma
       if (window.location.pathname !== '/login' && 
@@ -72,13 +76,6 @@ api.interceptors.response.use(
         console.warn('Critical auth error, reloading page');
         window.location.reload();
       }
-    }
-    
-    // 500 + "Unauthenticated" - muhtemelen authentication hatası ama kesin değil
-    if (error.response?.status === 500 && 
-        error.response?.data?.error === 'Unauthenticated.') {
-      console.warn('Possible authentication issue, but not forcing logout');
-      // Bu durumda logout yapmıyoruz, sadece log yazıyoruz
     }
     return Promise.reject(error);
   }
@@ -131,12 +128,7 @@ export async function getUser() {
     const response = await api.get('/user');
     return response.data;
   } catch (error) {
-    // 500 + "Unauthenticated" hatası için özel handling
-    if (error.response?.status === 500 && error.response?.data?.error === 'Unauthenticated.') {
-      console.warn('Server authentication issue in getUser, but continuing...');
-    } else {
-      console.error('Get user error:', error.response?.data || error.message);
-    }
+    console.error('Get user error:', error.response?.data || error.message);
     throw error;
   }
 }

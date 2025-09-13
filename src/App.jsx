@@ -417,13 +417,11 @@ function App() {
           await Promise.all(jobs);
         } catch (err) {
           console.error('User fetch error:', err);
-          // Sadece 401 hatası için logout yap
-          if (err.response?.status === 401) {
+          // 401 veya 500 + "Unauthenticated" hatası için logout yap
+          if (err.response?.status === 401 || 
+              (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
             console.warn('Token expired or invalid, logging out...');
             handleLogout();
-          } else if (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.') {
-            console.warn('Server authentication issue, but not logging out...');
-            // 500 + Unauthenticated hatası için logout yapmıyoruz
           } else {
             console.error('Unexpected error in checkAuth:', err);
             handleLogout();
@@ -679,12 +677,10 @@ function App() {
       }
     } catch (err) {
       console.error('Notifications load error:', err);
-      if (err.response?.status === 401) {
+      if (err.response?.status === 401 || 
+          (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
         console.warn('Unauthorized notification access, clearing notifications');
-        // 401 hatası - kesin authentication sorunu
-      } else if (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.') {
-        console.warn('Possible authentication issue with notifications, clearing notifications');
-        // 500 + Unauthenticated - muhtemelen auth sorunu ama kesin değil
+        // Authentication sorunu - notifications'ı temizle ama sayfayı reload etme
       } else if (err.response?.status === 404) {
         console.warn('Notifications endpoint not found');
       } else {
