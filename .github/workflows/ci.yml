@@ -48,10 +48,16 @@ jobs:
       - name: Install Composer deps
         working-directory: task-tracker-api
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - name: Create database directory
+        working-directory: task-tracker-api
+        run: |
+          mkdir -p database
+          touch database/database.sqlite
       - name: Prepare env
         working-directory: task-tracker-api
         run: |
-          cp .env.example .env || cat > .env << 'EOF'
+          # Create .env file with proper configuration
+          cat > .env << 'EOF'
           APP_NAME=TaskTracker
           APP_ENV=testing
           APP_KEY=
@@ -108,14 +114,18 @@ jobs:
           VITE_PUSHER_SCHEME="${PUSHER_SCHEME}"
           VITE_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
           EOF
-          php artisan key:generate --force
-          php artisan config:clear
-          php artisan cache:clear
-          php artisan route:clear
-          php artisan view:clear
-          mkdir -p database
-          touch database/database.sqlite
-          php artisan migrate --force
+          
+          # Clear all caches first
+          php artisan config:clear || true
+          php artisan cache:clear || true
+          php artisan route:clear || true
+          php artisan view:clear || true
+      - name: Generate application key
+        working-directory: task-tracker-api
+        run: php artisan key:generate --force
+      - name: Run migrations
+        working-directory: task-tracker-api
+        run: php artisan migrate --force
       - name: Run tests
         working-directory: task-tracker-api
         run: php artisan test --no-ansi
