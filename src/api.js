@@ -519,4 +519,37 @@ export const PasswordReset = {
   }
 };
 
+export const WeeklyGoals = {
+  get: async (params = {}) => {
+    try {
+      const response = await api.get('/weekly-goals', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Weekly goals fetch error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  save: async (payload) => {
+    try {
+      const response = await api.post('/weekly-goals', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Weekly goals save error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
+export const Team = {
+  members: async (leaderId = null) => {
+    try {
+      const response = await api.get('/team-members', { params: leaderId ? { leader_id: leaderId } : {} });
+      return response.data?.members || [];
+    } catch (error) {
+      console.error('Team members fetch error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
 export default api;

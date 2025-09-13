@@ -9,6 +9,7 @@ use App\Http\Controllers\TaskHistoryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\WeeklyGoalController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -56,6 +57,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    Route::get('/team-members', [UserController::class, 'teamMembers']);
+
+    // Weekly Goals
+    Route::get('/weekly-goals', [WeeklyGoalController::class, 'get']);
+    Route::post('/weekly-goals', [WeeklyGoalController::class, 'save']);
 
     // admin
     Route::get('/password-reset-requests', [PasswordResetController::class, 'getResetRequests']);

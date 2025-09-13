@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews } from './api';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -60,13 +60,24 @@ function App() {
   const [taskLastViews, setTaskLastViews] = useState([]);
   const [taskHistories, setTaskHistories] = useState({});
   const [showUserPanel, setShowUserPanel] = useState(false);
+  const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
+  const [weeklyGoals, setWeeklyGoals] = useState({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
+  const [weeklyWeekStart, setWeeklyWeekStart] = useState('');
+  const [weeklyUserId, setWeeklyUserId] = useState(null); // null = current user
+  const [showGoalDescription, setShowGoalDescription] = useState(false);
+  const [selectedGoalIndex, setSelectedGoalIndex] = useState(null);
+  const [goalDescription, setGoalDescription] = useState('');
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [descDraft, setDescDraft] = useState('');
+  const [selectedLeaderFilter, setSelectedLeaderFilter] = useState('');
+  const [selectedTeamLeader, setSelectedTeamLeader] = useState(null);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [bulkLeaderId, setBulkLeaderId] = useState('');
   const bellRef = useRef(null);
   const notifPanelRef = useRef(null);
   const [notifPos, setNotifPos] = useState({ top: 64, right: 16 });
-  const badgeCount = Array.isArray(notifications)
-    ? notifications.filter(n => !n.isFrontendNotification).length
-    : 0;
+  const badgeCount = Array.isArray(notifications)? notifications.filter(n => !n.isFrontendNotification).length: 0;
   const [historyDeleteMode, setHistoryDeleteMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -77,6 +88,390 @@ function App() {
   const [selectedTaskType, setSelectedTaskType] = useState('all');
   const [passwordResetRequests, setPasswordResetRequests] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // { percent: number|null, label: string }
+
+  // Weekly goals helpers (inside component to access state)
+  function getMonday(date = new Date()) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1) - day; // Monday as 1
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function fmtYMD(d) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function isoWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return weekNo;
+  }
+
+  // Performans harfi ve rengi hesaplama
+  function getPerformanceGrade(score) {
+    if (score >= 111) return { grade: 'A', color: '#00c800', description: 'Olağan Üstü Performans' };
+    if (score >= 101) return { grade: 'B', color: '#329600', description: 'Beklentilerin Üzerinde' };
+    if (score >= 80) return { grade: 'C', color: '#649600', description: 'Beklenilen Performans' };
+    if (score >= 55) return { grade: 'D', color: '#fa6400', description: 'Beklentileri Karşılamayan' };
+    return { grade: 'E', color: '#fa3200', description: 'Düşük Performans' };
+  }
+
+  // Live summary for UI (updates immediately on input changes)
+  const weeklyLive = useMemo(() => {
+    const items = Array.isArray(weeklyGoals.items) ? weeklyGoals.items : [];
+    const planned = items.filter(x => !x.is_unplanned);
+    const unplanned = items.filter(x => x.is_unplanned);
+
+    const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x?.target_minutes || 0)), 0);
+    const totalWeightRaw = (totalTarget / 2700) * 100;
+    const totalWeight = Math.min(100, Number(totalWeightRaw.toFixed(1)));
+    const unplannedMinutes = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
+
+    // Planlı skor: sum(weight% * (t/a))
+    let plannedScore = 0;
+    for (const it of planned) {
+      const t = Math.max(0, Number(it?.target_minutes || 0));
+      const a = Math.max(0, Number(it?.actual_minutes || 0));
+      if (t > 0 && a > 0) {
+        const w = (t / 2700) * 100;
+        const eff = t / a; // sınır yok, finale clamp var
+        plannedScore += w * eff;
+      }
+    }
+    const unplannedBonus = (unplannedMinutes / 2700) * 100;
+    const finalScore = Math.min(120, plannedScore + unplannedBonus);
+
+    return {
+      totalTarget,
+      totalWeight,
+      unplannedMinutes,
+      plannedScore: Number(plannedScore.toFixed(2)),
+      unplannedBonus: Number(unplannedBonus.toFixed(2)),
+      finalScore: Number(finalScore.toFixed(2)),
+    };
+  }, [weeklyGoals.items]);
+
+  // Warn if total planned time exceeds 2700 minutes
+  const overTargetWarnedRef = useRef(false);
+  useEffect(() => {
+    const tt = Number(weeklyLive?.totalTarget || 0);
+    if (tt > 2700) {
+      if (!overTargetWarnedRef.current) {
+        addNotification('Planlı hedef toplamı 2700 dakikayı aşıyor', 'warning');
+        overTargetWarnedRef.current = true;
+      }
+    } else {
+      overTargetWarnedRef.current = false;
+    }
+  }, [weeklyLive.totalTarget]);
+
+  async function loadWeeklyGoals(weekStart = null, userId = null) {
+    try {
+      const ws = weekStart || weeklyWeekStart || fmtYMD(getMonday());
+      setWeeklyWeekStart(ws);
+
+      // userId parametresi açıkça geçilmişse onu kullan, yoksa mevcut weeklyUserId'yi kullan
+      let uid;
+      if (userId !== null) {
+        uid = userId;
+      } else if (userId === null && arguments.length > 1) {
+        // userId açıkça null olarak geçilmişse
+        uid = null;
+      } else {
+        // userId parametresi geçilmemişse mevcut state'i kullan
+        uid = weeklyUserId;
+      }
+
+      setWeeklyUserId(uid);
+      const params = { week_start: ws };
+      if (uid) params.user_id = uid;
+      const res = await WeeklyGoals.get(params);
+      setWeeklyGoals({ goal: res.goal, items: Array.isArray(res.items) ? res.items : [], locks: res.locks || {}, summary: res.summary || null });
+    } catch (err) {
+      console.error('Weekly goals load error:', err);
+      setWeeklyGoals({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
+    }
+  }
+
+  async function saveWeeklyGoals() {
+    try {
+      if ((weeklyLive?.totalTarget || 0) > 2700) {
+        addNotification('Haftalık hedef toplamı 2700 dakikayı aşamaz.', 'error');
+        return;
+      }
+      // Auto compute weights from target minutes (planned only)
+      const planned = (weeklyGoals.items || []).filter(x => !x.is_unplanned);
+      const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
+      const items = (weeklyGoals.items || []).map((x) => {
+        const isUnplanned = !!x.is_unplanned;
+        let weight = Number(x.weight_percent || 0);
+        if (!isUnplanned) {
+          const minutes = Math.max(0, Number(x.target_minutes || 0));
+          weight = totalTarget > 0 ? (minutes / totalTarget) * 100 : 0;
+        }
+        return {
+          id: x.id,
+          title: x.title || '',
+          action_plan: x.action_plan || '',
+          description: x.description || '',
+          target_minutes: Number(x.target_minutes || 0),
+          weight_percent: Number(weight.toFixed(2)),
+          actual_minutes: Number(x.actual_minutes || 0),
+          is_unplanned: isUnplanned,
+        };
+      });
+
+      const payload = {
+        week_start: weeklyWeekStart || fmtYMD(getMonday()),
+        items,
+        ...(weeklyUserId ? { user_id: weeklyUserId } : {}),
+      };
+      const res = await WeeklyGoals.save(payload);
+      setWeeklyGoals({ goal: res.goal, items: res.items || [], locks: res.locks || {}, summary: res.summary || null });
+      addNotification('Haftalık hedefler kaydedildi', 'success');
+    } catch (err) {
+      console.error('Weekly goals save error:', err);
+      addNotification(err.response?.data?.message || 'Kaydedilemedi', 'error');
+    }
+  }
+
+  async function loadTeamMembers(leaderId = null) {
+    try {
+      const list = await Team.members(leaderId);
+      setTeamMembers(Array.isArray(list) ? list : []);
+    } catch (e) {
+      console.error('Team members load error:', e);
+      setTeamMembers([]);
+    }
+  }
+
+  async function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      setLoading(true);
+      const data = await parseFile(file);
+
+      if (!Array.isArray(data) || data.length === 0) {
+        addNotification('Dosyada geçerli veri bulunamadı', 'error');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      for (const [index, row] of data.entries()) {
+        try {
+          // Gerekli alanları kontrol et
+          if (!row.name || !row.email || !row.role) {
+            errors.push(`Satır ${index + 1}: name, email ve role alanları zorunludur`);
+            errorCount++;
+            continue;
+          }
+
+          // Geçerli rol kontrolü
+          const validRoles = ['admin', 'team_leader', 'team_member', 'observer'];
+          if (!validRoles.includes(row.role)) {
+            errors.push(`Satır ${index + 1}: Geçersiz rol "${row.role}". Geçerli roller: ${validRoles.join(', ')}`);
+            errorCount++;
+            continue;
+          }
+
+          // Lider ID kontrolü - hem leader_id hem de leader_name destekle
+          let leaderId = null;
+          if (row.leader_id) {
+            const leaderIdNum = parseInt(row.leader_id);
+            if (isNaN(leaderIdNum)) {
+              errors.push(`Satır ${index + 1}: Geçersiz leader_id "${row.leader_id}"`);
+              errorCount++;
+              continue;
+            }
+            leaderId = leaderIdNum;
+          } else if (row.leader_name) {
+            // Lider adı ile arama
+            const leader = users.find(u => u.name.toLowerCase() === row.leader_name.toLowerCase() && (u.role === 'team_leader' || u.role === 'admin'));
+            if (leader) {
+              leaderId = leader.id;
+            } else {
+              errors.push(`Satır ${index + 1}: Lider bulunamadı "${row.leader_name}"`);
+              errorCount++;
+              continue;
+            }
+          }
+
+          // Kullanıcı oluştur
+          await registerUser({
+            name: row.name.trim(),
+            email: row.email.trim(),
+            password: '123456', // Varsayılan şifre
+            password_confirmation: '123456',
+            role: row.role,
+            leader_id: leaderId
+          });
+
+          successCount++;
+        } catch (err) {
+          console.error(`Row ${index + 1} error:`, err);
+          const errorMsg = err.response?.data?.message || err.message || 'Bilinmeyen hata';
+          errors.push(`Satır ${index + 1}: ${errorMsg}`);
+          errorCount++;
+        }
+      }
+
+      // Sonuçları göster
+      if (successCount > 0) {
+        addNotification(`${successCount} kullanıcı başarıyla eklendi`, 'success');
+        await loadUsers();
+      }
+
+      if (errorCount > 0) {
+        const errorMessage = errors.slice(0, 5).join('\n') + (errors.length > 5 ? `\n... ve ${errors.length - 5} hata daha` : '');
+        addNotification(`${errorCount} kullanıcı eklenemedi:\n${errorMessage}`, 'error');
+      }
+
+    } catch (err) {
+      console.error('File import error:', err);
+      addNotification('Dosya işlenirken hata oluştu', 'error');
+    } finally {
+      setLoading(false);
+      // Input'u temizle
+      event.target.value = '';
+    }
+  }
+
+  async function parseFile(file) {
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith('.csv')) {
+      return parseCSV(file);
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      return parseExcel(file);
+    } else {
+      throw new Error('Desteklenmeyen dosya formatı');
+    }
+  }
+
+  async function parseCSV(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const lines = text.split('\n').filter(line => line.trim());
+
+          if (lines.length < 2) {
+            resolve([]);
+            return;
+          }
+
+          // Daha esnek CSV parsing - virgül, noktalı virgül ve tab ayırıcılarını destekle
+          const delimiter = lines[0].includes(';') ? ';' : (lines[0].includes('\t') ? '\t' : ',');
+          const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/"/g, ''));
+          const data = [];
+
+          for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(delimiter).map(v => v.trim().replace(/"/g, ''));
+            const row = {};
+
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+
+            data.push(row);
+          }
+
+          resolve(data);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('Dosya okunamadı'));
+      reader.readAsText(file, 'UTF-8');
+    });
+  }
+
+  async function parseExcel(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const workbook = new ExcelJS.Workbook();
+          await workbook.xlsx.load(e.target.result);
+
+          const worksheet = workbook.worksheets[0];
+          if (!worksheet) {
+            resolve([]);
+            return;
+          }
+
+          const data = [];
+          const headers = [];
+
+          // İlk satırı header olarak al
+          worksheet.getRow(1).eachCell((cell, colNumber) => {
+            headers[colNumber] = cell.value?.toString().toLowerCase().trim() || '';
+          });
+
+          // Diğer satırları işle
+          for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+            const row = {};
+            let hasData = false;
+
+            worksheet.getRow(rowNumber).eachCell((cell, colNumber) => {
+              const header = headers[colNumber];
+              if (header) {
+                row[header] = cell.value?.toString() || '';
+                if (row[header]) hasData = true;
+              }
+            });
+
+            if (hasData) {
+              data.push(row);
+            }
+          }
+
+          resolve(data);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error('Dosya okunamadı'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function downloadSampleFile() {
+    const sampleData = [
+      ['name', 'email', 'role', 'leader_name'],
+      ['Ahmet Yılmaz', 'ahmet@example.com', 'team_member', 'Mehmet Demir'],
+      ['Ayşe Kaya', 'ayse@example.com', 'team_member', 'Mehmet Demir'],
+      ['Mehmet Demir', 'mehmet@example.com', 'team_leader', ''],
+      ['Fatma Öz', 'fatma@example.com', 'observer', 'Mehmet Demir'],
+      ['Ali Veli', 'ali@example.com', 'admin', '']
+    ];
+
+    const csvContent = sampleData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'kullanici_ornek.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }
 
   const taskCounts = {
     active: Array.isArray(tasks) ? tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length : 0,
@@ -286,7 +681,7 @@ function App() {
       }
     } finally {
       // Bildirim kalıcı değil: tıklanınca silinir
-      try { await Notifications.delete(n.id); await loadNotifications(); } catch (_) {}
+      try { await Notifications.delete(n.id); await loadNotifications(); } catch (_) { }
     }
   }
 
@@ -425,10 +820,6 @@ function App() {
 
   async function loadUsers() {
     try {
-      if (!user || !['admin','team_leader','observer'].includes(user.role)) {
-        setUsers([]);
-        return;
-      }
       const usersList = await getUsers();
       setUsers(usersList);
     } catch (err) {
@@ -436,6 +827,13 @@ function App() {
       setUsers([]);
     }
   }
+
+  // Ensure users refresh when the panel is opened (avoids stale state race)
+  useEffect(() => {
+    if (showUserPanel && ['admin', 'team_leader', 'observer'].includes(user?.role)) {
+      loadUsers();
+    }
+  }, [showUserPanel, user?.role]);
 
   async function loadPasswordResetRequests() {
     try {
@@ -674,7 +1072,7 @@ function App() {
 
       const response = await Tasks.update(taskId, updates);
       const updatedTask = response.task;
-      
+
       if (!updatedTask) {
         console.error('No task data in update response:', response);
         throw new Error('Görev güncelleme yanıtında görev verisi bulunamadı');
@@ -689,10 +1087,10 @@ function App() {
 
       if (selectedTask && selectedTask.id === taskId) {
         // Tarih güncellemesi için selectedTask'ı güncelle
-        const isDateUpdate = Object.keys(updates).some(key => 
+        const isDateUpdate = Object.keys(updates).some(key =>
           key === 'start_date' || key === 'due_date' || key === 'end_date'
         );
-        
+
         if (isDateUpdate) {
           // Tarih güncellemesi için sadece ilgili alanı güncelle
           setSelectedTask(prev => ({
@@ -702,7 +1100,7 @@ function App() {
         } else {
           setSelectedTask(updatedTask);
         }
-        
+
         try {
           const history = await Tasks.getHistory(taskId);
           setTaskHistory(Array.isArray(history) ? history : []);
@@ -728,7 +1126,7 @@ function App() {
       console.error('Update task error:', err);
       console.error('Error response:', err.response?.data);
       console.error('Error status:', err.response?.status);
-      
+
       const errorMessage = err.response?.data?.message || err.message || 'Görev güncellenemedi';
       setError(errorMessage);
       addNotification(errorMessage, 'error');
@@ -772,16 +1170,16 @@ function App() {
   async function handlePermanentDelete(taskId) {
     // First check if user can delete this task
     const permissionCheck = await canDeleteTask(taskId);
-    
+
     if (!permissionCheck.can_delete) {
       addNotification(permissionCheck.reason || 'Bu görevi silme yetkiniz yok', 'error');
       return;
     }
 
     const task = tasks.find(t => t.id === taskId);
-    const statusText = task?.status === 'cancelled' ? 'iptal edilen' : 
-                      task?.status === 'completed' ? 'tamamlanan' : 'bu durumdaki';
-    
+    const statusText = task?.status === 'cancelled' ? 'iptal edilen' :
+      task?.status === 'completed' ? 'tamamlanan' : 'bu durumdaki';
+
     if (!window.confirm(`Bu ${statusText} görevi kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve tüm ekleri de silinecektir!`)) {
       return;
     }
@@ -805,7 +1203,7 @@ function App() {
 
       const message = response.data?.message || 'Görev kalıcı olarak silindi';
       addNotification(message, 'success');
-      
+
       // Show additional info if some files failed to delete
       if (response.data?.failed_files > 0) {
         addNotification(`${response.data.failed_files} dosya silinemedi, loglara bakın`, 'warning');
@@ -855,7 +1253,7 @@ function App() {
     setShowDetailModal(true);
 
     // Kaydı bağımsız çalıştır: geçmiş başarısız olsa bile görüntüleme/veriler yüklensin
-    try { await Tasks.recordView(task.id); } catch (_) {}
+    try { await Tasks.recordView(task.id); } catch (_) { }
 
     // Geçmişi yükle (başarısız olabilir)
     try {
@@ -1261,6 +1659,7 @@ function App() {
             const email = row[1];
             const role = row[2];
             const password = row[3];
+            const leaderEmail = row[4]; // E2: Takım Lideri E-posta
 
             const roleStr = (role ?? '').toString().trim().toLowerCase();
             const validatedRole = validRoles.includes(roleStr) ? roleStr : 'team_member';
@@ -1270,6 +1669,7 @@ function App() {
               email: (email ?? '').toString().trim(),
               role: validatedRole,
               password: (password ?? '').toString().trim() || '123456',
+              leaderEmail: (leaderEmail ?? '').toString().trim(),
               rowIndex: index + 2,
             };
           }).filter(u => u.name && u.email);
@@ -1298,12 +1698,32 @@ function App() {
 
       for (const userData of users) {
         try {
+          // Takım lideri email'i ile lider ID'sini bul
+          let leaderId = null;
+          if (userData.leaderEmail) {
+            const leader = users.find(u => u.email.toLowerCase() === userData.leaderEmail.toLowerCase() && (u.role === 'team_leader' || u.role === 'admin'));
+            if (leader) {
+              leaderId = leader.id;
+            } else {
+              // Mevcut kullanıcılar listesinden de ara
+              const existingLeader = Array.isArray(users) ? users.find(u => u.email.toLowerCase() === userData.leaderEmail.toLowerCase() && (u.role === 'team_leader' || u.role === 'admin')) : null;
+              if (existingLeader) {
+                leaderId = existingLeader.id;
+              } else {
+                errors.push(`Satır ${userData.rowIndex}: Takım lideri bulunamadı "${userData.leaderEmail}"`);
+                errorCount++;
+                continue;
+              }
+            }
+          }
+
           await registerUser({
             name: userData.name,
             email: userData.email,
             password: userData.password,
             password_confirmation: userData.password,
-            role: userData.role
+            role: userData.role,
+            leader_id: leaderId
           });
           successCount++;
         } catch (error) {
@@ -1335,10 +1755,10 @@ function App() {
     const can = form.current && form.next && form.again && form.next === form.again;
     return (
       <div className="space-y-3">
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-        <button disabled={!can} className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" onClick={async () => { try { await changePassword(form.current, form.next); onDone?.(); setForm({ current: '', next: '', again: '' }); } catch (err) { console.error('Password change error:', err); addNotification('Şifre güncellenemedi', 'error'); } }}>Güncelle</button>
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
+        <button disabled={!can} className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginTop: '10px', marginLeft: '5px', marginBottom: '10px' }} onClick={async () => { try { await changePassword(form.current, form.next); onDone?.(); setForm({ current: '', next: '', again: '' }); } catch (err) { console.error('Password change error:', err); addNotification('Şifre güncellenemedi', 'error'); } }}>Güncelle</button>
       </div>
     );
   }
@@ -1455,17 +1875,34 @@ function App() {
       <div className="space-y-6">
         <div className="border-b border-white/10 pb-4">
           <div className="space-y-4">
-            <input className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="İsim" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-            <input type="email" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="E-posta" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="Şifre" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400" placeholder="Şifre (tekrar)" value={form.password_confirmation} onChange={e => setForm({ ...form, password_confirmation: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-            <select className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+            <input className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+              placeholder="İsim"
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              style={{ marginBottom: '10px' }} />
+            <input type="email" className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+              placeholder="E-posta"
+              value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+              style={{ marginBottom: '10px' }} />
+            <input type="password" className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+              placeholder="Şifre"
+              value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
+              autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+              style={{ marginBottom: '10px' }} />
+            <input type="password" className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+              placeholder="Şifre (tekrar)"
+              value={form.password_confirmation} onChange={e => setForm({ ...form, password_confirmation: e.target.value })}
+              autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+              style={{ marginBottom: '10px' }} />
+            <select className="w-[886px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white "
+              value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
+              style={{ marginBottom: '10px' }}>
               <option value="admin" className="bg-gray-800 text-white">Yönetici</option>
               <option value="team_leader" className="bg-gray-800 text-white">Takım Lideri</option>
               <option value="team_member" className="bg-gray-800 text-white">Takım Üyesi</option>
               <option value="observer" className="bg-gray-800 text-white">Gözlemci</option>
             </select>
-            <button className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" onClick={async () => {
+            <button className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginBottom: '10px' }} onClick={async () => {
               if (!form.name.trim() || !form.email.trim() || !form.password || !form.password_confirmation) {
                 addNotification('Lütfen tüm alanları doldurun', 'error');
                 return;
@@ -1487,9 +1924,8 @@ function App() {
           </div>
         </div>
 
-        <div className="border-b border-white/10 pb-4">
+        <div className="border-white/10 pb-4">
           <h4 className="!text-[18px] font-medium text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h4>
-
           <div className="space-y-4">
             <div className="bg-blue-900/20 border-blue-500/30 rounded-lg p-4">
               <div className="!text-[16px] text-blue-200 space-y-1">
@@ -1500,6 +1936,7 @@ function App() {
                 <div>• B2: E-posta Adresi</div>
                 <div>• C2: Rol (admin/team_leader/team_member/observer)</div>
                 <div>• D2: Şifre (boşsa varsayılan: 123456)</div>
+                <div>• E2: Takım Lideri E-posta (opsiyonel)</div>
               </div>
             </div>
 
@@ -1516,7 +1953,7 @@ function App() {
               className="w-full !text-[18px] text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
             />
 
-            <div className="!text-[16px] text-gray-400" style={{ paddingBottom: '10px' }}>
+            <div className="!text-[16px] text-gray-400">
               Excel dosyası seçin (.xlsx önerilir)
             </div>
           </div>
@@ -1889,6 +2326,24 @@ function App() {
                             <span>Profil</span>
                           </span>
                         </button>
+                        {(user?.role === 'team_leader' || user?.role === 'admin') && (
+                          <button
+                            onClick={async () => {
+                              setShowProfileMenu(false);
+                              // Admin kendi takımını göster, team_leader kendi takımını göster
+                              const leaderId = user?.role === 'admin' ? user?.id : user?.id;
+                              await loadTeamMembers(leaderId);
+                              setShowTeamModal(true);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                            style={{ padding: '10px' }}
+                          >
+                            <span className="flex items-center gap-2 whitespace-nowrap">
+                              <span>👥</span>
+                              <span>Takım</span>
+                            </span>
+                          </button>
+                        )}
                         {user?.role === 'admin' && (
                           <button
                             onClick={() => {
@@ -1904,7 +2359,6 @@ function App() {
                             </span>
                           </button>
                         )}
-                        <hr className="my-1" />
                         <button
                           onClick={() => {
                             setShowProfileMenu(false);
@@ -2312,6 +2766,352 @@ function App() {
         </div>
       )}
 
+      {showWeeklyGoals && createPortal(
+        <div className="fixed inset-0 z-[100250]">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" >
+            <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-[1500px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+              style={{ paddingBottom: '10px' }}>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
+                <div className="flex-1">
+                  {weeklyUserId && Array.isArray(users) ? (
+                    <div className="text-sm text-neutral-300">
+                      {(() => {
+                        const targetUser = users.find(u => u.id === weeklyUserId);
+                        return targetUser ? `${targetUser.name} (${targetUser.email})` : 'Bilinmeyen Kullanıcı';
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
+                      {user?.name} <br /> {user?.email}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 text-center">
+                  <h3 className="!text-[24px] font-semibold">Haftalık Hedefler</h3>
+                </div>
+                <div className="flex-1 flex justify-end">
+                  <button onClick={() => setShowWeeklyGoals(false)} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 space-y-5 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="w-[10px]"></span>
+                  <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20"
+                    onClick={() => {
+                      const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() - 7);
+                      loadWeeklyGoals(fmtYMD(getMonday(base)));
+                    }}>◀ Önceki</button><span className="w-[10px]"></span>
+                  <div>
+                    <input type="date" className="ml-2 rounded bg-white/10 border border-white/20 px-2 py-1 text-[24px]" value={weeklyWeekStart} onChange={(e) => loadWeeklyGoals(e.target.value)} />
+                  </div>
+                  <span className="w-[10px]"></span>
+                  <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20" onClick={() => { const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() + 7); loadWeeklyGoals(fmtYMD(getMonday(base))); }}>Sonraki ▶</button>
+                  <div className="text-sm text-neutral-300 text-[24px]" style={{ paddingLeft: '30px' }}>
+                    {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
+                  </div>
+                  <div className="ml-auto text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
+                    {weeklyGoals?.locks?.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {weeklyGoals?.locks?.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
+                    <thead className="bg-white/10">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-[24px]">Haftalık Hedef</th>
+                        <th className="px-3 py-2 text-left text-[24px]" style={{ paddingLeft: '20px' }}>Aksiyon Planları</th>
+                        <th className="px-3 py-2 text-center text-[24px]" style={{ width: '100px', paddingRight: '20px', paddingLeft: '20px' }}>Hedef(dk)</th>
+                        <th className="px-3 py-2 text-center text-[24px]">Ağırlık (%)</th>
+                        <th className="px-3 py-2 text-center text-[24px]">Gerçekleşme(dk)</th>
+                        <th className="px-3 py-2 text-center text-[24px]" style={{ width: '100px', paddingRight: '20px', paddingLeft: '20px' }}>Gerçekleşme(%)</th>
+                        <th className="px-3 py-2 text-center text-[24px]"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
+                        const lockedTargets = weeklyGoals?.locks?.targets_locked;
+                        const lockedActuals = weeklyGoals?.locks?.actuals_locked;
+                        const t = Math.max(0, Number(row.target_minutes || 0));
+                        const a = Math.max(0, Number(row.actual_minutes || 0));
+                        const w = (t / 2700) * 100; // satır ağırlığı
+                        const eff = a > 0 && t > 0 ? (t / a) : 0; // verimlilik (katsayı) — sınır yok
+                        const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
+                        return (
+                          <tr key={row.id || `p-${idx}`} className="odd:bg-white/[0.02]">
+                            <td className="px-3 py-2 align-top" style={{ verticalAlign: 'middle', paddingTop: '6px' }}>
+                              <textarea disabled={lockedTargets || user?.role === 'observer'} value={row.title || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" />
+                            </td>
+                            <td className="px-3 py-2 align-top" style={{ verticalAlign: 'middle', paddingTop: '6px', paddingLeft: '20px' }}>
+                              <textarea disabled={lockedTargets || user?.role === 'observer'} value={row.action_plan || ''} onChange={e => {
+                                const items = [...weeklyGoals.items];
+                                items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
+                                setWeeklyGoals({ ...weeklyGoals, items });
+                              }}
+                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] min-w-[250px] text-[16px] resize-y" />
+                            </td>
+                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle', width: '20px' }}>
+                              <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).target_minutes = Number(e.target.value || 0);
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
+                                className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[32px]"
+                                style={{ width: '90px', height: '83px', textAlign: 'center' }}
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-center text-neutral-200 text-[32px]" style={{ verticalAlign: 'middle' }}>{((t / 2700) * 100).toFixed(1)}</td>
+                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle', width: '20px' }}>
+                              <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
+                                onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
+                                className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[32px]"
+                                style={{ width: '90px', height: '83px', textAlign: 'center' }}
+                              /></td>
+                            <td className="px-3 py-2 text-center text-neutral-200 text-[32px]" style={{ verticalAlign: 'middle', width: '20px' }}>{rate}</td>
+                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  className="text-blue-300 hover:text-blue-200 text-[24px]"
+                                  onClick={() => {
+                                    setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
+                                    setGoalDescription(row.description || '');
+                                    setShowGoalDescription(true);
+                                  }}
+                                  title="Açıklama Ekle/Düzenle"
+                                >
+                                  🔍
+                                </button>
+                                <span className="w-[10px]"></span>
+                                {user?.role !== 'observer' && (
+                                  <button className="text-rose-300 hover:text-rose-200 text-[24px]" onClick={() => {
+                                    const items = weeklyGoals.items.filter(x => x !== row);
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}>X</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {user?.role !== 'observer' && (
+                    <div className="mt-2" style={{ padding: '10px' }}>
+                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
+                        disabled={weeklyGoals?.locks?.targets_locked}
+                        onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false }] }); }}
+                      >
+                        + Satır Ekle</button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded p-3" style={{ marginLeft: '2px', paddingRight: '5px' }}>
+                  <div className="text-neutral-200 font-medium mb-2 text-[24px]" style={{ paddingLeft: '10px' }}>Plana dahil olmayan işler</div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
+                      <thead className="bg-white/10">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-[24px]">Açıklama</th>
+                          <th className="px-3 py-2 text-left text-[24px]">Aksiyon Planı</th>
+                          <th className="px-3 py-2 text-right text-[24px]">Süre (dk)</th>
+                          <th className="px-3 py-2 text-[24px]"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(weeklyGoals.items || []).filter(x => x.is_unplanned).map((row, idx) => (
+                          <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
+                            <td className="px-3 py-2">
+                              <textarea value={row.title || ''} onChange={e => {
+                                const items = [...weeklyGoals.items];
+                                items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
+                                setWeeklyGoals({ ...weeklyGoals, items });
+                              }}
+                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
+                            <td className="px-3 py-2">
+                              <textarea value={row.action_plan || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
+                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
+                            <td className="px-3 py-2 text-right">
+                              <input type="number" value={row.actual_minutes || 0}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
+                                className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[32px]"
+                                style={{ width: '90px', height: '83px', textAlign: 'center' }} />
+                            </td>
+                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  className="text-blue-300 hover:text-blue-200 text-[24px]"
+                                  onClick={() => {
+                                    setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
+                                    setGoalDescription(row.description || '');
+                                    setShowGoalDescription(true);
+                                  }}
+                                  title="Açıklama Ekle/Düzenle"
+                                >
+                                  🔍
+                                </button>
+                                <span className="w-[10px]"></span>
+                                <button className="text-rose-300 hover:text-rose-200 text-[24px]"
+                                  onClick={() => {
+                                    const items = weeklyGoals.items.filter(x => x !== row);
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}>X</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="mt-2" style={{ paddingLeft: '10px' }}>
+                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
+                        onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true }] }); }}
+                        style={{ marginBottom: '10px' }}
+                      >
+                        + Satır Ekle</button>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-2 gap-4" style={{ marginLeft: '2px' }}>
+                  <div className="bg-white/5 border border-white/10 rounded p-3 text-[24px]" style={{ paddingLeft: '10px' }}>
+                    <div>Toplam Hedef Zamanı: <span className="font-semibold">{weeklyLive.totalTarget} dk</span></div>
+                    <div>Toplam Ağırlık: <span className="font-semibold">{weeklyLive.totalWeight}%</span></div>
+                    <div>Plandışı Süre: <span className="font-semibold">{weeklyLive.unplannedMinutes} dk</span></div>
+                  </div>
+                  <div className="bg-white/5 border border-white/10 rounded p-3 text-[24px]" style={{ paddingLeft: '10px' }}>
+                    <div>Planlı Skor: {weeklyLive.plannedScore}%</div>
+                    <div>Plandışı Bonus: {weeklyLive.unplannedBonus}%</div>
+                    <div className="text-lg font-semibold">
+                      Performans Sonucu:
+
+                      <span
+                        className="ml-2 font-bold"
+                        style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}
+                      >
+                        <span className="w-[50px]"></span> {weeklyLive.finalScore}% {getPerformanceGrade(weeklyLive.finalScore).grade} {getPerformanceGrade(weeklyLive.finalScore).description}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 w-[98%]" style={{ paddingTop: '10px', paddingLeft: '15px', paddingBottom: '10px' }}>
+                  <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
+                  <span className="w-[10px]"></span>
+                  {user?.role !== 'observer' && (
+                    <button className="flex-1 rounded px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={weeklyLive.totalTarget > 2700} onClick={saveWeeklyGoals}>Kaydet</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Hedef Açıklama Modal */}
+      {showGoalDescription && createPortal(
+        <div className="fixed inset-0 z-[100300]" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowGoalDescription(false)} />
+          <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{
+            maxHeight: '80vh',
+            transform: 'translate(0, 0)',
+            margin: 'auto'
+          }}>
+            <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
+              <div className="flex-1"></div>
+              <div className="flex-1 text-center">
+                <h3 className="text-xl font-semibold">Hedef Açıklaması</h3>
+              </div>
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={() => setShowGoalDescription(false)}
+                  className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="p-8" style={{ maxHeight: 'calc(80vh - 80px)', paddingLeft: '10px', paddingRight: '10px' }}>
+              <div className="flex-1 gap-3 mb-6 p-6 bg-white/5 rounded-lg">
+                {weeklyGoals.items[selectedGoalIndex].title && (
+                  <h4 className="text-xl font-medium text-blue-300 mb-3">Hedef: {weeklyGoals.items[selectedGoalIndex].title || 'Başlık belirtilmemiş'}</h4>
+                )}
+                {weeklyGoals.items[selectedGoalIndex].action_plan && (
+                  <h4 className="text-xl font-medium text-blue-300 mb-3">Aksiyon Planı: {weeklyGoals.items[selectedGoalIndex].action_plan}</h4>
+                )}
+              </div>
+              <div className="mb-6">
+                <h3 className="text-xl font-medium text-blue-300 mb-3">Ek Açıklama:</h3>
+                <textarea
+                  value={goalDescription}
+                  onChange={(e) => setGoalDescription(e.target.value)}
+                  className="w-full h-[150px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-y text-base"
+                  placeholder="Bu hedefle ilgili ek açıklamalarınızı buraya yazabilirsiniz..."
+                  disabled={user?.role === 'observer'}
+                />
+              </div>
+
+              <div className="flex justify-end gap-4 pt-4">
+                <button
+                  onClick={() => setShowGoalDescription(false)}
+                  className="w-full px-6 py-3 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-lg font-medium"
+                >
+                  İptal
+                </button>
+                <span className="w-[20px]"></span>
+                {user?.role !== 'observer' && (
+                  <button
+                    onClick={async () => {
+                      if (selectedGoalIndex !== null) {
+                        const items = [...weeklyGoals.items];
+                        items[selectedGoalIndex].description = goalDescription;
+                        setWeeklyGoals({ ...weeklyGoals, items });
+                        // Backend'e kaydet
+                        try {
+                          await saveWeeklyGoals();
+                          addNotification('Açıklama başarıyla kaydedildi.', 'success');
+                        } catch (error) {
+                          addNotification('Açıklama kaydedilemedi.', 'error');
+                        }
+                      }
+                      setShowGoalDescription(false);
+                    }}
+                    className="w-full px-6 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors text-lg font-medium"
+                  >
+                    Kaydet
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       <div className="bg-white">
         <div className="flex justify-center">
           <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
@@ -2499,10 +3299,9 @@ function App() {
                   {task.start_date ? formatDateOnly(task.start_date) : '-'}
                 </div>
                 <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
-                  {task.assigned_users?.length > 0
-                    ? task.assigned_users.map(u => u.name).join(', ')
-                    : '-'
-                  }
+                  {Array.isArray(task.assigned_users) && task.assigned_users.length > 0
+                    ? task.assigned_users.map(u => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).join(', ')
+                    : '-'}
                 </div>
                 <div className="px-2 text-xs xs:text-sm text-gray-900">
                   {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
@@ -2788,17 +3587,12 @@ function App() {
                           />
                         ) : (
                           <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
-                            {(selectedTask.assigned_users || []).length > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                {selectedTask.assigned_users.map(u => (
-                                  <span key={u.id} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-[24px]">
-                                    {u.name}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-500">-</span>
-                            )}
+                            {(() => {
+                              const arr = Array.isArray(selectedTask.assigned_users) ? selectedTask.assigned_users : [];
+                              const names = arr.map((u, idx) => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).filter(n => n && n.trim().length > 0);
+                              if (names.length === 0) return (<span className="text-gray-500">-</span>);
+                              return (<div className="text-gray-900 text-[18px] leading-6">{names.join(', ')}</div>);
+                            })()}
                           </div>
                         )}
                       </div>
@@ -2831,13 +3625,13 @@ function App() {
                               accept={[
                                 'image/*',
                                 '.pdf',
-                                '.doc','.docx','.xls','.xlsx','.ppt','.pptx',
-                                '.zip','.rar','.7z',
+                                '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                                '.zip', '.rar', '.7z',
                                 // SolidWorks and common CAD formats
-                                '.sldprt','.sldasm','.slddrw',
-                                '.step','.stp','.iges','.igs',
-                                '.x_t','.x_b','.stl','.3mf',
-                                '.dwg','.dxf','.eprt','.easm','.edrw'
+                                '.sldprt', '.sldasm', '.slddrw',
+                                '.step', '.stp', '.iges', '.igs',
+                                '.x_t', '.x_b', '.stl', '.3mf',
+                                '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
                               ].join(',')}
                               onChange={async (e) => {
                                 const files = Array.from(e.target.files || []);
@@ -3360,25 +4154,46 @@ function App() {
           <div className="relative z-10 flex min-h-full items-center justify-center p-4">
             <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
-                <h3 className="!text-[24px] font-semibold text-center">Kullanıcı Ayarları</h3>
-                <button onClick={() => setShowUserProfile(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
-                  <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
-                </button>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
+                <div></div>
+                <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
+                <div className="justify-self-end">
+                  <button onClick={() => setShowUserProfile(false)}
+                    className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
+                </div>
               </div>
 
               {/* Body */}
               <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
                 <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
-                  <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
-                    <div className="text-neutral-300 !text-[18px]">İsim</div>
-                    <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
+                  <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
+                    <div>
+                      <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
+                        <div className="text-neutral-300 !text-[18px]">İsim</div>
+                        <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
 
-                    <div className="text-neutral-300 !text-[18px]">E-posta</div>
-                    <div className="!text-[18px] truncate">{user?.email || 'Belirtilmemiş'}</div>
+                        <div className="text-neutral-300 !text-[18px]">E-posta</div>
+                        <div className="!text-[18px] truncate">{user?.email || 'Belirtilmemiş'}</div>
 
-                    <div className="text-neutral-300 !text-[18px]">Rol</div>
-                    <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 !text-[18px]">{getRoleText(user?.role)}</div>
+                        <div className="text-neutral-300 !text-[18px]">Rol</div>
+                        <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 !text-[18px]">{getRoleText(user?.role)}</div>
+                      </div>
+                    </div>
+                    <div className="bg-white/5 rounded-xl p-4">
+                      {user?.role !== 'observer' && (
+                        <button
+                          className="w-full h-full rounded px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+                          onClick={async () => {
+                            setWeeklyUserId(null); // Kendi hedeflerini göster
+                            setShowWeeklyGoals(true);
+                            await loadWeeklyGoals(null, null); // Kendi hedeflerini yükle
+                          }}
+                        >
+                          <span className="!text-[40px]">🎯</span>
+                          <span className="!text-[24px]">Haftalık Hedefler</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
@@ -3395,17 +4210,87 @@ function App() {
         document.body
       )}
 
+      {showTeamModal && createPortal(
+        <div className="fixed inset-0 z-[100220]">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4">
+            <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+              <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
+                <h2 className="font-semibold text-center">Takım</h2>
+                <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
+                  <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
+                </button>
+              </div>
+
+              {/* Lider Seçimi - Sadece admin için */}
+              {user?.role === 'admin' && (
+                <div className="p-4 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-neutral-300 whitespace-nowrap">Lider Seç:</label>
+                    <select
+                      value={selectedTeamLeader || ''}
+                      onChange={(e) => {
+                        const leaderId = e.target.value ? parseInt(e.target.value) : null;
+                        setSelectedTeamLeader(leaderId);
+                        loadTeamMembers(leaderId);
+                      }}
+                      className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[20px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Tüm Takımlar</option>
+                      {Array.isArray(users) && users
+                        .filter(u => u.role === 'team_leader' || u.role === 'admin')
+                        .map(leader => (
+                          <option key={`team-leader-${leader.id}`} value={leader.id}>
+                            {leader.name} ({getRoleText(leader.role)})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 120px)' }}>
+                {Array.isArray(teamMembers) && teamMembers.length > 0 ? (
+                  teamMembers.map(m => (
+                    <div key={m.id} className="flex items-center justify-between bg-white/5 border border-white/10 rounded px-3 py-2">
+                      <div>
+                        <div className="font-medium text-white">{m.name}</div>
+                        <div className="text-sm text-neutral-300">{m.email}</div>
+                        <div className="text-xs text-neutral-400">{getRoleText(m.role)}</div>
+                      </div>
+                      <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => { setShowTeamModal(false); setWeeklyUserId(m.id); setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id); }}>Hedefleri Aç</button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-neutral-300">
+                    {selectedTeamLeader ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {showUserPanel && createPortal(
         <div className="fixed inset-0 z-[100200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} />
           <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[98vw] max-w-[1800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[98vw] max-w-[1820px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-center border-b border-white/10 bg-[#0f172a] relative">
-                <h3 className="!text-[32px] font-semibold text-center">Kullanıcı Ayarları</h3>
-                <button onClick={() => setShowUserPanel(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
-                  <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
-                </button>
+              <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <div className="justify-self-start"></div>
+                  <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Kullanıcı Yönetimi</h2>
+                  <div className="justify-self-end">
+                    <button
+                      onClick={() => setShowUserPanel(false)}
+                      className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                      aria-label="Kapat"
+                    >✕</button>
+                  </div>
+                </div>
               </div>
               {/* Body */}
               <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto" style={{ height: 'calc(80vh - 72px)' }}>
@@ -3420,28 +4305,24 @@ function App() {
                     <div className="text-neutral-300 !text-[32px]">Rol</div>
                     <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 !text-[32px]">{getRoleText(user?.role)}</div>
                   </div>
-                  <div className="border-t border-white/10 pt-4 mt-2">
-                    <div className="!text-[24px] font-medium mb-2">Şifre Değiştir</div>
-                    <PasswordChangeInline onDone={() => addNotification('Şifre güncellendi', 'success')} />
-                  </div>
+
                   {user?.role === 'admin' && (
-                    <div className="border-t border-white/10 pt-4">
-                      <div className="!text-[24px] font-medium mb-2">Yeni Kullanıcı Ekle</div>
+                    <div className="border-t border-white/10 pt-4" style={{ paddingTop: '5px' }}>
+                      <div className="font-medium mb-2 !text-[32px]">Yeni Kullanıcı Ekle</div>
                       <AdminCreateUser />
                     </div>
                   )}
                 </div>
-                <div className="w-[600px] shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
+                <div className="w-[850px] shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
                   <div className="text-[24px] font-semibold mb-3" style={{ marginBottom: '10px' }}>Kullanıcılar</div>
-
-                  <div className="mb-4">
+                  <div className="mb-4 space-y-3">
                     <input
                       type="text"
                       placeholder="Kullanıcı ara..."
                       value={userSearchTerm}
                       onChange={(e) => setUserSearchTerm(e.target.value)}
                       className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'black', marginBottom: '20px' }}
+                      style={{ color: 'black' }}
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
@@ -3463,6 +4344,107 @@ function App() {
                         }
                       }}
                     />
+
+                    {/* Lider Filtreleme */}
+                    <div className="flex-1 items-center gap-3" style={{ marginTop: '10px', marginBottom: '10px' }}>
+                      <label className="!text-[20px] text-neutral-300 whitespace-nowrap">Lider Filtresi: </label>
+                      <select
+                        value={selectedLeaderFilter}
+                        onChange={(e) => setSelectedLeaderFilter(e.target.value)}
+                        className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[20px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-[350px]"
+                        style={{ marginLeft: '25px' }}
+                      >
+                        <option value="">Tüm Kullanıcılar</option>
+                        <option value="no_leader">Lideri Olmayanlar</option>
+                        {Array.isArray(users) && users
+                          .filter(u => u.role === 'team_leader' || u.role === 'admin')
+                          .map(leader => (
+                            <option key={`filter-${leader.id}`} value={leader.id}>
+                              {leader.name} ({getRoleText(leader.role)})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    {/* Toplu Lider Atama */}
+                    {selectedUsers.length > 0 && (
+                      <div className="flex items-center gap-3 p-3 bg-blue-500/20 border border-blue-500/30 rounded">
+                        <span className="text-sm text-blue-300 whitespace-nowrap">
+                          {selectedUsers.length} kullanıcı seçildi
+                        </span>
+                        <select
+                          value={bulkLeaderId}
+                          onChange={(e) => setBulkLeaderId(e.target.value)}
+                          className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[18px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Lider Seçin</option>
+                          <option value="remove">Lideri Kaldır</option>
+                          {Array.isArray(users) && users
+                            .filter(u => u.role === 'team_leader' || u.role === 'admin')
+                            .map(leader => (
+                              <option key={`bulk-${leader.id}`} value={leader.id}>
+                                {leader.name} ({getRoleText(leader.role)})
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={async () => {
+                            if (!bulkLeaderId) return;
+
+                            const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
+                            const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
+                              users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
+
+                            if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) return;
+
+                            try {
+                              setLoading(true);
+                              let successCount = 0;
+                              let errorCount = 0;
+
+                              for (const userId of selectedUsers) {
+                                try {
+                                  await updateUserAdmin(userId, { leader_id: leaderId });
+                                  successCount++;
+                                } catch (err) {
+                                  console.error(`User ${userId} update error:`, err);
+                                  errorCount++;
+                                }
+                              }
+
+                              if (successCount > 0) {
+                                addNotification(`${successCount} kullanıcı güncellendi`, 'success');
+                                await loadUsers();
+                              }
+                              if (errorCount > 0) {
+                                addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
+                              }
+
+                              setSelectedUsers([]);
+                              setBulkLeaderId('');
+                            } catch (err) {
+                              console.error('Bulk update error:', err);
+                              addNotification('Toplu güncelleme başarısız', 'error');
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          disabled={!bulkLeaderId}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
+                        >
+                          Uygula
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedUsers([]);
+                            setBulkLeaderId('');
+                          }}
+                          className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
+                        >
+                          İptal
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
@@ -3470,13 +4452,26 @@ function App() {
                     <div className="space-y-3">
                       {Array.isArray(users) && users
                         .filter(u => {
-                          if (!userSearchTerm) return true;
-                          const searchTerm = userSearchTerm.toLowerCase();
-                          return (
-                            u.name?.toLowerCase().includes(searchTerm) ||
-                            u.email?.toLowerCase().includes(searchTerm) ||
-                            getRoleText(u.role)?.toLowerCase().includes(searchTerm)
-                          );
+                          // Arama terimi filtresi
+                          if (userSearchTerm) {
+                            const searchTerm = userSearchTerm.toLowerCase();
+                            const matchesSearch = (
+                              u.name?.toLowerCase().includes(searchTerm) ||
+                              u.email?.toLowerCase().includes(searchTerm) ||
+                              getRoleText(u.role)?.toLowerCase().includes(searchTerm)
+                            );
+                            if (!matchesSearch) return false;
+                          }
+
+                          // Lider filtresi
+                          if (selectedLeaderFilter) {
+                            if (selectedLeaderFilter === 'no_leader') {
+                              return !u.leader_id;
+                            } else {
+                              return u.leader_id === parseInt(selectedLeaderFilter);
+                            }
+                          }
+                          return true;
                         })
                         .map((u, index) => {
                           const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
@@ -3488,12 +4483,53 @@ function App() {
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex-1 min-w-0 flex items-center gap-3">
+                                  {/* Checkbox - Tüm kullanıcılar için, admin ve team_leader pasif */}
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedUsers.includes(u.id)}
+                                    disabled={u.role === 'admin' || u.role === 'team_leader'}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedUsers(prev => [...prev, u.id]);
+                                      } else {
+                                        setSelectedUsers(prev => prev.filter(id => id !== u.id));
+                                      }
+                                    }}
+                                    className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader'
+                                      ? 'opacity-50 cursor-not-allowed'
+                                      : 'cursor-pointer'
+                                      }`}
+                                  />
                                   <div>
                                     <div className="text-base font-medium truncate text-white">{u.name}</div>
                                     <div className="text-xs text-gray-400 truncate mt-1">{u.email}</div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
+                                  {/* Lider atama - Sadece takım üyesi ve gözlemci için */}
+                                  {(u.role === 'team_member') && (
+                                    <select
+                                      className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      value={u.leader_id || ''}
+                                      onChange={async (e) => {
+                                        const val = e.target.value ? parseInt(e.target.value) : null;
+                                        try {
+                                          await updateUserAdmin(u.id, { leader_id: val });
+                                          addNotification('Lider ataması güncellendi', 'success');
+                                          await loadUsers();
+                                        } catch (err) {
+                                          console.error('Leader assign error:', err);
+                                          addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
+                                        }
+                                      }}
+                                      style={{ padding: '5px' }}
+                                    >
+                                      <option value="">Lider Yok</option>
+                                      {Array.isArray(users) && users.filter(x => x.role === 'team_leader' || x.role === 'admin').map(l => (
+                                        <option key={`ldr-${l.id}`} value={l.id}>{l.name} ({getRoleText(l.role)})</option>
+                                      ))}
+                                    </select>
+                                  )}
                                   <button
                                     className="text-xs rounded px-3 py-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
                                     onClick={async () => {
@@ -3514,17 +4550,18 @@ function App() {
                                   >
                                     Şifre Sıfırla
                                   </button>
-                                  <select
-                                    className="text-xs rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={u.role}
-                                    onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
-                                  >
-                                    <option value="admin">Yönetici</option>
-                                    <option value="team_leader">Takım Lideri</option>
-                                    <option value="team_member">Takım Üyesi</option>
-                                    <option value="observer">Gözlemci</option>
-                                  </select>
-
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      className="text-xs rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      value={u.role}
+                                      onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
+                                    >
+                                      <option value="admin">Yönetici</option>
+                                      <option value="team_leader">Takım Lideri</option>
+                                      <option value="team_member">Takım Üyesi</option>
+                                      <option value="observer">Gözlemci</option>
+                                    </select>
+                                  </div>
                                   <button className="text-xs rounded px-3 py-2 bg-rose-600 hover:bg-rose-700 transition-colors" onClick={async () => { if (!confirm('Silinsin mi?')) return; try { await deleteUserAdmin(u.id); addNotification('Kullanıcı silindi', 'success'); await loadUsers(); } catch (err) { console.error('Delete user error:', err); addNotification('Silinemedi', 'error'); } }}>Sil</button>
                                 </div>
                               </div>
@@ -3533,16 +4570,30 @@ function App() {
                         })}
 
                       {Array.isArray(users) && users.filter(u => {
-                        if (!userSearchTerm) return true;
-                        const searchTerm = userSearchTerm.toLowerCase();
-                        return (
-                          u.name?.toLowerCase().includes(searchTerm) ||
-                          u.email?.toLowerCase().includes(searchTerm) ||
-                          getRoleText(u.role)?.toLowerCase().includes(searchTerm)
-                        );
-                      }).length === 0 && userSearchTerm && (
+                        // Arama terimi filtresi
+                        if (userSearchTerm) {
+                          const searchTerm = userSearchTerm.toLowerCase();
+                          const matchesSearch = (
+                            u.name?.toLowerCase().includes(searchTerm) ||
+                            u.email?.toLowerCase().includes(searchTerm) ||
+                            getRoleText(u.role)?.toLowerCase().includes(searchTerm)
+                          );
+                          if (!matchesSearch) return false;
+                        }
+
+                        // Lider filtresi
+                        if (selectedLeaderFilter) {
+                          if (selectedLeaderFilter === 'no_leader') {
+                            return !u.leader_id;
+                          } else {
+                            return u.leader_id === parseInt(selectedLeaderFilter);
+                          }
+                        }
+
+                        return true;
+                      }).length === 0 && (userSearchTerm || selectedLeaderFilter) && (
                           <div className="text-center py-4 text-gray-400">
-                            "{userSearchTerm}" için kullanıcı bulunamadı
+                            {userSearchTerm ? `"${userSearchTerm}" için kullanıcı bulunamadı` : 'Seçilen filtreye uygun kullanıcı bulunamadı'}
                           </div>
                         )}
                     </div>
@@ -3557,8 +4608,6 @@ function App() {
         document.body
       )}
 
-
-
       {/* Error Display */}
       {
         error && (
@@ -3568,7 +4617,7 @@ function App() {
           </div>
         )
       }
-    </div >
+    </div>
   );
 }
 
