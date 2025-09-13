@@ -11,6 +11,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [addingTask, setAddingTask] = useState(false);
   const [error, setError] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -77,7 +78,7 @@ function App() {
   const bellRef = useRef(null);
   const notifPanelRef = useRef(null);
   const [notifPos, setNotifPos] = useState({ top: 64, right: 16 });
-  const badgeCount = Array.isArray(notifications)? notifications.filter(n => !n.isFrontendNotification).length: 0;
+  const badgeCount = Array.isArray(notifications) ? notifications.filter(n => !n.isFrontendNotification).length : 0;
   const [historyDeleteMode, setHistoryDeleteMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -418,8 +419,8 @@ function App() {
         } catch (err) {
           console.error('User fetch error:', err);
           // 401 veya 500 + "Unauthenticated" hatası için logout yap
-          if (err.response?.status === 401 || 
-              (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
+          if (err.response?.status === 401 ||
+            (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
             console.warn('Token expired or invalid, logging out...');
             handleLogout();
           } else {
@@ -677,8 +678,8 @@ function App() {
       }
     } catch (err) {
       console.error('Notifications load error:', err);
-      if (err.response?.status === 401 || 
-          (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
+      if (err.response?.status === 401 ||
+        (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
         console.warn('Unauthorized notification access, clearing notifications');
         // Authentication sorunu - notifications'ı temizle ama sayfayı reload etme
       } else if (err.response?.status === 404) {
@@ -765,7 +766,7 @@ function App() {
 
   async function handleAddTask() {
     try {
-      setLoading(true);
+      setAddingTask(true);
       setError(null);
 
       // Tarih validasyonu kaldırıldı - kullanıcı istediği tarihi girebilir
@@ -851,7 +852,7 @@ function App() {
       addNotification('Görev eklenemedi', 'error');
     } finally {
       setUploadProgress(null);
-      setLoading(false);
+      setAddingTask(false);
     }
   }
 
@@ -2471,10 +2472,10 @@ function App() {
                 <div className="mt-4 sm:mt-6 mb-4">
                   <button
                     onClick={handleAddTask}
-                    disabled={loading || !newTask.title}
+                    disabled={addingTask || !newTask.title}
                     className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
                   >
-                    {loading ? 'Ekleniyor...' : 'Ekle'}
+                    {addingTask ? 'Ekleniyor...' : 'Ekle'}
                   </button>
                 </div>
               </div>
