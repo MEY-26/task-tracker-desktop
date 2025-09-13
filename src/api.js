@@ -59,12 +59,20 @@ api.interceptors.response.use(
       data: error.response?.data
     });
     
-    if (error.response?.status === 401) {
+    // 401 Unauthorized veya 500 Internal Server Error ile "Unauthenticated" mesajı
+    const isAuthError = error.response?.status === 401 || 
+                       (error.response?.status === 500 && 
+                        error.response?.data?.error === 'Unauthenticated.');
+    
+    if (isAuthError) {
       localStorage.removeItem('jwt');
-      console.error('Token geçersiz, oturum sonlandırıldı');
+      console.error('Token geçersiz veya süresi dolmuş, oturum sonlandırıldı');
+      
+      // Sadece kritik sayfalarda reload yap, notification gibi arka plan isteklerinde yapma
       if (window.location.pathname !== '/login' && 
           !error.config?.url?.includes('/notifications') &&
-          !error.config?.url?.includes('/history')) {
+          !error.config?.url?.includes('/history') &&
+          !error.config?.url?.includes('/task-views')) {
         console.warn('Critical auth error, reloading page');
         window.location.reload();
       }
@@ -110,6 +118,21 @@ export async function restore() {
     }
   }
   return false;
+}
+
+export async function refreshToken() {
+  try {
+    const { data } = await api.post('/refresh');
+    if (data.access_token) {
+      localStorage.setItem('jwt', data.access_token);
+      return data.access_token;
+    }
+    return null;
+  } catch (error) {
+    console.warn('Token refresh failed:', error);
+    localStorage.removeItem('jwt');
+    return null;
+  }
 }
 
 export async function getUser() {

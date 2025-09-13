@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, refreshToken } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -417,6 +417,27 @@ function App() {
           await Promise.all(jobs);
         } catch (err) {
           console.error('User fetch error:', err);
+          // Token süresi dolmuş olabilir, refresh deneyelim
+          if (err.response?.status === 401 || 
+              (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
+            console.warn('Token expired, attempting refresh...');
+            const newToken = await refreshToken();
+            if (newToken) {
+              // Token yenilendi, tekrar dene
+              try {
+                const userData = await getUser();
+                setUser(userData);
+                const jobs = [loadTasks(), loadNotifications()];
+                if (['admin', 'team_leader', 'observer'].includes(userData?.role)) {
+                  jobs.push(loadUsers());
+                }
+                await Promise.all(jobs);
+                return;
+              } catch (retryErr) {
+                console.error('Retry after refresh failed:', retryErr);
+              }
+            }
+          }
           handleLogout();
         }
       }
@@ -669,8 +690,10 @@ function App() {
       }
     } catch (err) {
       console.error('Notifications load error:', err);
-      if (err.response?.status === 401) {
+      if (err.response?.status === 401 || 
+          (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
         console.warn('Unauthorized notification access, clearing notifications');
+        // Token süresi dolmuş, notifications'ı temizle ama sayfayı reload etme
       } else if (err.response?.status === 404) {
         console.warn('Notifications endpoint not found');
       } else {
