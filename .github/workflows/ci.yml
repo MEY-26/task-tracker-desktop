@@ -133,7 +133,7 @@ jobs:
           php artisan view:clear || true
       - name: Run tests
         working-directory: task-tracker-api
-        run: php artisan test --no-ansi -v
+        run: php artisan test --no-ansi --verbose
 
   security-scan:
     name: security-scan
