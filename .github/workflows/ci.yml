@@ -155,7 +155,7 @@ jobs:
 
   build-electron:
     name: build-electron
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
     runs-on: windows-latest
     needs: [frontend-tests, backend-tests, code-quality]
     steps:
