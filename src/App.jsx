@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team } from './api';
 import { api } from './api';
 import './App.css'
@@ -333,7 +333,7 @@ function App() {
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []); // Sadece component mount olduğunda çalış
 
   useEffect(() => {
     const preventAutofill = () => {
@@ -403,7 +403,7 @@ function App() {
     }
   }, [showDetailModal]);
 
-  async function checkAuth() {
+  const checkAuth = useCallback(async () => {
     try {
       setLoading(true);
       const isAuthenticated = await restore();
@@ -435,7 +435,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   async function openTaskById(taskId) {
     try {
