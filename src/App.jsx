@@ -250,106 +250,6 @@ function App() {
     }
   }
 
-  async function parseFile(file) {
-    const fileName = file.name.toLowerCase();
-
-    if (fileName.endsWith('.csv')) {
-      return parseCSV(file);
-    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-      return parseExcel(file);
-    } else {
-      throw new Error('Desteklenmeyen dosya formatı');
-    }
-  }
-
-  async function parseCSV(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const text = e.target.result;
-          const lines = text.split('\n').filter(line => line.trim());
-
-          if (lines.length < 2) {
-            resolve([]);
-            return;
-          }
-
-          // Daha esnek CSV parsing - virgül, noktalı virgül ve tab ayırıcılarını destekle
-          const delimiter = lines[0].includes(';') ? ';' : (lines[0].includes('\t') ? '\t' : ',');
-          const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/"/g, ''));
-          const data = [];
-
-          for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(delimiter).map(v => v.trim().replace(/"/g, ''));
-            const row = {};
-
-            headers.forEach((header, index) => {
-              row[header] = values[index] || '';
-            });
-
-            data.push(row);
-          }
-
-          resolve(data);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = () => reject(new Error('Dosya okunamadı'));
-      reader.readAsText(file, 'UTF-8');
-    });
-  }
-
-  async function parseExcel(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const workbook = new ExcelJS.Workbook();
-          await workbook.xlsx.load(e.target.result);
-
-          const worksheet = workbook.worksheets[0];
-          if (!worksheet) {
-            resolve([]);
-            return;
-          }
-
-          const data = [];
-          const headers = [];
-
-          // İlk satırı header olarak al
-          worksheet.getRow(1).eachCell((cell, colNumber) => {
-            headers[colNumber] = cell.value?.toString().toLowerCase().trim() || '';
-          });
-
-          // Diğer satırları işle
-          for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
-            const row = {};
-            let hasData = false;
-
-            worksheet.getRow(rowNumber).eachCell((cell, colNumber) => {
-              const header = headers[colNumber];
-              if (header) {
-                row[header] = cell.value?.toString() || '';
-                if (row[header]) hasData = true;
-              }
-            });
-
-            if (hasData) {
-              data.push(row);
-            }
-          }
-
-          resolve(data);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = () => reject(new Error('Dosya okunamadı'));
-      reader.readAsArrayBuffer(file);
-    });
-  }
 
 
   const taskCounts = {
@@ -432,7 +332,7 @@ function App() {
 
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
   useEffect(() => {
     const preventAutofill = () => {
@@ -492,7 +392,7 @@ function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showDetailModal, selectedTask, descDraft, user?.role]);
+  }, [showDetailModal, selectedTask, descDraft, user?.role, handleCloseModal]);
 
   useEffect(() => {
     if (showDetailModal) {
@@ -666,6 +566,7 @@ function App() {
                 console.warn('Task last views refresh failed:', err.message);
               }
             } else {
+              // intentionally left blank
             }
           }
         }
@@ -696,7 +597,7 @@ function App() {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [user?.id]);
+  }, [user?.id, refreshTasksOnce]);
 
   async function loadUsers() {
     try {
@@ -1768,7 +1669,7 @@ function App() {
     );
   }
 
-  function AssigneeMultiSelect({ allUsers, selected, onChange, responsibleId = null }) {
+  function AssigneeMultiSelect({ selected, onChange, responsibleId = null }) {
     const boxRef = useRef(null);
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
@@ -2902,6 +2803,7 @@ function App() {
                           await saveWeeklyGoals();
                           addNotification('Açıklama başarıyla kaydedildi.', 'success');
                         } catch (error) {
+                          console.warn('Goal description save failed:', error);
                           addNotification('Açıklama kaydedilemedi.', 'error');
                         }
                       }
@@ -3377,7 +3279,6 @@ function App() {
                       <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
                         {user?.role === 'admin' ? (
                           <AssigneeMultiSelect
-                            allUsers={users}
                             selected={selectedTask.assigned_users || []}
                             responsibleId={selectedTask.responsible?.id}
                             onChange={async (ids) => {
