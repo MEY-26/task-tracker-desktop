@@ -1593,26 +1593,31 @@ function App() {
       <div className="space-y-6">
         <div className="border-b border-white/10 pb-4">
           <div className="space-y-4">
-            <input className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+
+            <input className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
               placeholder="İsim"
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               style={{ marginBottom: '10px' }} />
-            <input type="email" className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+
+            <input type="email" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
               placeholder="E-posta"
               value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
               style={{ marginBottom: '10px' }} />
-            <input type="password" className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+
+            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
               placeholder="Şifre"
               value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
               autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false"
               style={{ marginBottom: '10px' }} />
-            <input type="password" className="w-[880px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+
+            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
               placeholder="Şifre (tekrar)"
               value={form.password_confirmation} onChange={e => setForm({ ...form, password_confirmation: e.target.value })}
               autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false"
               style={{ marginBottom: '10px' }} />
-            <select className="w-[886px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white "
+
+            <select className="w-[101%] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white "
               value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
               style={{ marginBottom: '10px' }}>
               <option value="admin" className="bg-gray-800 text-white">Yönetici</option>
@@ -1620,7 +1625,8 @@ function App() {
               <option value="team_member" className="bg-gray-800 text-white">Takım Üyesi</option>
               <option value="observer" className="bg-gray-800 text-white">Gözlemci</option>
             </select>
-            <button className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginBottom: '10px' }} onClick={async () => {
+
+            <button className="w-[101%] rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginBottom: '10px' }} onClick={async () => {
               if (!form.name.trim() || !form.email.trim() || !form.password || !form.password_confirmation) {
                 addNotification('Lütfen tüm alanları doldurun', 'error');
                 return;
@@ -1639,6 +1645,7 @@ function App() {
                 addNotification(err.response?.data?.message || 'Kullanıcı eklenemedi', 'error');
               }
             }}>Kullanıcı Ekle</button>
+
           </div>
         </div>
 
@@ -1978,13 +1985,13 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-[calc(95vh)] bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
       <div className="flex justify-center">
         <div className="bg-white shadow-lg border-b border-gray-200" style={{ width: '1440px' }}>
           <div className="flex justify-center">
-            <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
-              <div className="flex justify-between items-center h-14 xs:h-16 sm:h-18 lg:h-20">
+            <div style={{ width: '1440px' }}>
+              <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-4 lg:space-x-6">
                   <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-3">
                     <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
@@ -2002,7 +2009,10 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-1 xs:space-x-2 sm:space-x-3 lg:space-x-4">
+                <h2 className="text-[42px] font-semibold text-gray-900">
+                  Görev Takip Sistemi
+                </h2>
+                <div className="flex items-center">
                   {user?.role !== 'observer' && (
                     <button
                       onClick={() => {
@@ -2493,10 +2503,16 @@ function App() {
               <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
                 <div className="flex-1">
                   {weeklyUserId && Array.isArray(users) ? (
-                    <div className="text-sm text-neutral-300">
+                    <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
                       {(() => {
                         const targetUser = users.find(u => u.id === weeklyUserId);
-                        return targetUser ? `${targetUser.name} (${targetUser.email})` : 'Bilinmeyen Kullanıcı';
+                        return targetUser ? (
+                          <>
+                            {targetUser.name} <br /> {targetUser.email}
+                          </>
+                        ) : (
+                          'Bilinmeyen Kullanıcı'
+                        )
                       })()}
                     </div>
                   ) : (
@@ -2834,11 +2850,9 @@ function App() {
       <div className="bg-white">
         <div className="flex justify-center">
           <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
-            <h2 className="text-[28px] xs:text-sm sm:text-base lg:text-lg font-semibold text-gray-900 py-2 xs:py-3 sm:py-4 border-b border-gray-200" style={{ minWidth: '1440px' }}>
-              Görev Takip Sistemi
-            </h2>
 
-            <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px' }}>
+
+            <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
               <button
                 onClick={() => setActiveTab('active')}
                 className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
@@ -2986,8 +3000,8 @@ function App() {
                       color: getPriorityColor(task.priority),
                       paddingBottom: '5px',
                       paddingTop: '5px',
-                      paddingLeft: '10px',
-                      paddingRight: '10px'
+                      paddingLeft: '5px',
+                      paddingRight: '5px'
                     }}
                   >
                     {getPriorityText(task.priority)}
@@ -3001,8 +3015,8 @@ function App() {
                       color: getTaskTypeColor(task.task_type),
                       paddingBottom: '5px',
                       paddingTop: '5px',
-                      paddingLeft: '10px',
-                      paddingRight: '10px'
+                      paddingLeft: '5px',
+                      paddingRight: '5px'
                     }}
                   >
                     {getTaskTypeText(task.task_type)}
@@ -3227,7 +3241,7 @@ function App() {
                             const val = e.target.value;
                             try { await handleUpdateTask(selectedTask.id, { task_type: val }); } catch (error) { console.warn('Task type update failed:', error); }
                           }}
-                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full rounded-md px-3 py-2 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ minHeight: '24px' }}
                         >
                           <option value="new_product">Yeni Ürün</option>
@@ -3944,7 +3958,7 @@ function App() {
               {user?.role === 'admin' && (
                 <div className="p-4 border-b border-white/10">
                   <div className="flex items-center gap-3">
-                    <label className="text-sm text-neutral-300 whitespace-nowrap">Lider Seç:</label>
+                    <label className="text-[24px] text-neutral-300 whitespace-nowrap" style={{ paddingRight: '10px', paddingLeft: '5px' }}>Lider Seç</label>
                     <select
                       value={selectedTeamLeader || ''}
                       onChange={(e) => {
@@ -3952,7 +3966,7 @@ function App() {
                         setSelectedTeamLeader(leaderId);
                         loadTeamMembers(leaderId);
                       }}
-                      className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[20px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Tüm Takımlar</option>
                       {Array.isArray(users) && users
@@ -3970,13 +3984,17 @@ function App() {
               <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 120px)' }}>
                 {Array.isArray(teamMembers) && teamMembers.length > 0 ? (
                   teamMembers.map(m => (
-                    <div key={m.id} className="flex items-center justify-between bg-white/5 border border-white/10 rounded px-3 py-2">
+                    <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 border border-white/10 rounded px-3 py-2"
+                      style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
                       <div>
                         <div className="font-medium text-white">{m.name}</div>
                         <div className="text-sm text-neutral-300">{m.email}</div>
                         <div className="text-xs text-neutral-400">{getRoleText(m.role)}</div>
                       </div>
-                      <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => { setShowTeamModal(false); setWeeklyUserId(m.id); setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id); }}>Hedefleri Aç</button>
+                      <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => {
+                        setShowTeamModal(false); setWeeklyUserId(m.id);
+                        setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
+                      }} style={{ height: '100px' }}>Hedefleri Aç</button>
                     </div>
                   ))
                 ) : (
@@ -3995,7 +4013,7 @@ function App() {
         <div className="fixed inset-0 z-[100200]">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} />
           <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[98vw] max-w-[1820px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1820px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
               {/* Header */}
               <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -4012,18 +4030,7 @@ function App() {
               </div>
               {/* Body */}
               <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto" style={{ height: 'calc(80vh - 72px)' }}>
-                <div className="flex-1 min-w-0 space-y-6" style={{ padding: '20px' }}>
-                  <div className="grid items-center gap-x-10 gap-y-4" style={{ gridTemplateColumns: '220px 1fr' }}>
-                    <div className="text-neutral-300 !text-[32px]">İsim</div>
-                    <div className="font-semibold !text-[32px] truncate">{user?.name}</div>
-
-                    <div className="text-neutral-300 !text-[32px]">E-posta</div>
-                    <div className="!text-[32px] truncate">{user?.email}</div>
-
-                    <div className="text-neutral-300 !text-[32px]">Rol</div>
-                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 !text-[32px]">{getRoleText(user?.role)}</div>
-                  </div>
-
+                <div className="w-2/5 min-w-0 space-y-6" style={{ padding: '20px' }}>
                   {user?.role === 'admin' && (
                     <div className="border-t border-white/10 pt-4" style={{ paddingTop: '5px' }}>
                       <div className="font-medium mb-2 !text-[32px]">Yeni Kullanıcı Ekle</div>
@@ -4031,9 +4038,9 @@ function App() {
                     </div>
                   )}
                 </div>
-                <div className="w-[850px] shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
-                  <div className="text-[24px] font-semibold mb-3" style={{ marginBottom: '10px' }}>Kullanıcılar</div>
-                  <div className="mb-4 space-y-3">
+                <div className="w-3/5 shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
+                  <div className="flex text-[24px] font-semibold mb-4 space-y-3" style={{ marginBottom: '10px' }}>
+                    <span>Kullanıcılar</span> <span className="w-[50px]"></span>
                     <input
                       type="text"
                       placeholder="Kullanıcı ara..."
@@ -4062,38 +4069,19 @@ function App() {
                         }
                       }}
                     />
-
-                    {/* Lider Filtreleme */}
-                    <div className="flex-1 items-center gap-3" style={{ marginTop: '10px', marginBottom: '10px' }}>
-                      <label className="!text-[20px] text-neutral-300 whitespace-nowrap">Lider Filtresi: </label>
-                      <select
-                        value={selectedLeaderFilter}
-                        onChange={(e) => setSelectedLeaderFilter(e.target.value)}
-                        className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[20px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-[350px]"
-                        style={{ marginLeft: '25px' }}
-                      >
-                        <option value="">Tüm Kullanıcılar</option>
-                        <option value="no_leader">Lideri Olmayanlar</option>
-                        {Array.isArray(users) && users
-                          .filter(u => u.role === 'team_leader' || u.role === 'admin')
-                          .map(leader => (
-                            <option key={`filter-${leader.id}`} value={leader.id}>
-                              {leader.name} ({getRoleText(leader.role)})
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-
+                  </div>
+                  <div className="text-[24px] font-semibold mb-4 space-y-3">
                     {/* Toplu Lider Atama */}
-                    {selectedUsers.length > 0 && (
-                      <div className="flex items-center gap-3 p-3 bg-blue-500/20 border border-blue-500/30 rounded">
-                        <span className="text-sm text-blue-300 whitespace-nowrap">
-                          {selectedUsers.length} kullanıcı seçildi
+                    {selectedUsers.length > -1 && (
+                      <div className="flex items-center gap-3 p-3 bg-blue-500/20 border border-blue-500/30 rounded !w-full justify-end" style={{ marginBottom: '10px' }}>
+                        <span className="text-[24px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px', marginLeft: '10px' }}>
+                          {selectedUsers.length} kullanıcı seçildi ▶
                         </span>
                         <select
                           value={bulkLeaderId}
                           onChange={(e) => setBulkLeaderId(e.target.value)}
-                          className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[18px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ paddingLeft: '5px', marginRight: '10px' }}
+                          className="rounded border border-white/10 bg-white/5 !py-2 !text-[24px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !w-[50%]"
                         >
                           <option value="">Lider Seçin</option>
                           <option value="remove">Lideri Kaldır</option>
@@ -4108,13 +4096,12 @@ function App() {
                         <button
                           onClick={async () => {
                             if (!bulkLeaderId) return;
-
                             const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
                             const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
                               users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
-
-                            if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) return;
-
+                            if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
+                              return;
+                            }
                             try {
                               setLoading(true);
                               let successCount = 0;
@@ -4149,14 +4136,13 @@ function App() {
                           }}
                           disabled={!bulkLeaderId}
                           className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
+                          style={{ marginRight: '10px' }}
                         >
                           Uygula
                         </button>
+                        <span className="!px-3"></span>
                         <button
-                          onClick={() => {
-                            setSelectedUsers([]);
-                            setBulkLeaderId('');
-                          }}
+                          onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
                           className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
                         >
                           İptal
@@ -4180,7 +4166,6 @@ function App() {
                             );
                             if (!matchesSearch) return false;
                           }
-
                           // Lider filtresi
                           if (selectedLeaderFilter) {
                             if (selectedLeaderFilter === 'no_leader') {
@@ -4200,12 +4185,12 @@ function App() {
                               style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
                             >
                               <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0 flex items-center gap-3">
+                                <div className="min-w-0 flex text-[24px] items-center gap-3">
                                   {/* Checkbox - Tüm kullanıcılar için, admin ve team_leader pasif */}
                                   <input
                                     type="checkbox"
                                     checked={selectedUsers.includes(u.id)}
-                                    disabled={u.role === 'admin' || u.role === 'team_leader'}
+                                    disabled={u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'}
                                     onChange={(e) => {
                                       if (e.target.checked) {
                                         setSelectedUsers(prev => [...prev, u.id]);
@@ -4213,10 +4198,11 @@ function App() {
                                         setSelectedUsers(prev => prev.filter(id => id !== u.id));
                                       }
                                     }}
-                                    className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader'
+                                    className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'
                                       ? 'opacity-50 cursor-not-allowed'
                                       : 'cursor-pointer'
                                       }`}
+                                    style={{ scale: '3', marginLeft: '15px', marginRight: '20px' }}
                                   />
                                   <div>
                                     <div className="text-base font-medium truncate text-white">{u.name}</div>
@@ -4265,14 +4251,16 @@ function App() {
                                         setLoading(false);
                                       }
                                     }}
+                                    style={{ marginLeft: '10px' }}
                                   >
                                     Şifre Sıfırla
                                   </button>
                                   <div className="flex items-center gap-2">
                                     <select
-                                      className="text-xs rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       value={u.role}
                                       onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
+                                      style={{ padding: '5px', marginLeft: '10px' }}
                                     >
                                       <option value="admin">Yönetici</option>
                                       <option value="team_leader">Takım Lideri</option>
@@ -4280,7 +4268,20 @@ function App() {
                                       <option value="observer">Gözlemci</option>
                                     </select>
                                   </div>
-                                  <button className="text-xs rounded px-3 py-2 bg-rose-600 hover:bg-rose-700 transition-colors" onClick={async () => { if (!confirm('Silinsin mi?')) return; try { await deleteUserAdmin(u.id); addNotification('Kullanıcı silindi', 'success'); await loadUsers(); } catch (err) { console.error('Delete user error:', err); addNotification('Silinemedi', 'error'); } }}>Sil</button>
+                                  <button className="text-xs rounded bg-rose-600 hover:bg-rose-700 transition-colors"
+                                    onClick={async () => {
+                                      if (!confirm('Silinsin mi?')) return; try {
+                                        await deleteUserAdmin(u.id);
+                                        addNotification('Kullanıcı silindi', 'success');
+                                        await loadUsers();
+                                      }
+                                      catch (err) {
+                                        console.error('Delete user error:', err);
+                                        addNotification('Silinemedi', 'error');
+                                      }
+                                    }}
+                                    style={{ marginLeft: '10px' }}
+                                  >X</button>
                                 </div>
                               </div>
                             </div>
