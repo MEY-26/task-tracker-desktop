@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, refreshToken } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -417,26 +417,10 @@ function App() {
           await Promise.all(jobs);
         } catch (err) {
           console.error('User fetch error:', err);
-          // Token süresi dolmuş olabilir, refresh deneyelim
+          // Token süresi dolmuş, logout yap
           if (err.response?.status === 401 || 
               (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
-            console.warn('Token expired, attempting refresh...');
-            const newToken = await refreshToken();
-            if (newToken) {
-              // Token yenilendi, tekrar dene
-              try {
-                const userData = await getUser();
-                setUser(userData);
-                const jobs = [loadTasks(), loadNotifications()];
-                if (['admin', 'team_leader', 'observer'].includes(userData?.role)) {
-                  jobs.push(loadUsers());
-                }
-                await Promise.all(jobs);
-                return;
-              } catch (retryErr) {
-                console.error('Retry after refresh failed:', retryErr);
-              }
-            }
+            console.warn('Token expired or invalid, logging out...');
           }
           handleLogout();
         }
@@ -690,10 +674,12 @@ function App() {
       }
     } catch (err) {
       console.error('Notifications load error:', err);
-      if (err.response?.status === 401 || 
-          (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
+      if (err.response?.status === 401) {
         console.warn('Unauthorized notification access, clearing notifications');
-        // Token süresi dolmuş, notifications'ı temizle ama sayfayı reload etme
+        // 401 hatası - kesin authentication sorunu
+      } else if (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.') {
+        console.warn('Possible authentication issue with notifications, clearing notifications');
+        // 500 + Unauthenticated - muhtemelen auth sorunu ama kesin değil
       } else if (err.response?.status === 404) {
         console.warn('Notifications endpoint not found');
       } else {

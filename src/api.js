@@ -59,14 +59,10 @@ api.interceptors.response.use(
       data: error.response?.data
     });
     
-    // 401 Unauthorized veya 500 Internal Server Error ile "Unauthenticated" mesajı
-    const isAuthError = error.response?.status === 401 || 
-                       (error.response?.status === 500 && 
-                        error.response?.data?.error === 'Unauthenticated.');
-    
-    if (isAuthError) {
+    // 401 Unauthorized - kesin authentication hatası
+    if (error.response?.status === 401) {
       localStorage.removeItem('jwt');
-      console.error('Token geçersiz veya süresi dolmuş, oturum sonlandırıldı');
+      console.error('Token geçersiz, oturum sonlandırıldı');
       
       // Sadece kritik sayfalarda reload yap, notification gibi arka plan isteklerinde yapma
       if (window.location.pathname !== '/login' && 
@@ -76,6 +72,13 @@ api.interceptors.response.use(
         console.warn('Critical auth error, reloading page');
         window.location.reload();
       }
+    }
+    
+    // 500 + "Unauthenticated" - muhtemelen authentication hatası ama kesin değil
+    if (error.response?.status === 500 && 
+        error.response?.data?.error === 'Unauthenticated.') {
+      console.warn('Possible authentication issue, but not forcing logout');
+      // Bu durumda logout yapmıyoruz, sadece log yazıyoruz
     }
     return Promise.reject(error);
   }
@@ -120,20 +123,8 @@ export async function restore() {
   return false;
 }
 
-export async function refreshToken() {
-  try {
-    const { data } = await api.post('/refresh');
-    if (data.access_token) {
-      localStorage.setItem('jwt', data.access_token);
-      return data.access_token;
-    }
-    return null;
-  } catch (error) {
-    console.warn('Token refresh failed:', error);
-    localStorage.removeItem('jwt');
-    return null;
-  }
-}
+// Laravel Sanctum doesn't have a refresh endpoint
+// Token refresh is not supported in this implementation
 
 export async function getUser() {
   try {
