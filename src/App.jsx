@@ -81,7 +81,6 @@ function App() {
   const [historyDeleteMode, setHistoryDeleteMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotPasswordForm, setForgotPasswordForm] = useState({ email: '' });
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [activeTab, setActiveTab] = useState('active');
   const [userSearchTerm, setUserSearchTerm] = useState('');
@@ -448,30 +447,6 @@ function App() {
     });
   }
 
-  function downloadSampleFile() {
-    const sampleData = [
-      ['name', 'email', 'role', 'leader_name'],
-      ['Ahmet Yılmaz', 'ahmet@example.com', 'team_member', 'Mehmet Demir'],
-      ['Ayşe Kaya', 'ayse@example.com', 'team_member', 'Mehmet Demir'],
-      ['Mehmet Demir', 'mehmet@example.com', 'team_leader', ''],
-      ['Fatma Öz', 'fatma@example.com', 'observer', 'Mehmet Demir'],
-      ['Ali Veli', 'ali@example.com', 'admin', '']
-    ];
-
-    const csvContent = sampleData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'kullanici_ornek.csv');
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  }
 
   const taskCounts = {
     active: Array.isArray(tasks) ? tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length : 0,
@@ -681,7 +656,7 @@ function App() {
       }
     } finally {
       // Bildirim kalıcı değil: tıklanınca silinir
-      try { await Notifications.delete(n.id); await loadNotifications(); } catch (_) { }
+      try { await Notifications.delete(n.id); await loadNotifications(); } catch (error) { console.warn('Notification delete failed:', error); }
     }
   }
 
@@ -791,7 +766,8 @@ function App() {
           }
         }
       }
-    } catch (e) {
+    } catch (error) {
+      console.warn('Task refresh failed:', error);
     } finally {
       isRefreshingTasks.current = false;
     }
@@ -1136,25 +1112,6 @@ function App() {
     }
   }
 
-  async function handleDeleteTask(taskId) {
-    if (!window.confirm('Bu görevi iptal etmek istediğinizden emin misiniz? (Görev silinmeyecek, sadece iptal edilecek)')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      await handleUpdateTask(taskId, { status: 'cancelled' });
-
-      // handleUpdateTask zaten başarı mesajı gösteriyor, burada tekrar göstermeye gerek yok
-    } catch (err) {
-      console.error('Delete task error:', err);
-      // handleUpdateTask zaten hata mesajı gösteriyor, burada tekrar göstermeye gerek yok
-    } finally {
-      setLoading(false);
-    }
-  }
 
   // Check if user can delete a specific task
   async function canDeleteTask(taskId) {
@@ -1253,7 +1210,7 @@ function App() {
     setShowDetailModal(true);
 
     // Kaydı bağımsız çalıştır: geçmiş başarısız olsa bile görüntüleme/veriler yüklensin
-    try { await Tasks.recordView(task.id); } catch (_) { }
+    try { await Tasks.recordView(task.id); } catch (error) { console.warn('Task view record failed:', error); }
 
     // Geçmişi yükle (başarısız olabilir)
     try {
@@ -1327,32 +1284,6 @@ function App() {
     }
   }
 
-  async function copyToClipboard(text) {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-      }
-      addNotification('Bağlantı kopyalandı', 'success');
-    } catch (e) {
-      addNotification('Kopyalama başarısız', 'error');
-    }
-  }
-
-  function buildTaskShareText(task) {
-    const base = `Görev #${task?.id ?? ''} - ${task?.title ?? ''}`.trim();
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    return `${base}\nKaynak: ${url}`;
-  }
 
   function getStatusColor(status) {
     switch (status) {
@@ -1484,36 +1415,6 @@ function App() {
     }
   }
 
-  function formatRelativeTime(dateLike) {
-    if (!dateLike) return 'Bilinmiyor';
-    try {
-      const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
-      if (Number.isNaN(date.getTime())) return 'Bilinmiyor';
-      const now = new Date();
-      const diffInDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-      if (diffInDays === 0) return 'Bugün';
-      if (diffInDays === 1) return 'Dün';
-      if (diffInDays < 7) return `${diffInDays} gün önce`;
-      if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} hafta önce`;
-      return `${Math.floor(diffInDays / 30)} ay önce`;
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'Bilinmiyor';
-    }
-  }
-
-  function toInputDT(value) {
-    if (!value) return '';
-    const d = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toISOString().slice(0, 16);
-  }
-
-  function toISO(localDTString) {
-    if (!localDTString) return '';
-    const d = new Date(localDTString);
-    return Number.isNaN(d.getTime()) ? '' : d.toISOString();
-  }
 
   function lowerSafe(v) {
     return (v ?? '').toString().toLowerCase();
@@ -3479,7 +3380,7 @@ function App() {
                           value={selectedTask.priority || 'medium'}
                           onChange={async (e) => {
                             const val = e.target.value;
-                            try { await handleUpdateTask(selectedTask.id, { priority: val }); } catch { }
+                            try { await handleUpdateTask(selectedTask.id, { priority: val }); } catch (error) { console.warn('Priority update failed:', error); }
                           }}
                           className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ minHeight: '24px' }}
@@ -3506,7 +3407,7 @@ function App() {
                           value={selectedTask.task_type || 'development'}
                           onChange={async (e) => {
                             const val = e.target.value;
-                            try { await handleUpdateTask(selectedTask.id, { task_type: val }); } catch { }
+                            try { await handleUpdateTask(selectedTask.id, { task_type: val }); } catch (error) { console.warn('Task type update failed:', error); }
                           }}
                           className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ minHeight: '24px' }}
@@ -3536,7 +3437,7 @@ function App() {
                           value={selectedTask.responsible?.id || ''}
                           onChange={async (e) => {
                             const rid = e.target.value ? parseInt(e.target.value) : null;
-                            try { await handleUpdateTask(selectedTask.id, { responsible_id: rid }); } catch { }
+                            try { await handleUpdateTask(selectedTask.id, { responsible_id: rid }); } catch (error) { console.warn('Responsible update failed:', error); }
                           }}
                           className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ minHeight: '24px' }}
