@@ -417,12 +417,17 @@ function App() {
           await Promise.all(jobs);
         } catch (err) {
           console.error('User fetch error:', err);
-          // Token süresi dolmuş, logout yap
-          if (err.response?.status === 401 || 
-              (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
+          // Sadece 401 hatası için logout yap
+          if (err.response?.status === 401) {
             console.warn('Token expired or invalid, logging out...');
+            handleLogout();
+          } else if (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.') {
+            console.warn('Server authentication issue, but not logging out...');
+            // 500 + Unauthenticated hatası için logout yapmıyoruz
+          } else {
+            console.error('Unexpected error in checkAuth:', err);
+            handleLogout();
           }
-          handleLogout();
         }
       }
     } catch (err) {

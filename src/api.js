@@ -131,7 +131,12 @@ export async function getUser() {
     const response = await api.get('/user');
     return response.data;
   } catch (error) {
-    console.error('Get user error:', error.response?.data || error.message);
+    // 500 + "Unauthenticated" hatası için özel handling
+    if (error.response?.status === 500 && error.response?.data?.error === 'Unauthenticated.') {
+      console.warn('Server authentication issue in getUser, but continuing...');
+    } else {
+      console.error('Get user error:', error.response?.data || error.message);
+    }
     throw error;
   }
 }
