@@ -42,12 +42,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           coverage: none
           extensions: mbstring, tokenizer, sqlite3, pdo_sqlite
       - name: Install Composer deps
         working-directory: task-tracker-api
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
       - name: Prepare env
         working-directory: task-tracker-api
         run: |
@@ -109,11 +109,13 @@ jobs:
           VITE_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
           EOF
           php artisan key:generate --force
-          php artisan route:clear
           php artisan config:clear
           php artisan cache:clear
+          php artisan route:clear
+          php artisan view:clear
           mkdir -p database
           touch database/database.sqlite
+          php artisan migrate --force
       - name: Run tests
         working-directory: task-tracker-api
         run: php artisan test --no-ansi
