@@ -71,7 +71,6 @@ function App() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
   const [descDraft, setDescDraft] = useState('');
-  const [selectedLeaderFilter, setSelectedLeaderFilter] = useState('');
   const [selectedTeamLeader, setSelectedTeamLeader] = useState(null);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [bulkLeaderId, setBulkLeaderId] = useState('');
@@ -4166,14 +4165,6 @@ function App() {
                             );
                             if (!matchesSearch) return false;
                           }
-                          // Lider filtresi
-                          if (selectedLeaderFilter) {
-                            if (selectedLeaderFilter === 'no_leader') {
-                              return !u.leader_id;
-                            } else {
-                              return u.leader_id === parseInt(selectedLeaderFilter);
-                            }
-                          }
                           return true;
                         })
                         .map((u) => {
@@ -4301,16 +4292,8 @@ function App() {
                         }
 
                         // Lider filtresi
-                        if (selectedLeaderFilter) {
-                          if (selectedLeaderFilter === 'no_leader') {
-                            return !u.leader_id;
-                          } else {
-                            return u.leader_id === parseInt(selectedLeaderFilter);
-                          }
-                        }
-
                         return true;
-                      }).length === 0 && (userSearchTerm || selectedLeaderFilter) && (
+                      }).length === 0 && userSearchTerm && (
                           <div className="text-center py-4 text-gray-400">
                             {userSearchTerm ? `"${userSearchTerm}" için kullanıcı bulunamadı` : 'Seçilen filtreye uygun kullanıcı bulunamadı'}
                           </div>
