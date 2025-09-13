@@ -118,20 +118,22 @@ jobs:
           VITE_PUSHER_APP_CLUSTER="${PUSHER_APP_CLUSTER}"
           EOF
           
-          # Clear all caches first
+      - name: Generate application key
+        working-directory: task-tracker-api
+        run: php artisan key:generate --force
+      - name: Run migrations
+        working-directory: task-tracker-api
+        run: php artisan migrate --force
+      - name: Clear caches
+        working-directory: task-tracker-api
+        run: |
           php artisan config:clear || true
           php artisan cache:clear || true
           php artisan route:clear || true
           php artisan view:clear || true
-      - name: Generate application key
-        working-directory: task-tracker-api
-        run: php artisan key:generate --force -vvv
-      - name: Run migrations
-        working-directory: task-tracker-api
-        run: php artisan migrate --force -vvv
       - name: Run tests
         working-directory: task-tracker-api
-        run: php artisan test --no-ansi -vvv
+        run: php artisan test --no-ansi
 
   security-scan:
     name: security-scan
