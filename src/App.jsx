@@ -324,15 +324,36 @@ function App() {
       if (showProfileMenu && !event.target.closest('.profile-menu')) {
         setShowProfileMenu(false);
       }
+      if (showAssigneeDropdown && !event.target.closest('.assignee-dropdown-container')) {
+        setShowAssigneeDropdown(false);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showProfileMenu]);
+  }, [showProfileMenu, showAssigneeDropdown]);
 
   useEffect(() => {
     checkAuth();
   }, []); // Sadece component mount olduğunda çalış
+
+  // Modal açıkken body scroll'unu engelle
+  useEffect(() => {
+    const isModalOpen = showAddForm || showDetailModal || showWeeklyGoals || 
+                       showGoalDescription || showUserProfile || showTeamModal || 
+                       showUserPanel || showNotifications;
+    
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showAddForm, showDetailModal, showWeeklyGoals, showGoalDescription, 
+      showUserProfile, showTeamModal, showUserPanel, showNotifications]);
 
   useEffect(() => {
     const preventAutofill = () => {
@@ -1977,215 +1998,203 @@ function App() {
   }
 
   return (
-    <div className="min-h-[calc(95vh)] bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-[calc(95vh)] bg-gradient-to-br from-slate-50 to-blue-50" >
       {/* Header */}
-      <div className="flex justify-center">
-        <div className="bg-white shadow-lg border-b border-gray-200" style={{ width: '1440px' }}>
-          <div className="flex justify-center">
-            <div style={{ width: '1440px' }}>
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-4 lg:space-x-6">
-                  <div className="flex items-center space-x-2 xs:space-x-3 sm:space-x-3">
-                    <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
-                      <img
-                        src={logo}
-                        alt="Vaden Logo"
-                        style={{ width: '300px', height: '100px' }}
-                        className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
-                        onLoad={() => { }}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'block';
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <h2 className="text-[42px] font-semibold text-gray-900">
-                  Görev Takip Sistemi
-                </h2>
-                <div className="flex items-center">
-                  {user?.role !== 'observer' && (
+      <div className="bg-white shadow-lg w-full">
+        <div className="flex justify-between w-full">
+          <img
+            src={logo}
+            alt="Vaden Logo"
+            style={{ width: '300px', height: '100px' }}
+            className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
+            onLoad={() => { }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'block';
+            }}
+          />
+          <h2 className="text-[42px] font-semibold text-gray-900">
+            Görev Takip Sistemi
+          </h2>
+          <div className="flex items-center">
+            {user?.role !== 'observer' && (
+              <button
+                onClick={() => {
+                  resetNewTask();
+                  setShowAddForm(!showAddForm);
+                }}
+                className="add-task-button bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
+              >
+                <span className="add-icon">➕</span>
+              </button>
+            )}
+
+            <div className="relative profile-menu">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="profile-icon text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+                title={user?.email || ''}
+              >
+                <span className="user-icon">👤</span>
+                <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
+                <span className="text-xs hidden sm:inline">▼</span>
+              </button>
+
+              {showProfileMenu && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-[9999]"
+                  style={{ display: 'block' }}
+                >
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setShowUserProfile(true);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                    style={{ padding: '10px' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>👤</span>
+                      <span>Profil</span>
+                    </span>
+                  </button>
+                  {(user?.role === 'team_leader' || user?.role === 'admin') && (
+                    <button
+                      onClick={async () => {
+                        setShowProfileMenu(false);
+                        // Admin kendi takımını göster, team_leader kendi takımını göster
+                        const leaderId = user?.role === 'admin' ? user?.id : user?.id;
+                        await loadTeamMembers(leaderId);
+                        setShowTeamModal(true);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      style={{ padding: '10px' }}
+                    >
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <span>👥</span>
+                        <span>Takım</span>
+                      </span>
+                    </button>
+                  )}
+                  {user?.role === 'admin' && (
                     <button
                       onClick={() => {
-                        resetNewTask();
-                        setShowAddForm(!showAddForm);
+                        setShowProfileMenu(false);
+                        setShowUserPanel(true);
                       }}
-                      className="add-task-button bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      style={{ padding: '10px' }}
                     >
-                      <span className="add-icon">➕</span>
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <span>⚙️</span>
+                        <span>Kullanıcı Yönetimi</span>
+                      </span>
                     </button>
                   )}
-
-                  <div className="relative profile-menu">
-                    <button
-                      onClick={() => setShowProfileMenu(!showProfileMenu)}
-                      className="profile-icon text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
-                      title={user?.email || ''}
-                    >
-                      <span className="user-icon">👤</span>
-                      <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
-                      <span className="text-xs hidden sm:inline">▼</span>
-                    </button>
-
-                    {showProfileMenu && (
-                      <div
-                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-[9999]"
-                        style={{ display: 'block' }}
-                      >
-                        <button
-                          onClick={() => {
-                            setShowProfileMenu(false);
-                            setShowUserProfile(true);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                          style={{ padding: '10px' }}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span>👤</span>
-                            <span>Profil</span>
-                          </span>
-                        </button>
-                        {(user?.role === 'team_leader' || user?.role === 'admin') && (
-                          <button
-                            onClick={async () => {
-                              setShowProfileMenu(false);
-                              // Admin kendi takımını göster, team_leader kendi takımını göster
-                              const leaderId = user?.role === 'admin' ? user?.id : user?.id;
-                              await loadTeamMembers(leaderId);
-                              setShowTeamModal(true);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                            style={{ padding: '10px' }}
-                          >
-                            <span className="flex items-center gap-2 whitespace-nowrap">
-                              <span>👥</span>
-                              <span>Takım</span>
-                            </span>
-                          </button>
-                        )}
-                        {user?.role === 'admin' && (
-                          <button
-                            onClick={() => {
-                              setShowProfileMenu(false);
-                              setShowUserPanel(true);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                            style={{ padding: '10px' }}
-                          >
-                            <span className="flex items-center gap-2 whitespace-nowrap">
-                              <span>⚙️</span>
-                              <span>Kullanıcı Yönetimi</span>
-                            </span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setShowProfileMenu(false);
-                            handleLogout();
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                          style={{ padding: '10px' }}
-                        >
-                          <span className="flex items-center gap-2 whitespace-nowrap">
-                            <span>🚪</span>
-                            <span>Çıkış Yap</span>
-                          </span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="relative">
-                    <button
-                      ref={bellRef}
-                      onClick={async () => {
-                        const next = !showNotifications;
-                        if (next) await loadNotifications();
-                        setShowNotifications(next);
-                      }}
-                      className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible"
-                      aria-label="Bildirimler"
-                    >
-                      {badgeCount > 0 && (
-                        <span className="notification-badge">
-                          {badgeCount > 99 ? '99+' : badgeCount}
-                        </span>
-                      )}
-
-                      <span>🔔</span>
-                    </button>
-                  </div>
-
-                  {showNotifications && createPortal(
-                    <>
-                      <div className="fixed inset-0 z-[9998] bg-black/80"
-                        onClick={() => setShowNotifications(false)} />
-
-                      <div
-                        ref={notifPanelRef}
-                        className="fixed z-[99999] p-3"
-                        style={{
-                          top: `${notifPos.top}px`,
-                          right: `${notifPos.right}px`,
-                          opacity: 1,
-                          backdropFilter: 'none',
-                          WebkitBackdropFilter: 'none',
-                        }}
-                      >
-                        <div
-                          className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
-                        >
-                          {/* Header */}
-                          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
-                            <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
-                          </div>
-
-                          <div className="overflow-y-auto notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
-                            {(!Array.isArray(notifications) || notifications.length === 0) ? (
-                              <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
-                            ) : (
-                              notifications.map(n => (
-                                <div
-                                  key={n.id}
-                                  className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
-                                  onClick={() => handleNotificationClick(n)}
-                                >
-                                  <div className="flex items-start">
-                                    <div className="flex-1">
-                                      <p className="text-sm text-white">{n.message}</p>
-                                      <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-
-                        </div>
-
-                      </div>
-                    </>,
-                    document.body
-                  )}
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      handleLogout();
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    style={{ padding: '10px' }}
+                  >
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      <span>🚪</span>
+                      <span>Çıkış Yap</span>
+                    </span>
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
+            <div className="relative">
+              <button
+                ref={bellRef}
+                onClick={async () => {
+                  const next = !showNotifications;
+                  if (next) await loadNotifications();
+                  setShowNotifications(next);
+                }}
+                className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible"
+                aria-label="Bildirimler"
+              >
+                {badgeCount > 0 && (
+                  <span className="notification-badge">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
+
+                <span>🔔</span>
+              </button>
+            </div>
+            {showNotifications && createPortal(
+              <>
+                <div className="fixed inset-0 z-[999992] bg-black/80"
+                  onClick={() => setShowNotifications(false)} style={{ pointerEvents: 'auto' }} />
+
+                <div
+                  ref={notifPanelRef}
+                  className="fixed z-[99999] p-3"
+                  style={{
+                    top: `${notifPos.top}px`,
+                    right: `${notifPos.right}px`,
+                    opacity: 1,
+                    backdropFilter: 'none',
+                    WebkitBackdropFilter: 'none',
+                  }}
+                >
+                  <div
+                    className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                    style={{ pointerEvents: 'auto' }}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
+                      <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                    </div>
+
+                    <div className="overflow-y-auto notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
+                      {(!Array.isArray(notifications) || notifications.length === 0) ? (
+                        <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div
+                            key={n.id}
+                            className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
+                            onClick={() => handleNotificationClick(n)}
+                          >
+                            <div className="flex items-start">
+                              <div className="flex-1">
+                                <p className="text-sm text-white">{n.message}</p>
+                                <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                  </div>
+
+                </div>
+              </>,
+              document.body
+            )}
           </div>
         </div>
       </div>
+
       {showAddForm && (
-        <div className="fixed inset-0 z-[100300]">
+        <div className="fixed inset-0 z-[999999]" style={{ pointerEvents: 'auto' }}>
           <div
             className="absolute inset-0"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 1)' }}
+            style={{ backgroundColor: 'rgba(0, 0, 0, 1)', pointerEvents: 'auto' }}
             onClick={() => {
               setShowAddForm(false);
               resetNewTask();
             }}
           />
-          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full">
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'none' }}>
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
                 <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
@@ -2342,7 +2351,7 @@ function App() {
                     )}
 
                     {/* Kullanıcı arama ve seçme - Combobox */}
-                    <div className="relative z-[2147483647]">
+                    <div className="relative z-[2147483647] assignee-dropdown-container">
                       <input
                         type="text"
                         placeholder="Kullanıcı atayın..."
@@ -2488,11 +2497,11 @@ function App() {
       )}
 
       {showWeeklyGoals && createPortal(
-        <div className="fixed inset-0 z-[100250]">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4" >
+        <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
             <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-[1500px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-              style={{ paddingBottom: '10px' }}>
+              style={{ paddingBottom: '10px', pointerEvents: 'auto' }}>
               <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
                 <div className="flex-1">
                   {weeklyUserId && Array.isArray(users) ? (
@@ -2752,7 +2761,7 @@ function App() {
 
       {/* Hedef Açıklama Modal */}
       {showGoalDescription && createPortal(
-        <div className="fixed inset-0 z-[100300]" style={{
+        <div className="fixed inset-0 z-[999997]" style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -2760,15 +2769,17 @@ function App() {
           top: 0,
           left: 0,
           right: 0,
-          bottom: 0
+          bottom: 0,
+          pointerEvents: 'auto'
         }}>
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowGoalDescription(false)} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowGoalDescription(false)} style={{ pointerEvents: 'auto' }} />
           <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
             style={{
               maxHeight: '80vh',
               transform: 'translate(0, 0)',
               margin: 'auto',
-              paddingRight: '5px'
+              paddingRight: '5px',
+              pointerEvents: 'auto'
             }}>
             <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
               <div className="flex-1"></div>
@@ -3107,9 +3118,9 @@ function App() {
       </div>
 
       {showDetailModal && selectedTask && createPortal(
-        <div className="fixed inset-0 z-[100100]">
-          <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[999996]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'none' }}>
             <div
               className="
                 fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
@@ -3117,7 +3128,7 @@ function App() {
                 max-h-[90vh] rounded-2xl border border-white/10 box-border
                 shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
               "
-              style={{ backgroundColor: '#111827', color: '#e5e7eb' }}
+              style={{ backgroundColor: '#111827', color: '#e5e7eb', pointerEvents: 'auto' }}
               onClick={(e) => e.stopPropagation()}
             >
               <div
@@ -3867,10 +3878,10 @@ function App() {
       }
 
       {showUserProfile && createPortal(
-        <div className="fixed inset-0 z-[100200]">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+        <div className="fixed inset-0 z-[999995]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
               {/* Header */}
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
@@ -3929,10 +3940,10 @@ function App() {
       )}
 
       {showTeamModal && createPortal(
-        <div className="fixed inset-0 z-[100220]">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-            <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+        <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+            <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
               <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
                 <h2 className="font-semibold text-center">Takım</h2>
                 <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
@@ -3996,10 +4007,10 @@ function App() {
       )}
 
       {showUserPanel && createPortal(
-        <div className="fixed inset-0 z-[100200]">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1820px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden">
+        <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1840px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
               {/* Header */}
               <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">

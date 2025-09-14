@@ -36,6 +36,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🌙 Koyu tema desteği
 - ⚡ Hızlı ve akıcı kullanıcı deneyimi
 - 🔍 Gelişmiş arama ve filtreleme
+- 🎯 Özel VADEN logosu ve branding
 
 ## 📋 Gereksinimler
 
