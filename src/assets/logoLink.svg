@@ -1,5 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" id="a" viewBox="0 0 23.287 23.287">
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" id="a" viewBox="0 0 23.287 23.287" width="23.28700065612793" height="23.28700065612793">
   <polygon points="16.382 .001 13.835 .001 11.655 4.314 9.491 0 6.905 0 11.675 8.9 16.382 .001" style="fill:#e20613;"/>
   <polygon points="23.226 6.761 21.426 4.96 16.834 6.469 18.355 1.889 16.526 .06 13.605 9.725 23.226 6.761" style="fill:#3c3c3b;"/>
   <polygon points="23.286 16.382 23.286 13.835 18.973 11.656 23.286 9.491 23.287 6.905 14.387 11.675 23.286 16.382" style="fill:#3c3c3b;"/>

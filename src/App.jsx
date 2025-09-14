@@ -339,10 +339,10 @@ function App() {
 
   // Modal açıkken body scroll'unu engelle
   useEffect(() => {
-    const isModalOpen = showAddForm || showDetailModal || showWeeklyGoals || 
-                       showGoalDescription || showUserProfile || showTeamModal || 
-                       showUserPanel || showNotifications;
-    
+    const isModalOpen = showAddForm || showDetailModal || showWeeklyGoals ||
+      showGoalDescription || showUserProfile || showTeamModal ||
+      showUserPanel || showNotifications;
+
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
     } else {
@@ -352,8 +352,8 @@ function App() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showAddForm, showDetailModal, showWeeklyGoals, showGoalDescription, 
-      showUserProfile, showTeamModal, showUserPanel, showNotifications]);
+  }, [showAddForm, showDetailModal, showWeeklyGoals, showGoalDescription,
+    showUserProfile, showTeamModal, showUserPanel, showNotifications]);
 
   useEffect(() => {
     const preventAutofill = () => {
@@ -1666,7 +1666,7 @@ function App() {
 
         <div className="border-white/10 pb-4">
           <h2 className="text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h2>
-          <div className="space-y-4 !text-[24px]">
+          <div className="space-y-4 !text-[16px]">
             <div className="bg-blue-900/20 border-blue-500/30 rounded-lg p-4">
               <div className="text-blue-200 space-y-1">
                 <div className="mt-3 text-blue-300">
@@ -1679,7 +1679,7 @@ function App() {
                 <div>• E2: Takım Lideri E-posta (opsiyonel)</div>
               </div>
             </div>
-            <div className="text-gray-400" style={{ marginTop: '10px' }}>
+            <div className="text-gray-400 !text-[24px]" style={{ marginTop: '10px' }}>
               Excel dosyası seçin (.xlsx önerilir)
             </div>
             <input
@@ -1692,7 +1692,7 @@ function App() {
                   e.target.value = '';
                 }
               }}
-              className="text-gray-300 file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+              className="text-gray-300 !text-[24px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
             />
           </div>
         </div>
@@ -1894,7 +1894,7 @@ function App() {
 
   if (!user && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4 z-[999800]">
         <div className="bg-black/20 backdrop-blur-sm rounded-2xl border-gray-800/50 p-8 shadow-2xl w-full max-w-md" style={{ minWidth: '400px' }}>
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">
@@ -2761,7 +2761,7 @@ function App() {
 
       {/* Hedef Açıklama Modal */}
       {showGoalDescription && createPortal(
-        <div className="fixed inset-0 z-[999997]" style={{
+        <div className="fixed inset-0 z-[999998]" style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -3878,7 +3878,7 @@ function App() {
       }
 
       {showUserProfile && createPortal(
-        <div className="fixed inset-0 z-[999995]" style={{ pointerEvents: 'auto' }}>
+        <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
           <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
             <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
@@ -4009,8 +4009,9 @@ function App() {
       {showUserPanel && createPortal(
         <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1840px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
+          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+              style={{ pointerEvents: 'auto' }}>
               {/* Header */}
               <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -4067,85 +4068,83 @@ function App() {
                       }}
                     />
                   </div>
-                  <div className="text-[24px] font-semibold mb-4 space-y-3">
+                  <div className="text-[16px] font-semibold mb-4 space-y-3">
                     {/* Toplu Lider Atama */}
-                    {selectedUsers.length > -1 && (
-                      <div className="flex items-center gap-3 p-3 bg-blue-500/20 border border-blue-500/30 rounded !w-full justify-end" style={{ marginBottom: '10px' }}>
-                        <span className="text-[24px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px', marginLeft: '10px' }}>
-                          {selectedUsers.length} kullanıcı seçildi ▶
-                        </span>
-                        <select
-                          value={bulkLeaderId}
-                          onChange={(e) => setBulkLeaderId(e.target.value)}
-                          style={{ paddingLeft: '5px', marginRight: '10px' }}
-                          className="rounded border border-white/10 bg-white/5 !py-2 !text-[24px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !w-[50%]"
-                        >
-                          <option value="">Lider Seçin</option>
-                          <option value="remove">Lideri Kaldır</option>
-                          {Array.isArray(users) && users
-                            .filter(u => u.role === 'team_leader' || u.role === 'admin')
-                            .map(leader => (
-                              <option key={`bulk-${leader.id}`} value={leader.id}>
-                                {leader.name} ({getRoleText(leader.role)})
-                              </option>
-                            ))}
-                        </select>
-                        <button
-                          onClick={async () => {
-                            if (!bulkLeaderId) return;
-                            const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
-                            const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
-                              users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
-                            if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
-                              return;
+                    <div className="flex items-center gap-3 p-3 bg-blue-500/20 border border-white/10 rounded !w-[100%] justify-end" style={{ marginBottom: '10px' }}>
+                      <span className="text-[16px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px', marginLeft: '10px' }}>
+                        {selectedUsers.length} kullanıcı seçildi ▶
+                      </span>
+                      <select
+                        value={bulkLeaderId}
+                        onChange={(e) => setBulkLeaderId(e.target.value)}
+                        style={{ paddingLeft: '5px', marginRight: '10px' }}
+                        className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !w-[50%]"
+                      >
+                        <option value="">Lider Seçin</option>
+                        <option value="remove">Lideri Kaldır</option>
+                        {Array.isArray(users) && users
+                          .filter(u => u.role === 'team_leader' || u.role === 'admin')
+                          .map(leader => (
+                            <option key={`bulk-${leader.id}`} value={leader.id}>
+                              {leader.name} ({getRoleText(leader.role)})
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        onClick={async () => {
+                          if (!bulkLeaderId) return;
+                          const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
+                          const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
+                            users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
+                          if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
+                            return;
+                          }
+                          try {
+                            setLoading(true);
+                            let successCount = 0;
+                            let errorCount = 0;
+
+                            for (const userId of selectedUsers) {
+                              try {
+                                await updateUserAdmin(userId, { leader_id: leaderId });
+                                successCount++;
+                              } catch (err) {
+                                console.error(`User ${userId} update error:`, err);
+                                errorCount++;
+                              }
                             }
-                            try {
-                              setLoading(true);
-                              let successCount = 0;
-                              let errorCount = 0;
 
-                              for (const userId of selectedUsers) {
-                                try {
-                                  await updateUserAdmin(userId, { leader_id: leaderId });
-                                  successCount++;
-                                } catch (err) {
-                                  console.error(`User ${userId} update error:`, err);
-                                  errorCount++;
-                                }
-                              }
-
-                              if (successCount > 0) {
-                                addNotification(`${successCount} kullanıcı güncellendi`, 'success');
-                                await loadUsers();
-                              }
-                              if (errorCount > 0) {
-                                addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
-                              }
-
-                              setSelectedUsers([]);
-                              setBulkLeaderId('');
-                            } catch (err) {
-                              console.error('Bulk update error:', err);
-                              addNotification('Toplu güncelleme başarısız', 'error');
-                            } finally {
-                              setLoading(false);
+                            if (successCount > 0) {
+                              addNotification(`${successCount} kullanıcı güncellendi`, 'success');
+                              await loadUsers();
                             }
-                          }}
-                          disabled={!bulkLeaderId}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-                          style={{ marginRight: '10px' }}
-                        >
-                          Uygula
-                        </button>
-                        <span className="!px-3"></span>
-                        <button
-                          onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
-                          className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
-                        >
-                          İptal
-                        </button>
-                      </div>
-                    )}
+                            if (errorCount > 0) {
+                              addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
+                            }
+
+                            setSelectedUsers([]);
+                            setBulkLeaderId('');
+                          } catch (err) {
+                            console.error('Bulk update error:', err);
+                            addNotification('Toplu güncelleme başarısız', 'error');
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={!bulkLeaderId}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
+                        style={{ marginRight: '10px' }}
+                      >
+                        Uygula
+                      </button>
+                      <span className="!px-3"></span>
+                      <button
+                        onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
+                        className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
+                      >
+                        İptal
+                      </button>
+                    </div>
                   </div>
 
                   <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
@@ -4174,7 +4173,7 @@ function App() {
                               style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
                             >
                               <div className="flex items-center justify-between">
-                                <div className="min-w-0 flex text-[24px] items-center gap-3">
+                                <div className="min-w-0 flex text-[16px] items-center gap-3">
                                   {/* Checkbox - Tüm kullanıcılar için, admin ve team_leader pasif */}
                                   <input
                                     type="checkbox"
@@ -4242,7 +4241,7 @@ function App() {
                                     }}
                                     style={{ marginLeft: '10px' }}
                                   >
-                                    Şifre Sıfırla
+                                    ⟳
                                   </button>
                                   <div className="flex items-center gap-2">
                                     <select
