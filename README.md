@@ -23,18 +23,15 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 ### 📎 Dosya Yönetimi
 - 📎 Görevlere dosya ekleme desteği
 - 📁 Çoklu dosya yükleme
-- 💾 Orijinal dosya isimleriyle indirme
 - 🗑️ Dosya silme yetkisi kontrolü
 - 📊 Dosya boyutu ve türü gösterimi
 
 ### 🔔 Bildirim Sistemi
 - 🔔 Gerçek zamanlı bildirim güncellemeleri
-- 📧 E-posta bildirimleri
 - 🔄 Görev durumu değişiklik bildirimleri
 - 👥 Kullanıcı atama bildirimleri
 
 ### 🎨 Kullanıcı Arayüzü
-- 🎨 Modern ve kullanıcı dostu arayüz
 - 📱 Responsive tasarım ve mobil uyumluluk
 - 🌙 Koyu tema desteği
 - ⚡ Hızlı ve akıcı kullanıcı deneyimi
@@ -333,30 +330,9 @@ npm audit
 cd task-tracker-api && composer audit
 ```
 
-## 🤝 Katkıda Bulunma
-
-1. Fork yapın
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Add some amazing feature'`)
-4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
-5. Pull Request oluşturun
-
-### Katkı Kuralları
-- Kod standartlarına uyun (ESLint kuralları)
-- Test yazın ve mevcut testlerin geçtiğinden emin olun
-- Dokümantasyonu güncelleyin
-- Commit mesajlarını açıklayıcı yazın
-
 ## 📝 Lisans
 
 Bu proje MIT lisansı altında lisanslanmıştır.
-
-## 🆘 Destek
-
-Herhangi bir sorun yaşarsanız:
-- GitHub Issues bölümünde sorun bildirin
-- Dokümantasyonu kontrol edin
-- Geliştirici ile iletişime geçin
 
 ## 🆕 Son Güncellemeler
 
@@ -408,13 +384,3 @@ cd task-tracker-api
 composer install
 php artisan migrate
 ```
-
-## 📞 İletişim
-
-- **Geliştirici**: MEY-26
-- **GitHub**: https://github.com/MEY-26/task-tracker-desktop
-- **Lisans**: MIT
-
----
-
-**Not**: Bu proje aktif olarak geliştirilmektedir. Yeni özellikler ve iyileştirmeler düzenli olarak eklenmektedir.
