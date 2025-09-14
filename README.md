@@ -1,27 +1,44 @@
 # Task Tracker Desktop
 
-Modern bir masaüstü görev takip uygulamas- Token'lar tarayıcı `localStorage`'da tutuluyor. XSS risklerini azaltmak için gelecekte OS anahtar zinciri (örn. keytar) gibi seçenekler değerlendirilebilir.
-
-### 3. Laravel'i Hazırlayınlectron ve React kullanılarak geliştirilmiştir.
+Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak geliştirilmiştir.
 
 ## 🚀 Özellikler
 
+### 📋 Görev Yönetimi
 - ✅ Görev oluşturma ve düzenleme
-- 📅 Tarih bazlı görev yönetimi
-- 👥 Kullanıcı atama ve takım çalışması
-- 📊 Görev durumu takibi
-- 🔔 Bildirim sistemi
-- 📎 Dosya ekleme desteği
-- 🎨 Modern ve kullanıcı dostu arayüz
-- 📧 E-posta bildirimleri ve şifre sıfırlama
+- 📅 Tarih bazlı görev yönetimi (başlangıç/bitiş tarihleri)
+- 🏷️ Görev türü filtreleme (Yeni Ürün, Fikstür, Aparat, Geliştirme, Revizyon, Kalıp, Test Cihazı)
+- 📊 Görev durumu takibi (Bekliyor, Devam Ediyor, Araştırılıyor, Tamamlandı, İptal)
+- ⭐ Öncelik seviyeleri (Düşük, Orta, Yüksek, Kritik)
+- 📝 Görev geçmişi ve yorum sistemi
+- 🔄 Gerçek zamanlı güncellemeler
+
+### 👥 Kullanıcı Yönetimi
+- 🎯 Rol tabanlı erişim kontrolü (Admin, Team Leader, User, Observer)
+- 👁️ Observer (Gözlemci) rolü - sadece görüntüleme yetkisi
 - 📊 Excel'den toplu kullanıcı ekleme
 - 🔍 Gelişmiş kullanıcı arama sistemi
-- 🎯 Rol tabanlı erişim kontrolü
-- 🏷️ Görev türü filtreleme (Yeni Ürün, Fikstür, Aparat, vb.)
-- 👁️ Observer (Gözlemci) rolü - sadece görüntüleme yetkisi
-- 🔄 Gerçek zamanlı bildirim güncellemeleri
-- 📝 Görev geçmişi ve yorum sistemi
-- 🎨 Responsive tasarım ve mobil uyumluluk
+- 🔐 Şifre sıfırlama sistemi
+
+### 📎 Dosya Yönetimi
+- 📎 Görevlere dosya ekleme desteği
+- 📁 Çoklu dosya yükleme
+- 💾 Orijinal dosya isimleriyle indirme
+- 🗑️ Dosya silme yetkisi kontrolü
+- 📊 Dosya boyutu ve türü gösterimi
+
+### 🔔 Bildirim Sistemi
+- 🔔 Gerçek zamanlı bildirim güncellemeleri
+- 📧 E-posta bildirimleri
+- 🔄 Görev durumu değişiklik bildirimleri
+- 👥 Kullanıcı atama bildirimleri
+
+### 🎨 Kullanıcı Arayüzü
+- 🎨 Modern ve kullanıcı dostu arayüz
+- 📱 Responsive tasarım ve mobil uyumluluk
+- 🌙 Koyu tema desteği
+- ⚡ Hızlı ve akıcı kullanıcı deneyimi
+- 🔍 Gelişmiş arama ve filtreleme
 
 ## 📋 Gereksinimler
 
@@ -40,46 +57,34 @@ Modern bir masaüstü görev takip uygulamas- Token'lar tarayıcı `localStorage
 
 ### 1. Projeyi İndirin
 ```bash
-git clone https://github.com/MEY-26/task-tracker-desktop.git; cd task-tracker-desktop
+git clone https://github.com/MEY-26/task-tracker-desktop.git
+cd task-tracker-desktop
 ```
 
 ### 2. Bağımlılıkları Yükleyin
 ```bash
-npm install; cd task-tracker-api; composer install
-
-## CI/CD Pipeline
-
-Bu repo için GitHub Actions tabanlı bir CI yapılandırması eklendi (`.github/workflows/ci.yml`). Pipeline şu işleri yapar:
-
-- frontend-tests: Node 20 ile `npm ci` ve `npm run build:ui` çalıştırır (vite derlemesi doğrulanır).
-- code-quality: ESLint çalıştırır (`npm run lint`). Electron ana süreç dosyaları Node ortamında lint edilir.
-- backend-tests: PHP 8.3 ile Laravel testlerini çalıştırır (`php artisan test`).
-- security-scan: `npm audit` (prod, yüksek seviye+) ve `composer audit` çalıştırır. Raporlar üretir; pipeline’ı bloklamaz.
-- build-electron: Sadece tag push’larında Electron’u `--dir` modunda paketler ve artifact olarak yükler.
-
-Yerel doğrulama için hızlı komutlar:
-
-- Frontend derleme: `npm ci && npm run build:ui`
-- Lint: `npm run lint`
-- Backend test: `cd task-tracker-api && composer install && php artisan test`
-
-## Güvenlik Notları
-
-- Electron penceresinde `webSecurity` açıldı ve `allowRunningInsecureContent` kapatıldı.
-- CORS artık `.env` ile yönetilebilir. Üretimde `CORS_ALLOWED_ORIGINS` belirleyip `*` kullanmaktan kaçının.
-- Token’lar tarayıcı `localStorage`’da tutuluyor. XSS risklerini azaltmak için gelecekte OS anahtar zinciri (örn. keytar) gibi seçenekler değerlendirilebilir.
+npm install
+cd task-tracker-api
+composer install
 ```
 
 ### 3. Laravel'i Hazırlayın
 **Not**: Bu komutlar migration ve seeding sırasında çıkan onay sorularına otomatik "yes" yanıtı verir.
 
 ```bash
-copy .env.example .env; php artisan key:generate; php artisan migrate; yes; php artisan db:seed; yes
+copy .env.example .env
+php artisan key:generate
+php artisan migrate
+yes
+php artisan db:seed
+yes
 ```
 
 ### 4. Uygulamayı Başlatın
 ```bash
-cd ..; scripts\setup.bat; npm run start:network
+cd ..
+scripts\setup.bat
+npm run start:network
 ```
 
 ## 🌐 Ağ Erişimi
@@ -113,7 +118,8 @@ npm run start:network
 
 ```bash
 # Terminal 1 - API
-cd task-tracker-api; php artisan serve --host=0.0.0.0 --port=8000
+cd task-tracker-api
+php artisan serve --host=0.0.0.0 --port=8000
 
 # Terminal 2 - Frontend (yeni terminal açın)
 npm run dev:web
@@ -147,7 +153,8 @@ npm run dev:web
 ### Geliştirme Modunda Çalıştırma
 ```bash
 # Backend - Terminal 1
-cd task-tracker-api; php artisan serve
+cd task-tracker-api
+php artisan serve
 
 # Frontend - Terminal 2 (yeni terminal açın)
 npm run dev
@@ -168,6 +175,11 @@ npm run build
 ### Kurulum
 - `npm run setup` - Tüm bağımlılıkları yükle
 - `npm run setup:dev` - Geliştirme ortamı kurulumu
+
+### Test ve Kalite Kontrol
+- `npm run lint` - ESLint ile kod kalitesi kontrolü
+- `npm run build:ui` - Frontend build testi
+- `cd task-tracker-api && php artisan test` - Backend testleri
 
 ## 📁 Proje Yapısı
 
@@ -201,13 +213,16 @@ task-tracker-desktop/
 │   │   ├── migrations/      # Veritabanı şemaları
 │   │   └── seeders/         # Başlangıç verileri
 │   ├── routes/
-│   │   └── api.php          # API rotaları
+│   │   ├── api.php          # API rotaları
+│   │   └── web.php          # Web rotaları (dosya indirme)
 │   └── .env                 # Ortam değişkenleri
 ├── scripts/                 # Kurulum scriptleri
 │   ├── backup-sqlite.ps1    # Veritabanı yedekleme
 │   ├── restore-sqlite.ps1   # Veritabanı geri yükleme
 │   ├── setup.bat           # Windows kurulum
 │   └── setup.sh            # Linux/Mac kurulum
+├── .github/workflows/       # CI/CD pipeline
+│   └── ci.yml              # GitHub Actions
 ├── public/                  # Statik web dosyaları
 ├── package.json             # Node.js bağımlılıkları
 └── index.html              # Ana HTML dosyası
@@ -248,6 +263,13 @@ MAIL_PASSWORD=your-app-password
 MAIL_ENCRYPTION=tls
 ```
 
+### CORS Ayarları
+Ağ erişimi için CORS ayarlarını yapılandırın:
+
+```env
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,app://./
+```
+
 ## 🚀 Deployment
 
 ### Windows için Executable Oluşturma
@@ -257,6 +279,60 @@ npm run build
 
 Build tamamlandıktan sonra `release` klasöründe Windows executable dosyası bulunacaktır.
 
+### Docker ile Deployment
+```bash
+# Backend için
+cd task-tracker-api
+docker build -t task-tracker-api .
+
+# Frontend için
+docker build -t task-tracker-frontend .
+```
+
+## 🔒 Güvenlik
+
+### Güvenlik Özellikleri
+- ✅ **CORS Koruması**: Sadece belirtilen origin'lerden erişim
+- ✅ **Token Tabanlı Kimlik Doğrulama**: Laravel Sanctum
+- ✅ **Rol Tabanlı Erişim Kontrolü**: Granüler yetki yönetimi
+- ✅ **Dosya Güvenliği**: İmzalı URL'ler ile güvenli dosya erişimi
+- ✅ **Input Validasyonu**: Tüm kullanıcı girdileri doğrulanır
+- ✅ **SQL Injection Koruması**: Eloquent ORM kullanımı
+
+### Güvenlik Notları
+- Electron penceresinde `webSecurity` açıldı ve `allowRunningInsecureContent` kapatıldı
+- CORS artık `.env` ile yönetilebilir. Üretimde `CORS_ALLOWED_ORIGINS` belirleyip `*` kullanmaktan kaçının
+- Token'lar tarayıcı `localStorage`'da tutuluyor. XSS risklerini azaltmak için gelecekte OS anahtar zinciri (örn. keytar) gibi seçenekler değerlendirilebilir
+
+## 🧪 Test ve Kalite Kontrol
+
+### CI/CD Pipeline
+
+Bu repo için GitHub Actions tabanlı bir CI yapılandırması eklendi (`.github/workflows/ci.yml`). Pipeline şu işleri yapar:
+
+- **frontend-tests**: Node 20 ile `npm ci` ve `npm run build:ui` çalıştırır (vite derlemesi doğrulanır)
+- **code-quality**: ESLint çalıştırır (`npm run lint`). Electron ana süreç dosyaları Node ortamında lint edilir
+- **backend-tests**: PHP 8.3 ile Laravel testlerini çalıştırır (`php artisan test`)
+- **security-scan**: `npm audit` (prod, yüksek seviye+) ve `composer audit` çalıştırır. Raporlar üretir; pipeline'ı bloklamaz
+- **build-electron**: Sadece tag push'larında Electron'u `--dir` modunda paketler ve artifact olarak yükler
+
+### Yerel Test Komutları
+
+```bash
+# Frontend derleme testi
+npm ci && npm run build:ui
+
+# Kod kalitesi kontrolü
+npm run lint
+
+# Backend testleri
+cd task-tracker-api && composer install && php artisan test
+
+# Güvenlik taraması
+npm audit
+cd task-tracker-api && composer audit
+```
+
 ## 🤝 Katkıda Bulunma
 
 1. Fork yapın
@@ -264,6 +340,12 @@ Build tamamlandıktan sonra `release` klasöründe Windows executable dosyası b
 3. Değişikliklerinizi commit edin (`git commit -m 'Add some amazing feature'`)
 4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
 5. Pull Request oluşturun
+
+### Katkı Kuralları
+- Kod standartlarına uyun (ESLint kuralları)
+- Test yazın ve mevcut testlerin geçtiğinden emin olun
+- Dokümantasyonu güncelleyin
+- Commit mesajlarını açıklayıcı yazın
 
 ## 📝 Lisans
 
@@ -277,6 +359,15 @@ Herhangi bir sorun yaşarsanız:
 - Geliştirici ile iletişime geçin
 
 ## 🆕 Son Güncellemeler
+
+### v2.2.0 - Dosya İndirme ve UI İyileştirmeleri (Son Güncelleme)
+- ✅ **Dosya İndirme Sorunu Çözüldü**: Dosyalar artık orijinal isimleriyle ve uzantılarıyla iniyor
+- ✅ **Backend İyileştirmesi**: Attachment endpoint'i güncellendi, proper download header'ları eklendi
+- ✅ **Frontend İyileştirmesi**: Dosya linklerine download attribute'u eklendi
+- ✅ **Form Düzeni İyileştirildi**: Sol taraftaki etiketler genişletildi, sağ taraftaki girişler daraltıldı
+- ✅ **Mesaj Butonu İyileştirmesi**: Buton yüksekliği dinamik olarak ayarlandı, ok simgesi merkezde kalıyor
+- ✅ **Deprecated Event Handler**: onKeyPress yerine onKeyDown kullanılıyor
+- ✅ **Responsive İyileştirmeler**: Tüm ekran boyutlarında daha iyi görünüm
 
 ### v2.1.0 - Hata Düzeltmeleri ve İyileştirmeler
 - ✅ **PasswordResetController Eklendi**: Eksik controller sınıfı oluşturuldu
@@ -311,7 +402,11 @@ Herhangi bir sorun yaşarsanız:
 
 Projeyi güncellemek için:
 ```bash
-git pull origin main; npm install; cd task-tracker-api; composer install; php artisan migrate
+git pull origin main
+npm install
+cd task-tracker-api
+composer install
+php artisan migrate
 ```
 
 ## 📞 İletişim
@@ -319,3 +414,7 @@ git pull origin main; npm install; cd task-tracker-api; composer install; php ar
 - **Geliştirici**: MEY-26
 - **GitHub**: https://github.com/MEY-26/task-tracker-desktop
 - **Lisans**: MIT
+
+---
+
+**Not**: Bu proje aktif olarak geliştirilmektedir. Yeni özellikler ve iyileştirmeler düzenli olarak eklenmektedir.
