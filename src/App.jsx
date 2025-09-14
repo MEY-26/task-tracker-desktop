@@ -3968,8 +3968,8 @@ function App() {
               )}
 
               <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 120px)' }}>
-                {Array.isArray(teamMembers) && teamMembers.length > 0 ? (
-                  teamMembers.map(m => (
+                {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
+                  teamMembers.filter(m => m.role !== 'observer').map(m => (
                     <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 border border-white/10 rounded px-3 py-2"
                       style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
                       <div>
