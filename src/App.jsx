@@ -1488,15 +1488,12 @@ function App() {
     return (
       <div className="space-y-10" style={{ padding: '18px', paddingBottom: '32px' }}>
         <div className="space-y-6">
-          <label className="block font-medium text-neutral-300 !text-[24px]">
-            Mevcut Şifre
-          </label>
           {/* Gizli input alanları otomatik doldurmayı engellemek için */}
           <input type="text" style={{ display: 'none' }} autoComplete="username" />
           <input type="password" style={{ display: 'none' }} autoComplete="current-password" />
           <input
             type="password"
-            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
+            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] sm:!text-[16px] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
             placeholder="Mevcut şifrenizi girin"
             value={form.current}
             onChange={e => setForm({ ...form, current: e.target.value })}
@@ -1508,13 +1505,11 @@ function App() {
             data-form-type="other"
             name="current-password-hidden"
             id="current-password-hidden"
+            style={{ height: '40px' }}
           />
         </div>
 
         <div className="space-y-6">
-          <label className="block font-medium text-neutral-300 !text-[24px]">
-            Yeni Şifre
-          </label>
           {/* Gizli input alanları otomatik doldurmayı engellemek için */}
           <input type="text" style={{ display: 'none' }} autoComplete="username" />
           <input type="password" style={{ display: 'none' }} autoComplete="new-password" />
@@ -1532,13 +1527,11 @@ function App() {
             data-form-type="other"
             name="new-password-hidden"
             id="new-password-hidden"
+            style={{ height: '40px' }}
           />
         </div>
 
         <div className="space-y-6">
-          <label className="block font-medium text-neutral-300 !text-[24px]">
-            Yeni Şifre (Tekrar)
-          </label>
           {/* Gizli input alanları otomatik doldurmayı engellemek için */}
           <input type="text" style={{ display: 'none' }} autoComplete="username" />
           <input type="password" style={{ display: 'none' }} autoComplete="new-password" />
@@ -1556,6 +1549,7 @@ function App() {
             data-form-type="other"
             name="confirm-password-hidden"
             id="confirm-password-hidden"
+            style={{ height: '40px' }}
           />
         </div>
 
@@ -1577,6 +1571,7 @@ function App() {
                 setLoading(false);
               }
             }}
+            style={{ height: '48px' }}
           >
             {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
           </button>
@@ -1590,7 +1585,7 @@ function App() {
 
     return (
       <div className="space-y-6">
-        <div className="border-b border-white/10 pb-4">
+        <div className="border-b border-white/10 pb-4" style={{ paddingBottom: '30px' }}>
           <div className="space-y-4">
 
             <input className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
@@ -1616,7 +1611,7 @@ function App() {
               autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false"
               style={{ marginBottom: '10px' }} />
 
-            <select className="w-[101%] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white "
+            <select className="w-[101%] h-[35px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white "
               value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
               style={{ marginBottom: '10px' }}>
               <option value="admin" className="bg-gray-800 text-white">Yönetici</option>
@@ -1649,11 +1644,11 @@ function App() {
         </div>
 
         <div className="border-white/10 pb-4">
-          <h4 className="!text-[18px] font-medium text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h4>
-          <div className="space-y-4">
+          <h2 className="text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h2>
+          <div className="space-y-4 !text-[24px]">
             <div className="bg-blue-900/20 border-blue-500/30 rounded-lg p-4">
-              <div className="!text-[16px] text-blue-200 space-y-1">
-                <div className="mt-3 !text-[16px] text-blue-300">
+              <div className="text-blue-200 space-y-1">
+                <div className="mt-3 text-blue-300">
                   İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.
                 </div>
                 <div>• A2: Kullanıcı Adı Soyadı</div>
@@ -1663,7 +1658,9 @@ function App() {
                 <div>• E2: Takım Lideri E-posta (opsiyonel)</div>
               </div>
             </div>
-
+            <div className="text-gray-400" style={{ marginTop: '10px' }}>
+              Excel dosyası seçin (.xlsx önerilir)
+            </div>
             <input
               type="file"
               accept=".xlsx,.xls"
@@ -1674,12 +1671,8 @@ function App() {
                   e.target.value = '';
                 }
               }}
-              className="w-full !text-[18px] text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+              className="text-gray-300 file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
             />
-
-            <div className="!text-[16px] text-gray-400">
-              Excel dosyası seçin (.xlsx önerilir)
-            </div>
           </div>
         </div>
       </div>
@@ -2211,25 +2204,25 @@ function App() {
                   </div>
                 )}
                 <br />
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Görev Başlığı</label>
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Görev Başlığı</label>
                   <input
                     type="text"
                     placeholder="Görev başlığını girin..."
                     value={newTask.title}
                     onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border shadow-sm"
+                    className="rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border shadow-sm"
                     style={{ minHeight: '48px' }}
                   />
                 </div>
                 <br />
                 {/* Öncelik */}
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Öncelik</label>
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Öncelik</label>
                   <select
                     value={newTask.priority}
                     onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ minHeight: '48px' }}
                   >
                     <option value="low">Düşük</option>
@@ -2240,12 +2233,12 @@ function App() {
                 </div>
                 <br />
                 {/* Görev Türü */}
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Görev Türü</label>
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Görev Türü</label>
                   <select
                     value={newTask.task_type}
                     onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
-                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ minHeight: '48px' }}
                   >
                     <option value="new_product">Yeni Ürün</option>
@@ -2259,12 +2252,12 @@ function App() {
                 </div>
                 <br />
                 {/* Durum */}
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Durum</label>
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Durum</label>
                   <select
                     value={newTask.status}
                     onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
-                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ minHeight: '48px' }}
                   >
                     <option value="waiting">Bekliyor</option>
@@ -2276,12 +2269,12 @@ function App() {
                 </div>
                 <br />
                 {/* Sorumlu */}
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Sorumlu</label>
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Sorumlu</label>
                   <select
                     value={newTask.responsible_id || ''}
                     onChange={(e) => setNewTask({ ...newTask, responsible_id: e.target.value ? parseInt(e.target.value) : null })}
-                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ minHeight: '48px' }}
                   >
                     <option value="">Sorumlu Seçin</option>
@@ -2294,7 +2287,7 @@ function App() {
                 </div>
                 <br />
                 {/* Tarihler */}
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                   <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Tarihler</label>
                   <div className="flex flex-row gap-2 sm:gap-4">
                     <div className="flex-1">
@@ -2307,6 +2300,7 @@ function App() {
                         style={{ minHeight: '48px' }}
                       />
                     </div>
+                    <span className="w-[20px]"></span>
                     <div className="flex-1">
                       <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
                       <input
@@ -2321,7 +2315,7 @@ function App() {
                 </div>
                 <br />
                 {/* Atananlar */}
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-start">
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Atananlar</label>
                   <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
                     {/* Seçilen kullanıcılar */}
@@ -2421,7 +2415,7 @@ function App() {
                 </div>
                 <br />
                 {/* Dosyalar */}
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-start">
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Dosyalar</label>
                   <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '24px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '5px' }}>
                     <input
@@ -2468,7 +2462,7 @@ function App() {
                   </div>
                 </div>
                 <br />
-                <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-start">
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] font-medium text-slate-200 text-left">Görev Açıklaması</label>
                   <textarea
                     placeholder="Görev açıklamasını girin..."
@@ -2769,11 +2763,13 @@ function App() {
           bottom: 0
         }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowGoalDescription(false)} />
-          <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{
-            maxHeight: '80vh',
-            transform: 'translate(0, 0)',
-            margin: 'auto'
-          }}>
+          <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+            style={{
+              maxHeight: '80vh',
+              transform: 'translate(0, 0)',
+              margin: 'auto',
+              paddingRight: '5px'
+            }}>
             <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
               <div className="flex-1"></div>
               <div className="flex-1 text-center">
@@ -3113,12 +3109,11 @@ function App() {
       {showDetailModal && selectedTask && createPortal(
         <div className="fixed inset-0 z-[100100]">
           <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} />
-
           <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4">
             <div
               className="
                 fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-                w-[95vw] max-w-[1600px]
+                w-[95vw] max-w-[58%]
                 max-h-[90vh] rounded-2xl border border-white/10 box-border
                 shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
               "
@@ -3155,37 +3150,27 @@ function App() {
                         {error}
                       </div>
                     )}
-                    {/* ID */}
-                    <br />
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
-                        ID
-                      </label>
-                      <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
-                        {selectedTask.id ?? ""}
-                      </div>
-                    </div>
                     <br />
                     {/* Başlık */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Başlık
                       </label>
-                      <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                      <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                         {selectedTask.title ?? ""}
                       </div>
                     </div>
                     <br />
                     {/* Durum */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Durum
                       </label>
                       {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || user?.role === 'admin')) ? (
                         <select
                           value={selectedTask.status || 'waiting'}
                           onChange={(e) => handleStatusChange(selectedTask.id, e.target.value)}
-                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ minHeight: '24px' }}
                         >
                           <option value="waiting">Bekliyor</option>
@@ -3195,15 +3180,15 @@ function App() {
                           <option value="cancelled">İptal</option>
                         </select>
                       ) : (
-                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                           {getStatusText(selectedTask.status)}
                         </div>
                       )}
                     </div>
                     <br />
                     {/* Öncelik */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Öncelik
                       </label>
                       {user?.role === 'admin' ? (
@@ -3213,7 +3198,7 @@ function App() {
                             const val = e.target.value;
                             try { await handleUpdateTask(selectedTask.id, { priority: val }); } catch (error) { console.warn('Priority update failed:', error); }
                           }}
-                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ minHeight: '24px' }}
                         >
                           <option value="low">Düşük</option>
@@ -3222,15 +3207,15 @@ function App() {
                           <option value="critical">Kritik</option>
                         </select>
                       ) : (
-                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                           {getPriorityText(selectedTask.priority)}
                         </div>
                       )}
                     </div>
                     <br />
                     {/* Görev Türü */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Görev Türü
                       </label>
                       {user?.role === 'admin' ? (
@@ -3240,7 +3225,7 @@ function App() {
                             const val = e.target.value;
                             try { await handleUpdateTask(selectedTask.id, { task_type: val }); } catch (error) { console.warn('Task type update failed:', error); }
                           }}
-                          className="w-full rounded-md px-3 py-2 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ minHeight: '24px' }}
                         >
                           <option value="new_product">Yeni Ürün</option>
@@ -3252,15 +3237,15 @@ function App() {
                           <option value="test_device">Test Cihazı</option>
                         </select>
                       ) : (
-                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                           {getTaskTypeText(selectedTask.task_type)}
                         </div>
                       )}
                     </div>
                     <br />
                     {/* Sorumlu */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Sorumlu
                       </label>
                       {(user?.role === 'admin') ? (
@@ -3279,15 +3264,15 @@ function App() {
                           ))}
                         </select>
                       ) : (
-                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                           {selectedTask.responsible?.name || 'Atanmamış'}
                         </div>
                       )}
                     </div>
                     <br />
                     {/* Oluşturan */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Oluşturan
                       </label>
                       <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
@@ -3296,8 +3281,8 @@ function App() {
                     </div>
                     <br />
                     {/* Atananlar */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-start">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Atananlar
                       </label>
                       <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
@@ -3330,11 +3315,11 @@ function App() {
                     </div>
                     <br />
                     {/* Dosyalar */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Dosyalar
                       </label>
-                      <div className="w-full border !text-[18px] border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '18px', height: 'fit-content', padding: '5px' }}>
+                      <div className="w-full border !text-[18px] border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '18px', height: 'fit-content' }}>
                         {uploadProgress && (
                           <div className="mb-3">
                             <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
@@ -3358,7 +3343,6 @@ function App() {
                                 '.pdf',
                                 '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
                                 '.zip', '.rar', '.7z',
-                                // SolidWorks and common CAD formats
                                 '.sldprt', '.sldasm', '.slddrw',
                                 '.step', '.stp', '.iges', '.igs',
                                 '.x_t', '.x_b', '.stl', '.3mf',
@@ -3400,6 +3384,7 @@ function App() {
                                       })()}
                                       target="_blank"
                                       rel="noreferrer"
+                                      download={a.original_name || a.name || 'dosya'}
                                       className="text-blue-600 hover:underline text-[16px] truncate block"
                                       title={a.original_name || 'Dosya'}
 
@@ -3449,6 +3434,7 @@ function App() {
                                   })()}
                                   target="_blank"
                                   rel="noreferrer"
+                                  download={a.original_name || a.name || 'dosya'}
                                   className="text-blue-600 hover:underline text-sm block"
                                   title={a.original_name || 'Dosya'}
 
@@ -3469,13 +3455,13 @@ function App() {
                     </div>
                     <br />
                     {/* Tarihler */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Tarihler
                       </label>
                       <div className="flex flex-row gap-2 sm:gap-4">
                         <div className="flex-1">
-                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
+                          <label className="block !text-[24px] sm:!text-[16px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
                           {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin')) ? (
                             <input
                               type="date"
@@ -3487,17 +3473,18 @@ function App() {
                                 }));
                               }}
                               onBlur={(e) => handleDateChange(selectedTask.id, 'start_date', e.target.value)}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               style={{ minHeight: '24px' }}
                             />
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                               {selectedTask.start_date ? formatDateOnly(selectedTask.start_date) : '-'}
                             </div>
                           )}
                         </div>
+                        <span className="w-[20px]"></span>
                         <div className="flex-1">
-                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
+                          <label className="block !text-[24px] sm:!text-[16px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
                           {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin' || user?.role === 'team_leader')) ? (
                             <input
                               type="date"
@@ -3509,11 +3496,11 @@ function App() {
                                 }));
                               }}
                               onBlur={(e) => handleDateChange(selectedTask.id, 'due_date', e.target.value)}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               style={{ minHeight: '24px' }}
                             />
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                               {selectedTask.due_date ? formatDateOnly(selectedTask.due_date) : '-'}
                             </div>
                           )}
@@ -3522,8 +3509,8 @@ function App() {
                     </div>
                     <br />
                     {/* Açıklama */}
-                    <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[192px_1fr] gap-2 sm:gap-4 items-start">
-                      <label className="!text-[24px] font-medium text-slate-200 text-left">
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Görev Açıklaması
                       </label>
                       <div className="w-full">
@@ -3806,12 +3793,12 @@ function App() {
                           placeholder="Yorum yap/Not ekle"
                           className="flex-1 bg-transparent border-none outline-none px-4 text-white placeholder-gray-400 resize-none"
                           style={{
-                            minHeight: '48px',
+                            minHeight: '56px',
                             maxHeight: '120px',
                             fontSize: '16px',
                             lineHeight: '1.5'
                           }}
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
                               handleAddComment();
@@ -3819,49 +3806,49 @@ function App() {
                           }}
                           onInput={(e) => {
                             e.target.style.height = 'auto';
-                            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                            const newHeight = Math.min(e.target.scrollHeight, 120) + 'px';
+                            e.target.style.height = newHeight;
+                            const button = e.target.parentElement.querySelector('button');
+                            if (button) {
+                              button.style.height = newHeight;
+                            }
                           }}
                         />
 
-                        <div className="pr-3 flex items-center">
+                        <div className="pr-3 flex items-center h-[100%]" style={{ paddingRight: '10px' }}>
                           <button
                             onClick={handleAddComment}
                             disabled={!newComment.trim()}
                             className="rounded-full flex items-center justify-center transition-all duration-300"
                             style={{
-                              width: '40px',
-                              height: '40px',
+                              height: '56px',
                               backgroundColor: newComment.trim() ? '#10b981' : '#4b5563',
                               boxShadow: newComment.trim() ? '0 4px 12px rgba(16, 185, 129, 0.4)' : '0 2px 4px rgba(0, 0, 0, 0.2)',
-                              transform: newComment.trim() ? 'scale(1)' : 'scale(0.9)',
+                              transform: newComment.trim() ? 'scale(0.8)' : 'scale(0.8)',
                               cursor: newComment.trim() ? 'pointer' : 'not-allowed',
                               border: newComment.trim() ? '2px solid rgba(255, 255, 255, 0.2)' : '2px solid rgba(255, 255, 255, 0.1)',
-                              opacity: newComment.trim() ? '1' : '0.6'
+                              opacity: newComment.trim() ? '1' : '0.6',
                             }}
                             onMouseEnter={(e) => {
                               if (newComment.trim()) {
                                 e.target.style.backgroundColor = '#059669';
-                                e.target.style.transform = 'scale(1.1)';
+                                e.target.style.transform = 'scale(0.9)';
                                 e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.5)';
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (newComment.trim()) {
                                 e.target.style.backgroundColor = '#10b981';
-                                e.target.style.transform = 'scale(1)';
+                                e.target.style.transform = 'scale(0.8)';
                                 e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
                               }
                             }}
                           >
                             <div
                               style={{
-                                width: '0',
-                                height: '0',
-                                borderLeft: '6px solid transparent',
-                                borderRight: '6px solid transparent',
-                                borderTop: '8px solid white',
-                                transform: 'rotate(-90deg)',
-                                marginLeft: '2px'
+                                borderLeft: '12px solid transparent',
+                                borderRight: '12px solid transparent',
+                                borderBottom: '16px solid white'
                               }}
                             ></div>
                           </button>
@@ -3929,7 +3916,7 @@ function App() {
                 </div>
                 <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
                 <div className="bg-white/5 rounded-xl p-6 mx-4">
-                  <div className="!text-[20px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
+                  <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
                     🔐 <span className="ml-2">Şifre Değiştir</span>
                   </div>
                   <PasswordChangeForm onDone={() => setShowUserProfile(false)} />
@@ -4029,10 +4016,10 @@ function App() {
               </div>
               {/* Body */}
               <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto" style={{ height: 'calc(80vh - 72px)' }}>
-                <div className="w-2/5 min-w-0 space-y-6" style={{ padding: '20px' }}>
+                <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
                   {user?.role === 'admin' && (
-                    <div className="border-t border-white/10 pt-4" style={{ paddingTop: '5px' }}>
-                      <div className="font-medium mb-2 !text-[32px]">Yeni Kullanıcı Ekle</div>
+                    <div className="pt-4" style={{ paddingTop: '5px' }}>
+                      <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
                       <AdminCreateUser />
                     </div>
                   )}

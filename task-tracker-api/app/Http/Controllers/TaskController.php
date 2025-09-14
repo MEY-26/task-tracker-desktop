@@ -702,7 +702,13 @@ class TaskController extends Controller
             abort(404);
         }
         
-        return response()->file(Storage::disk('public')->path($attachment->path));
+        $filePath = Storage::disk('public')->path($attachment->path);
+        $originalName = $attachment->original_name;
+        
+        return response()->file($filePath, [
+            'Content-Disposition' => 'attachment; filename="' . $originalName . '"',
+            'Content-Type' => Storage::disk('public')->mimeType($attachment->path),
+        ]);
     }
 
     public function respond(Request $request, Task $task)
