@@ -3878,6 +3878,7 @@ function App() {
                             minHeight: '56px',
                             maxHeight: '120px',
                             fontSize: '16px',
+                            color: 'white',
                             lineHeight: '1.5'
                           }}
                           onKeyDown={(e) => {
