@@ -1808,11 +1808,11 @@ function App() {
     return (
       <div ref={boxRef} className="relative w-full ">
         <div
-          className="min-h-[56px] w-full rounded-lg border border-white/10 bg-[#0d1b2a]/60 px-4 py-2 flex flex-wrap items-center gap-2 text-slate-100 focus-within:ring-2 focus-within:ring-sky-500/40 focus-within:border-sky-500/40"
+          className="min-h-[56px] w-full rounded-lg bg-[#0d1b2a]/60 px-4 py-2 flex flex-wrap items-center gap-2 text-slate-100 focus-within:ring-2 focus-within:ring-sky-500/40 "
           onClick={() => setOpen(true)}
         >
           {(selected || []).map(u => (
-            <span key={u.id} className="inline-flex items-center !text-[18px] gap-1 rounded-full bg-white/10 border border-white/10 px-2 py-1 text-[11px] shrink-0 text-slate-100" style={{ padding: '0px 10px 0px 10px' }}>
+            <span key={u.id} className="inline-flex items-center !text-[18px] gap-1 rounded-full bg-white/10 px-2 py-1 text-[11px] shrink-0 text-slate-100" style={{ padding: '0px 10px 0px 10px' }}>
               {u.name}
             </span>
           ))}
@@ -1842,7 +1842,7 @@ function App() {
             {filteredSelected.map(u => (
               <div key={u.id} className="px-3 py-2 !text-[18px] flex items-center justify-between gap-2 bg-blue-900/20 hover:bg-blue-900/30">
                 <label className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => toggleOne(u.id)}>
-                  <input type="checkbox" checked readOnly className="accent-sky-500" />
+                  <input type="checkbox" checked readOnly className="accent-sky-500" style={{ width: '30px', height: '30px' }} />
                   <span className="text-[18px]">{u.name}</span>
                 </label>
                 <button className="text-neutral-300 hover:text-white text-sm" title="Kaldır" onClick={(e) => { e.stopPropagation(); removeOne(u.id); }}>×</button>
@@ -1850,14 +1850,14 @@ function App() {
             ))}
 
             {filteredOthers.length > 0 && (
-              <div className="px-3 pt-2 pb-1 text-[24px] text-neutral-400">Kullanıcılar</div>
+              <div className="px-3 pt-2 pb-1 text-[32px] text-neutral-400">Kullanıcılar</div>
             )}
             {filteredOthers.length === 0 && filteredSelected.length === 0 && (
               <div className="px-3 py-2 !text-[32px] text-neutral-400">Sonuç yok</div>
             )}
             {filteredOthers.map(u => (
               <div key={u.id} className="px-3 py-2 !text-[24px] flex items-center gap-2 cursor-pointer hover:bg-white/10" onClick={() => toggleOne(u.id)}>
-                <input type="checkbox" checked={false} readOnly className="accent-sky-500" />
+                <input type="checkbox" checked={false} readOnly className="accent-sky-500" style={{ width: '30px', height: '30px' }} />
                 <span className="text-[24px] text-slate-100">{u.name}</span>
               </div>
             ))}
@@ -2774,11 +2774,11 @@ function App() {
                                 </button>
                                 <span className="w-[10px]"></span>
                                 {(!combinedLocks.actuals_locked && user?.role !== 'observer') && (
-                                <button className="text-rose-300 hover:text-rose-200 text-[24px]"
-                                  onClick={() => {
-                                    const items = weeklyGoals.items.filter(x => x !== row);
-                                    setWeeklyGoals({ ...weeklyGoals, items });
-                                  }}>X</button>)}
+                                  <button className="text-rose-300 hover:text-rose-200 text-[24px]"
+                                    onClick={() => {
+                                      const items = weeklyGoals.items.filter(x => x !== row);
+                                      setWeeklyGoals({ ...weeklyGoals, items });
+                                    }}>X</button>)}
                               </div>
                             </td>
                           </tr>
@@ -2946,6 +2946,7 @@ function App() {
                   ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
                   }`}
+                style={{ marginLeft: '5px' }}
               >
                 Tamamlanan ({taskCounts.completed})
               </button>
@@ -2955,16 +2956,17 @@ function App() {
                   ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
                   }`}
+                style={{ marginLeft: '5px' }}
               >
                 İptal ({taskCounts.deleted})
               </button>
 
               {/* Görev Türü Filtresi */}
-              <div className="relative">
+              <div className="relative" style={{ marginLeft: '5px' }}>
                 <select
                   value={selectedTaskType}
                   onChange={(e) => setSelectedTaskType(e.target.value)}
-                  className="px-3 xs:px-4 sm:px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
+                  className="px-3 xs:px-4 sm:px-4 py-2.5 text-[16px] xs:text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
                   style={{ height: '40px', minWidth: '140px' }}
                 >
                   <option value="all">Tüm Türler</option>
@@ -2989,8 +2991,8 @@ function App() {
                   placeholder="Görev ara..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm"
-                  style={{ height: '30px', color: 'black', fontSize: '16px' }}
+                  className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                  style={{ height: '30px', fontSize: '16px' }}
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
@@ -3048,7 +3050,7 @@ function App() {
                   <span>Güncel Durum</span>
                 </button>
               ) : (
-                <div className="flex items-center justify-center px-2">
+                <div className="flex items-center justify-center px-2 select-none cursor-default">
                   <span>Eylem</span>
                 </div>
               )}
@@ -3864,7 +3866,6 @@ function App() {
                       </div>
                     ))}
                   </div>
-
                   {user?.role !== 'observer' && (
                     <div className="border-t border-white/10 flex-none p-4">
                       <div className="relative flex items-center bg-gray-800 rounded-2xl border border-gray-600 py-2">
@@ -3875,11 +3876,11 @@ function App() {
                           placeholder="Yorum yap/Not ekle"
                           className="flex-1 bg-transparent border-none outline-none px-4 text-white placeholder-gray-400 resize-none"
                           style={{
-                            minHeight: '56px',
-                            maxHeight: '120px',
+                            height: '80px',
+                            overflowY: 'auto',
                             fontSize: '16px',
                             color: 'white',
-                            lineHeight: '1.5'
+                            lineHeight: '1'
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -3887,24 +3888,14 @@ function App() {
                               handleAddComment();
                             }
                           }}
-                          onInput={(e) => {
-                            e.target.style.height = 'auto';
-                            const newHeight = Math.min(e.target.scrollHeight, 120) + 'px';
-                            e.target.style.height = newHeight;
-                            const button = e.target.parentElement.querySelector('button');
-                            if (button) {
-                              button.style.height = newHeight;
-                            }
-                          }}
                         />
-
                         <div className="pr-3 flex items-center h-[100%]" style={{ paddingRight: '10px' }}>
                           <button
                             onClick={handleAddComment}
                             disabled={!newComment.trim()}
                             className="rounded-full flex items-center justify-center transition-all duration-300"
                             style={{
-                              height: '56px',
+                              height: '70px',
                               backgroundColor: newComment.trim() ? '#10b981' : '#4b5563',
                               boxShadow: newComment.trim() ? '0 4px 12px rgba(16, 185, 129, 0.4)' : '0 2px 4px rgba(0, 0, 0, 0.2)',
                               transform: newComment.trim() ? 'scale(0.8)' : 'scale(0.8)',
@@ -3915,7 +3906,7 @@ function App() {
                             onMouseEnter={(e) => {
                               if (newComment.trim()) {
                                 e.target.style.backgroundColor = '#059669';
-                                e.target.style.transform = 'scale(0.9)';
+                                e.target.style.transform = 'scale(0.8)';
                                 e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.5)';
                               }
                             }}
@@ -3929,9 +3920,9 @@ function App() {
                           >
                             <div
                               style={{
-                                borderLeft: '12px solid transparent',
-                                borderRight: '12px solid transparent',
-                                borderBottom: '16px solid white'
+                                borderLeft: '14px solid transparent',
+                                borderRight: '14px solid transparent',
+                                borderBottom: '20px solid black'
                               }}
                             ></div>
                           </button>
@@ -3941,14 +3932,11 @@ function App() {
                   )}
                 </div>
               </div>
-
             </div>
           </div>
         </div>,
         document.body
-      )
-      }
-
+      )}
       {showUserProfile && createPortal(
         <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
