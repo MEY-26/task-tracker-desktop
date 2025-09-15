@@ -2616,8 +2616,16 @@ function App() {
                   <div className="text-sm text-neutral-300 text-[24px]" style={{ paddingLeft: '30px' }}>
                     {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
                   </div>
-                  <div className="ml-auto text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
-                    {combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}
+                  <div className="ml-auto flex items-center gap-3 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
+                    <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
+                    <span
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default"
+                      title={
+                        'Kural: Gelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. Bu hafta Pazartesi 10:00’a kadar hedefler açık, 10:00’dan sonra hedefler kapalı; gerçekleşme Pazartesi 10:00’dan sonra açık.'
+                      }
+                    >
+                      i
+                    </span>
                   </div>
                 </div>
 
