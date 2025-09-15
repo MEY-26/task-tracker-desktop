@@ -2946,9 +2946,9 @@ function App() {
         </div>
         <div className="flex justify-center">
           <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
-            <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider ${(activeTab === 'completed' || activeTab === 'deleted') ? 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px_60px]' : 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]'}`}>
+            <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}>
               <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
-                <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
+                <span>BaşlıkK</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
               </button>
               <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
                 <span>Öncelik</span><span className="text-[10px] ml-1">{sortIndicator('priority')}</span>
@@ -2990,7 +2990,7 @@ function App() {
               <div
                 key={task.id}
                 onClick={() => handleTaskClick(task)}
-                className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 ${(activeTab === 'completed' || activeTab === 'deleted') ? 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px_60px]' : 'grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]'}`}
+                className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}
                 style={{ paddingTop: '10px', paddingBottom: '10px' }}
               >
                 <div className="px-2">
