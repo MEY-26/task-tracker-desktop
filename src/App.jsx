@@ -112,6 +112,76 @@ function App() {
     return weekNo;
   }
 
+  // Helpers for weekly locks
+  function addDays(base, days) {
+    const d = new Date(base);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
+  function at10AM(d) {
+    const x = new Date(d);
+    x.setHours(10, 0, 0, 0);
+    return x;
+  }
+
+  // Compute UI locks for targets and actuals based on business rules
+  const uiLocks = useMemo(() => {
+    try {
+      // Selected week start (Monday 00:00)
+      const selStart = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday();
+      selStart.setHours(0, 0, 0, 0);
+
+      // Current week start (Monday 00:00)
+      const now = new Date();
+      const curStart = getMonday(now);
+      curStart.setHours(0, 0, 0, 0);
+
+      const curStart10 = at10AM(curStart);
+      const nextStart = addDays(curStart, 7);
+      const nextNextStart = addDays(curStart, 14);
+      const nextNextStart10 = at10AM(nextNextStart);
+
+      const selStart10 = at10AM(selStart);
+      const selNextStart10 = at10AM(addDays(selStart, 7));
+
+      const isSelectedCurrent = selStart.getTime() === curStart.getTime();
+      const isSelectedNext = selStart.getTime() === nextStart.getTime();
+
+      // Actuals editable only in [selMon 10:00, nextMon 10:00)
+      const actualsUnlocked = (now >= selStart10) && (now < selNextStart10);
+
+      // Targets rules:
+      // - Current week: targets editable only BEFORE Monday 10:00 of this week
+      // - Next week: targets editable from current Monday 10:00 until Monday 10:00 two weeks ahead
+      // - Other weeks: locked
+      let targetsUnlocked = false;
+      if (isSelectedCurrent) {
+        targetsUnlocked = now < at10AM(curStart);
+      } else if (isSelectedNext) {
+        targetsUnlocked = (now >= curStart10) && (now < nextNextStart10);
+      } else {
+        targetsUnlocked = false;
+      }
+
+      return {
+        targets_locked: !targetsUnlocked,
+        actuals_locked: !actualsUnlocked,
+      };
+    } catch (e) {
+      console.warn('UI locks compute failed:', e);
+      return { targets_locked: false, actuals_locked: false };
+    }
+  }, [weeklyWeekStart]);
+  const combinedLocks = useMemo(() => {
+    const backendTargetsLocked = !!(weeklyGoals?.locks?.targets_locked);
+    const backendActualsLocked = !!(weeklyGoals?.locks?.actuals_locked);
+    return {
+      targets_locked: backendTargetsLocked || uiLocks.targets_locked,
+      actuals_locked: backendActualsLocked || uiLocks.actuals_locked,
+    };
+  }, [weeklyGoals?.locks, uiLocks]);
+
   // Performans harfi ve rengi hesaplama
   function getPerformanceGrade(score) {
     if (score >= 111) return { grade: 'A', color: '#00c800', description: 'Olağan Üstü Performans' };
@@ -200,6 +270,10 @@ function App() {
 
   async function saveWeeklyGoals() {
     try {
+      if (combinedLocks.targets_locked && user?.role !== 'observer') {
+        addNotification('Hedefler şu an kilitli. Bu zaman aralığında hedefler değiştirilemez.', 'error');
+        return;
+      }
       if ((weeklyLive?.totalTarget || 0) > 2700) {
         addNotification('Haftalık hedef toplamı 2700 dakikayı aşamaz.', 'error');
         return;
@@ -2549,7 +2623,7 @@ function App() {
                     {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
                   </div>
                   <div className="ml-auto text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
-                    {weeklyGoals?.locks?.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {weeklyGoals?.locks?.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}
+                    {combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}
                   </div>
                 </div>
 
@@ -2568,8 +2642,8 @@ function App() {
                     </thead>
                     <tbody>
                       {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
-                        const lockedTargets = weeklyGoals?.locks?.targets_locked;
-                        const lockedActuals = weeklyGoals?.locks?.actuals_locked;
+                        const lockedTargets = combinedLocks.targets_locked;
+                        const lockedActuals = combinedLocks.actuals_locked;
                         const t = Math.max(0, Number(row.target_minutes || 0));
                         const a = Math.max(0, Number(row.actual_minutes || 0));
                         const w = (t / 2700) * 100; // satır ağırlığı
@@ -2626,7 +2700,7 @@ function App() {
                                   🔍
                                 </button>
                                 <span className="w-[10px]"></span>
-                                {user?.role !== 'observer' && (
+                                {user?.role !== 'observer' && !lockedTargets && (
                                   <button className="text-rose-300 hover:text-rose-200 text-[24px]" onClick={() => {
                                     const items = weeklyGoals.items.filter(x => x !== row);
                                     setWeeklyGoals({ ...weeklyGoals, items });
@@ -2639,10 +2713,10 @@ function App() {
                       })}
                     </tbody>
                   </table>
-                  {user?.role !== 'observer' && (
+                  {user?.role !== 'observer' && !combinedLocks.targets_locked && (
                     <div className="mt-2" style={{ padding: '10px' }}>
                       <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
-                        disabled={weeklyGoals?.locks?.targets_locked}
+                        disabled={combinedLocks.targets_locked}
                         onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false }] }); }}
                       >
                         + Satır Ekle</button>
@@ -2666,14 +2740,14 @@ function App() {
                         {(weeklyGoals.items || []).filter(x => x.is_unplanned).map((row, idx) => (
                           <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
                             <td className="px-3 py-2">
-                              <textarea value={row.title || ''} onChange={e => {
+                              <textarea disabled={combinedLocks.actuals_locked || user?.role === 'observer'} value={row.title || ''} onChange={e => {
                                 const items = [...weeklyGoals.items];
                                 items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
                                 setWeeklyGoals({ ...weeklyGoals, items });
                               }}
                                 className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
                             <td className="px-3 py-2">
-                              <textarea value={row.action_plan || ''}
+                              <textarea disabled={combinedLocks.actuals_locked || user?.role === 'observer'} value={row.action_plan || ''}
                                 onChange={e => {
                                   const items = [...weeklyGoals.items];
                                   items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
@@ -2681,7 +2755,7 @@ function App() {
                                 }}
                                 className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
                             <td className="px-3 py-2 text-right">
-                              <input type="number" value={row.actual_minutes || 0}
+                              <input type="number" disabled={combinedLocks.actuals_locked || user?.role === 'observer'} value={row.actual_minutes || 0}
                                 onChange={e => {
                                   const items = [...weeklyGoals.items];
                                   items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
@@ -2704,24 +2778,27 @@ function App() {
                                   🔍
                                 </button>
                                 <span className="w-[10px]"></span>
+                                {(!combinedLocks.actuals_locked && user?.role !== 'observer') && (
                                 <button className="text-rose-300 hover:text-rose-200 text-[24px]"
                                   onClick={() => {
                                     const items = weeklyGoals.items.filter(x => x !== row);
                                     setWeeklyGoals({ ...weeklyGoals, items });
-                                  }}>X</button>
+                                  }}>X</button>)}
                               </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    <div className="mt-2" style={{ paddingLeft: '10px' }}>
-                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
-                        onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true }] }); }}
-                        style={{ marginBottom: '10px' }}
-                      >
-                        + Satır Ekle</button>
-                    </div>
+                    {!combinedLocks.actuals_locked && user?.role !== 'observer' && (
+                      <div className="mt-2" style={{ paddingLeft: '10px' }}>
+                        <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
+                          onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true }] }); }}
+                          style={{ marginBottom: '10px' }}
+                        >
+                          + Satır Ekle</button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="mt-6 grid grid-cols-2 gap-4" style={{ marginLeft: '2px' }}>
@@ -2748,7 +2825,7 @@ function App() {
                 <div className="flex items-center gap-3 w-[98%]" style={{ paddingTop: '10px', paddingLeft: '15px', paddingBottom: '10px' }}>
                   <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                   <span className="w-[10px]"></span>
-                  {user?.role !== 'observer' && (
+                  {user?.role !== 'observer' && !combinedLocks.targets_locked && (
                     <button className="flex-1 rounded px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={weeklyLive.totalTarget > 2700} onClick={saveWeeklyGoals}>Kaydet</button>
                   )}
                 </div>
@@ -2812,7 +2889,7 @@ function App() {
                   onChange={(e) => setGoalDescription(e.target.value)}
                   className="w-full h-[150px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-y text-base"
                   placeholder="Bu hedefle ilgili ek açıklamalarınızı buraya yazabilirsiniz..."
-                  disabled={user?.role === 'observer'}
+                  disabled={user?.role === 'observer' || combinedLocks.targets_locked}
                 />
               </div>
 
@@ -2824,7 +2901,7 @@ function App() {
                   İptal
                 </button>
                 <span className="w-[20px]"></span>
-                {user?.role !== 'observer' && (
+                {user?.role !== 'observer' && !combinedLocks.targets_locked && (
                   <button
                     onClick={async () => {
                       if (selectedGoalIndex !== null) {
