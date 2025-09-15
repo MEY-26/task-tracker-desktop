@@ -3547,8 +3547,8 @@ function App() {
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Tarihler
                       </label>
-                      <div className="flex flex-row gap-2 sm:gap-4">
-                        <div className="flex-1">
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4 min-w-0">
+                        <div className="min-w-0">
                           <label className="block !text-[24px] sm:!text-[16px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
                           {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin')) ? (
                             <input
@@ -3561,17 +3561,16 @@ function App() {
                                 }));
                               }}
                               onBlur={(e) => handleDateChange(selectedTask.id, 'start_date', e.target.value)}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               style={{ minHeight: '24px' }}
                             />
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
                               {selectedTask.start_date ? formatDateOnly(selectedTask.start_date) : '-'}
                             </div>
                           )}
                         </div>
-                        <span className="w-[20px]"></span>
-                        <div className="flex-1">
+                        <div className="min-w-0">
                           <label className="block !text-[24px] sm:!text-[16px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
                           {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin' || user?.role === 'team_leader')) ? (
                             <input
@@ -3584,11 +3583,11 @@ function App() {
                                 }));
                               }}
                               onBlur={(e) => handleDateChange(selectedTask.id, 'due_date', e.target.value)}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               style={{ minHeight: '24px' }}
                             />
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
                               {selectedTask.due_date ? formatDateOnly(selectedTask.due_date) : '-'}
                             </div>
                           )}
