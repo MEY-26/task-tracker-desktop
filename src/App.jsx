@@ -112,13 +112,6 @@ function App() {
     return weekNo;
   }
 
-  // Helpers for weekly locks
-  function addDays(base, days) {
-    const d = new Date(base);
-    d.setDate(d.getDate() + days);
-    return d;
-  }
-
   function at10AM(d) {
     const x = new Date(d);
     x.setHours(10, 0, 0, 0);
