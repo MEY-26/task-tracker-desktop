@@ -2619,12 +2619,12 @@ function App() {
                   <div className="ml-auto flex items-center gap-3 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
                     <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
                     <span
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default"
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
                       title={
-                        'Kural: Gelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. Bu hafta Pazartesi 10:00’a kadar hedefler açık, 10:00’dan sonra hedefler kapalı; gerçekleşme Pazartesi 10:00’dan sonra açık.'
+                        'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 10:00’a kadar içinde bulunulan haftanın hedefleri açık, 10:00’dan sonra hedefler kapalı. \nGerçekleşme Pazartesi 10:00’dan sonra açık.'
                       }
                     >
-                      i
+                      ℹ️
                     </span>
                   </div>
                 </div>
