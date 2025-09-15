@@ -138,30 +138,24 @@ function App() {
       curStart.setHours(0, 0, 0, 0);
 
       const curStart10 = at10AM(curStart);
-      const nextStart = addDays(curStart, 7);
-      const nextNextStart = addDays(curStart, 14);
-      const nextNextStart10 = at10AM(nextNextStart);
-
-      const selStart10 = at10AM(selStart);
-      const selNextStart10 = at10AM(addDays(selStart, 7));
-
       const isSelectedCurrent = selStart.getTime() === curStart.getTime();
-      const isSelectedNext = selStart.getTime() === nextStart.getTime();
+      const isSelectedFuture = selStart.getTime() > curStart.getTime();
 
-      // Actuals editable only in [selMon 10:00, nextMon 10:00)
-      const actualsUnlocked = (now >= selStart10) && (now < selNextStart10);
-
-      // Targets rules:
-      // - Current week: targets editable only BEFORE Monday 10:00 of this week
-      // - Next week: targets editable from current Monday 10:00 until Monday 10:00 two weeks ahead
-      // - Other weeks: locked
       let targetsUnlocked = false;
-      if (isSelectedCurrent) {
-        targetsUnlocked = now < at10AM(curStart);
-      } else if (isSelectedNext) {
-        targetsUnlocked = (now >= curStart10) && (now < nextNextStart10);
+      let actualsUnlocked = false;
+
+      if (isSelectedFuture) {
+        // Future weeks: no locks at all
+        targetsUnlocked = true;
+        actualsUnlocked = true;
+      } else if (isSelectedCurrent) {
+        // Current week: targets closed after Mon 10:00; actuals open after Mon 10:00
+        targetsUnlocked = now < curStart10;
+        actualsUnlocked = now >= curStart10;
       } else {
+        // Past weeks: fully locked
         targetsUnlocked = false;
+        actualsUnlocked = false;
       }
 
       return {
