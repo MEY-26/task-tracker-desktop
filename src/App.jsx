@@ -30,6 +30,9 @@ function App() {
   });
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+  // Task Detail assignee UI state (separate from New Task)
+  const [assigneeSearchDetail, setAssigneeSearchDetail] = useState('');
+  const [showAssigneeDropdownDetail, setShowAssigneeDropdownDetail] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
   const resetNewTask = () => {
@@ -87,6 +90,7 @@ function App() {
   const [selectedTaskType, setSelectedTaskType] = useState('all');
   const [passwordResetRequests, setPasswordResetRequests] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(null); // { percent: number|null, label: string }
+  const [attachmentsExpanded, setAttachmentsExpanded] = useState(false);
 
   // Weekly goals helpers (inside component to access state)
   function getMonday(date = new Date()) {
@@ -388,11 +392,14 @@ function App() {
       if (showAssigneeDropdown && !event.target.closest('.assignee-dropdown-container')) {
         setShowAssigneeDropdown(false);
       }
+      if (showAssigneeDropdownDetail && !event.target.closest('.assignee-dropdown-detail-container')) {
+        setShowAssigneeDropdownDetail(false);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showProfileMenu, showAssigneeDropdown]);
+  }, [showProfileMenu, showAssigneeDropdown, showAssigneeDropdownDetail]);
 
   useEffect(() => {
     checkAuth();
@@ -1808,23 +1815,29 @@ function App() {
     return (
       <div ref={boxRef} className="relative w-full ">
         <div
-          className="min-h-[56px] w-full rounded-lg bg-[#0d1b2a]/60 px-4 py-2 flex flex-wrap items-center gap-2 text-slate-100 focus-within:ring-2 focus-within:ring-sky-500/40 "
+          className="min-h-[48px] w-full rounded-lg bg-[#0d1b2a]/60 px-4 py-2 flex items-center justify-between gap-2 text-slate-100 focus-within:ring-2 focus-within:ring-sky-500/40"
           onClick={() => setOpen(true)}
         >
-          {(selected || []).map(u => (
-            <span key={u.id} className="inline-flex items-center !text-[18px] gap-1 rounded-full bg-white/10 px-2 py-1 text-[11px] shrink-0 text-slate-100" style={{ padding: '0px 10px 0px 10px' }}>
-              {u.name}
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-1 text-sm text-slate-100">
+              Atanan: {selectedIds.size}
             </span>
-          ))}
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onFocus={() => setOpen(true)}
-            placeholder=""
-            className="flex-1 !min-w-[1px] bg-transparent py-2 text-slate-100 placeholder:text-neutral-400 caret-white border-0 outline-none focus:outline-none focus:ring-0 focus:border-0 shadow-none focus:shadow-none appearance-none"
-          />
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onFocus={() => setOpen(true)}
+              placeholder=""
+              className="flex-1 !min-w-[100px] bg-transparent py-2 text-slate-100 placeholder:text-neutral-400 caret-white border-0 outline-none focus:outline-none focus:ring-0 focus:border-0 shadow-none focus:shadow-none appearance-none"
+            />
+          </div>
 
-          <button className="text-neutral-300 rounded px-1 hover:bg-white/10" onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}>▾</button>
+          <button
+            className="text-neutral-300 rounded px-1 hover:bg-white/10"
+            aria-label={open ? 'Kapat' : 'Aç'}
+            onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+          >
+            {open ? '⮝' : '⮟'}
+          </button>
         </div>
 
         {open && (
@@ -1845,7 +1858,15 @@ function App() {
                   <input type="checkbox" checked readOnly className="accent-sky-500" style={{ width: '30px', height: '30px' }} />
                   <span className="text-[18px]">{u.name}</span>
                 </label>
-                <button className="text-neutral-300 hover:text-white text-sm" title="Kaldır" onClick={(e) => { e.stopPropagation(); removeOne(u.id); }}>×</button>
+                <button
+                  type="button"
+                  aria-label="Atananı kaldır"
+                  className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-white/90 hover:bg-white/20 hover:text-white focus:outline-none focus:ring-1 focus:ring-white/30"
+                  title="Kaldır"
+                  onClick={(e) => { e.stopPropagation(); removeOne(u.id); }}
+                >
+                  ×
+                </button>
               </div>
             ))}
 
@@ -2397,11 +2418,13 @@ function App() {
                             <span key={userId} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                               {user?.name || 'Bilinmeyen Kullanıcı'}
                               <button
+                                type="button"
+                                aria-label="Atananı kaldır"
                                 onClick={() => setNewTask({
                                   ...newTask,
                                   assigned_users: newTask.assigned_users.filter(id => id !== userId)
                                 })}
-                                className="text-blue-600 hover:text-blue-800"
+                                className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
                               >
                                 ×
                               </button>
@@ -3370,30 +3393,139 @@ function App() {
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Atananlar
                       </label>
-                      <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
+                      <div className="w-full rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
                         {user?.role === 'admin' ? (
-                          <AssigneeMultiSelect
-                            selected={selectedTask.assigned_users || []}
-                            responsibleId={selectedTask.responsible?.id}
-                            onChange={async (ids) => {
-                              try {
-                                await Tasks.assignUsers(selectedTask.id, ids);
-                                const t = await Tasks.get(selectedTask.id);
-                                setSelectedTask(t.task || t);
-                                addNotification('Atananlar güncellendi', 'success');
-                              } catch {
-                                addNotification('Güncellenemedi', 'error');
-                              }
-                            }}
-                          />
+                          <div className="assignee-dropdown-detail-container relative">
+                            {/* Selected chips */}
+                            {Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-2 mb-3 overflow-hidden">
+                                {selectedTask.assigned_users.map((u) => {
+                                  const name = typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u);
+                                  const id = typeof u === 'object' ? u.id : u;
+                                  return (
+                                    <span key={id} className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 rounded-full text-sm max-w-full px-3 py-1">
+                                      <span className="truncate">{name}</span>
+                                      <button
+                                        type="button"
+                                        aria-label="Atananı kaldır"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          const nextIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x)).filter(v => v !== id);
+                                          try {
+                                            await Tasks.assignUsers(selectedTask.id, nextIds);
+                                            const t = await Tasks.get(selectedTask.id);
+                                            setSelectedTask(t.task || t);
+                                            addNotification('Atanan kaldırıldı', 'success');
+                                          } catch {
+                                            addNotification('Güncellenemedi', 'error');
+                                          }
+                                        }}
+                                        className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Search input */}
+                            <input
+                              type="text"
+                              placeholder="Kullanıcı atayın..."
+                              value={assigneeSearchDetail}
+                              className="w-[98%] rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              style={{ minHeight: '32px' }}
+                              onChange={(e) => {
+                                setAssigneeSearchDetail(e.target.value);
+                                setShowAssigneeDropdownDetail(true);
+                              }}
+                              onFocus={() => setShowAssigneeDropdownDetail(true)}
+                              onBlur={() => {
+                                setTimeout(() => setShowAssigneeDropdownDetail(false), 200);
+                              }}
+                            />
+
+                            {/* Dropdown */}
+                            {showAssigneeDropdownDetail && users && users.length > 0 && (
+                              <div
+                                className="absolute w-full mt-1 border-2 border-gray-400 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
+                                style={{
+                                  backgroundColor: '#1f2937',
+                                  opacity: 1,
+                                  zIndex: 2147483647,
+                                  filter: 'none',
+                                  backdropFilter: 'none',
+                                  WebkitBackdropFilter: 'none',
+                                  mixBlendMode: 'normal',
+                                  isolation: 'isolate',
+                                  pointerEvents: 'auto'
+                                }}
+                              >
+                                {getEligibleAssignedUsers(selectedTask.responsible?.id)
+                                  .filter(u => {
+                                    const q = assigneeSearchDetail.toLowerCase();
+                                    const name = (u.name || '').toLowerCase();
+                                    const email = (u.email || '').toLowerCase();
+                                    const matches = !q || name.includes(q) || email.includes(q);
+                                    const already = (selectedTask.assigned_users || []).some(x => (typeof x === 'object' ? x.id : x) === u.id);
+                                    return matches && !already;
+                                  })
+                                  .map(u => (
+                                    <div
+                                      key={u.id}
+                                      className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-b border-gray-200 last:border-b-0 text-left"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={async () => {
+                                        const nextIds = [...(selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x)), u.id];
+                                        try {
+                                          await Tasks.assignUsers(selectedTask.id, nextIds);
+                                          const t = await Tasks.get(selectedTask.id);
+                                          setSelectedTask(t.task || t);
+                                          setAssigneeSearchDetail('');
+                                          setShowAssigneeDropdownDetail(false);
+                                          addNotification('Kullanıcı atandı', 'success');
+                                        } catch {
+                                          addNotification('Güncellenemedi', 'error');
+                                        }
+                                      }}
+                                    >
+                                      {u.name}
+                                    </div>
+                                  ))}
+                                {getEligibleAssignedUsers(selectedTask.responsible?.id).filter(u => {
+                                  const q = assigneeSearchDetail.toLowerCase();
+                                  const name = (u.name || '').toLowerCase();
+                                  const email = (u.email || '').toLowerCase();
+                                  const matches = !q || name.includes(q) || email.includes(q);
+                                  const already = (selectedTask.assigned_users || []).some(x => (typeof x === 'object' ? x.id : x) === u.id);
+                                  return matches && !already;
+                                }).length === 0 && (
+                                  <div className="px-3 sm:px-4 py-2 sm:py-3 text-gray-500 text-[16px] sm:text-[24px] border-b border-gray-200">
+                                    Kullanıcı bulunamadı
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
-                            {(() => {
-                              const arr = Array.isArray(selectedTask.assigned_users) ? selectedTask.assigned_users : [];
-                              const names = arr.map((u) => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).filter(n => n && n.trim().length > 0);
-                              if (names.length === 0) return (<span className="text-gray-500">-</span>);
-                              return (<div className="text-gray-900 text-[18px] leading-6">{names.join(', ')}</div>);
-                            })()}
+                          <div>
+                            {Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.length > 0 ? (
+                              <div className="flex flex-wrap items-center gap-2 overflow-hidden">
+                                {selectedTask.assigned_users.map((u) => {
+                                  const name = typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u);
+                                  const id = typeof u === 'object' ? u.id : u;
+                                  return (
+                                    <span key={id} className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm max-w-[240px]">
+                                      <span className="truncate">{name}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -3451,12 +3583,93 @@ function App() {
                                   e.target.value = '';
                                 }
                               }}
-                              className="w-full !text-[18px] sm:!text-[24px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[24px] sm:file:text-[24px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+                              className="w-full !text-[18px] sm:!text-[16px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[18px] sm:file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
                             />
-                            <div className="space-y-1">
-                              {(selectedTask.attachments || []).map(a => (
-                                <div key={a.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-2 py-1">
-                                  <div className="flex-1 min-w-0">
+                            <div className="space-y-2">
+                              <div className="flex items-center bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                                {(selectedTask.attachments || []).length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setAttachmentsExpanded(v => !v)}
+                                    className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white mr-3"
+                                    aria-label={attachmentsExpanded ? 'Dosyaları gizle' : 'Dosyaları göster'}
+                                  >
+                                    {attachmentsExpanded ? '⮝' : '⮟'}
+                                  </button>
+                                )}
+                                <div className="text-gray-800 ml-auto" style={{paddingLeft: '12px'}}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                              </div>
+                              {attachmentsExpanded && (selectedTask.attachments || []).length > 0 && (
+                                <div className="space-y-1">
+                                  {(selectedTask.attachments || []).map(a => (
+                                    <div key={a.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                                      <div className="flex-1 min-w-0">
+                                        <a
+                                          href={(() => {
+                                            if (a.signed_url) {
+                                              const url = a.signed_url;
+                                              return url.startsWith('http') ? url : `http://localhost:8000${url.startsWith('/') ? '' : '/'}${url}`;
+                                            }
+                                            if (a.url) return a.url;
+                                            if (a.path) return `${apiOrigin}/storage/${a.path}`;
+                                            return '#';
+                                          })()}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          download={a.original_name || a.name || 'dosya'}
+                                          className="text-blue-600 hover:underline text-[16px] truncate block"
+                                          title={a.original_name || 'Dosya'}
+                                        >
+                                          {a.original_name || a.name || 'Dosya'}
+                                        </a>
+                                        {a.size && (
+                                          <div className="text-xs text-gray-500 mt-1">
+                                            {(a.size / 1024 / 1024).toFixed(2)} MB
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            await Tasks.deleteAttachment(a.id);
+                                            const t = await Tasks.get(selectedTask.id);
+                                            setSelectedTask(t.task || t);
+                                            addNotification('Dosya silindi', 'success');
+                                          } catch (err) {
+                                            console.error('Delete attachment error:', err);
+                                            addNotification('Silinemedi', 'error');
+                                          }
+                                        }}
+                                        className="text-red-600 hover:text-red-800 text-[16px] p-1 rounded hover:bg-red-50 ml-2"
+                                        title="Dosyayı sil"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                              {(selectedTask.attachments || []).length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setAttachmentsExpanded(v => !v)}
+                                  className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white mr-3"
+                                  aria-label={attachmentsExpanded ? 'Dosyaları gizle' : 'Dosyaları göster'}
+                                >
+                                  {attachmentsExpanded ? '⮝' : '⮟'}
+                                </button>
+                              )}
+                              <div className="text-gray-800 ml-auto">Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                            </div>
+                            {attachmentsExpanded && (selectedTask.attachments || []).length > 0 ? (
+                              <div className="space-y-1">
+                                {(selectedTask.attachments || []).map(a => (
+                                  <div key={a.id} className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
                                     <a
                                       href={(() => {
                                         if (a.signed_url) {
@@ -3470,9 +3683,8 @@ function App() {
                                       target="_blank"
                                       rel="noreferrer"
                                       download={a.original_name || a.name || 'dosya'}
-                                      className="text-blue-600 hover:underline text-[16px] truncate block"
+                                      className="text-blue-600 hover:underline text-sm block"
                                       title={a.original_name || 'Dosya'}
-
                                     >
                                       {a.original_name || a.name || 'Dosya'}
                                     </a>
@@ -3482,58 +3694,11 @@ function App() {
                                       </div>
                                     )}
                                   </div>
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        await Tasks.deleteAttachment(a.id);
-                                        const t = await Tasks.get(selectedTask.id);
-                                        setSelectedTask(t.task || t);
-                                        addNotification('Dosya silindi', 'success');
-                                      } catch (err) {
-                                        console.error('Delete attachment error:', err);
-                                        addNotification('Silinemedi', 'error');
-                                      }
-                                    }}
-                                    className="text-red-600 hover:text-red-800 text-[16px] p-1 rounded hover:bg-red-50 ml-2"
-                                    title="Dosyayı sil"
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            {(selectedTask.attachments || []).map(a => (
-                              <div key={a.id} className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
-                                <a
-                                  href={(() => {
-                                    if (a.signed_url) {
-                                      const url = a.signed_url;
-                                      return url.startsWith('http') ? url : `http://localhost:8000${url.startsWith('/') ? '' : '/'}${url}`;
-                                    }
-                                    if (a.url) return a.url;
-                                    if (a.path) return `${apiOrigin}/storage/${a.path}`;
-                                    return '#';
-                                  })()}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  download={a.original_name || a.name || 'dosya'}
-                                  className="text-blue-600 hover:underline text-sm block"
-                                  title={a.original_name || 'Dosya'}
-
-                                >
-                                  {a.original_name || a.name || 'Dosya'}
-                                </a>
-                                {a.size && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {(a.size / 1024 / 1024).toFixed(2)} MB
-                                  </div>
-                                )}
+                                ))}
                               </div>
-                            ))}
-                            {(selectedTask.attachments || []).length === 0 && <span className="text-gray-500 text-sm">-</span>}
+                            ) : (
+                              (selectedTask.attachments || []).length === 0 && <span className="text-gray-500 text-sm">-</span>
+                            )}
                           </div>
                         )}
                       </div>
