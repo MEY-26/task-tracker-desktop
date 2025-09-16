@@ -92,6 +92,7 @@ function App() {
   const [uploadProgress, setUploadProgress] = useState(null); // { percent: number|null, label: string }
   const [attachmentsExpanded, setAttachmentsExpanded] = useState(false);
   const [detailDraft, setDetailDraft] = useState(null);
+  const assigneeDetailInputRef = useRef(null);
 
   // Weekly goals helpers (inside component to access state)
   function getMonday(date = new Date()) {
@@ -329,7 +330,6 @@ function App() {
   const lastTasksSigRef = useRef('');
   const showDetailModalRef = useRef(false);
   const selectedTaskRef = useRef(null);
-  const assigneeOpenRef = useRef(false);
   const lastSelectedSigRef = useRef('');
 
   useEffect(() => { showDetailModalRef.current = showDetailModal; }, [showDetailModal]);
@@ -646,7 +646,7 @@ function App() {
         if (freshTask) {
           const nextSelSig = buildTaskSignatureOne(freshTask);
           const prevSelSig = lastSelectedSigRef.current;
-          const comboboxOpen = assigneeOpenRef.current === true;
+          const comboboxOpen = showAssigneeDropdownDetail === true;
           if (nextSelSig !== prevSelSig) {
             if (!comboboxOpen) {
               setSelectedTask(freshTask);
@@ -1081,14 +1081,7 @@ function App() {
     }
   }
 
-  async function handleStatusChange(taskId, newStatus) {
-    try {
-      await handleUpdateTask(taskId, { status: newStatus });
-    } catch (err) {
-      console.error('Status change error:', err);
-      // handleUpdateTask zaten hata mesajı gösteriyor
-    }
-  }
+  // handleStatusChange removed: status is drafted and saved on modal close
 
   async function handleDateChange(taskId, field, newDate) {
     // Sadece local draft'ı güncelle; kayıt modal kapanınca yapılacak
@@ -1811,125 +1804,7 @@ function App() {
     );
   }
 
-  function AssigneeMultiSelect({ selected, onChange, responsibleId = null }) {
-    const boxRef = useRef(null);
-    const [open, setOpen] = useState(false);
-    const [query, setQuery] = useState('');
-
-    const selectedIds = new Set((selected || []).map(u => u.id));
-    const eligibleUsers = getEligibleAssignedUsers(responsibleId);
-    const all = Array.isArray(eligibleUsers) ? eligibleUsers : [];
-    const q = query.trim().toLowerCase();
-    const predicate = (u) => {
-      if (!q) return true;
-      return (
-        (u.name || '').toLowerCase().includes(q) ||
-        (u.email || '').toLowerCase().includes(q)
-      );
-    };
-    const filteredSelected = all.filter(predicate).filter(u => selectedIds.has(u.id));
-    const filteredOthers = all.filter(predicate).filter(u => !selectedIds.has(u.id));
-
-    useEffect(() => {
-      const onDown = (e) => {
-        if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
-      };
-      document.addEventListener('mousedown', onDown);
-      return () => document.removeEventListener('mousedown', onDown);
-    }, []);
-
-    useEffect(() => { assigneeOpenRef.current = open; }, [open]);
-
-    function removeOne(id) {
-      const next = (selected || []).map(u => u.id).filter(x => x !== id);
-      onChange(next);
-    }
-
-    function toggleOne(id) {
-      const cur = new Set((selected || []).map(u => u.id));
-      if (cur.has(id)) cur.delete(id); else cur.add(id);
-      onChange(Array.from(cur));
-    }
-
-    function clearAll() {
-      onChange([]);
-    }
-
-    return (
-      <div ref={boxRef} className="relative w-full ">
-        <div
-          className="min-h-[48px] w-full rounded-lg bg-[#0d1b2a]/60 px-4 py-2 flex items-center justify-between gap-2 text-slate-100 focus-within:ring-2 focus-within:ring-sky-500/40"
-          onClick={() => setOpen(true)}
-        >
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-1 text-sm text-slate-100">
-              Atanan: {selectedIds.size}
-            </span>
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onFocus={() => setOpen(true)}
-              placeholder=""
-              className="flex-1 !min-w-[100px] bg-transparent py-2 text-slate-100 placeholder:text-neutral-400 caret-white border-0 outline-none focus:outline-none focus:ring-0 focus:border-0 shadow-none focus:shadow-none appearance-none"
-            />
-          </div>
-
-          <button
-            className="text-neutral-300 rounded px-1 hover:bg-white/10"
-            aria-label={open ? 'Kapat' : 'Aç'}
-            onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
-          >
-            {open ? '⮝' : '⮟'}
-          </button>
-        </div>
-
-        {open && (
-          <div className="absolute z-[100300] mt-1 w-full max-h-72 overflow-auto rounded-md border border-white/10 bg-[#0f172a] shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-[#0f172a] border-b border-white/10">
-              <div className="!text-[18px] text-neutral-300">• Seçili: {selectedIds.size}</div>
-              {selectedIds.size > 0 && (
-                <button className="text-xs rounded px-2 py-1 bg-white/10 hover:bg-white/20" onClick={(e) => { e.stopPropagation(); clearAll(); }}>Tümünü kaldır</button>
-              )}
-            </div>
-
-            {filteredSelected.length > 0 && (
-              <div className="px-3 pt-2 pb-1 !text-[18px] text-neutral-400"></div>
-            )}
-            {filteredSelected.map(u => (
-              <div key={u.id} className="px-3 py-2 !text-[18px] flex items-center justify-between gap-2 bg-blue-900/20 hover:bg-blue-900/30">
-                <label className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => toggleOne(u.id)}>
-                  <input type="checkbox" checked readOnly className="accent-sky-500" style={{ width: '30px', height: '30px' }} />
-                  <span className="text-[18px]">{u.name}</span>
-                </label>
-                <button
-                  type="button"
-                  aria-label="Atananı kaldır"
-                  className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-white/90 hover:bg-white/20 hover:text-white focus:outline-none focus:ring-1 focus:ring-white/30"
-                  title="Kaldır"
-                  onClick={(e) => { e.stopPropagation(); removeOne(u.id); }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-
-            {filteredOthers.length > 0 && (
-              <div className="px-3 pt-2 pb-1 text-[32px] text-neutral-400">Kullanıcılar</div>
-            )}
-            {filteredOthers.length === 0 && filteredSelected.length === 0 && (
-              <div className="px-3 py-2 !text-[32px] text-neutral-400">Sonuç yok</div>
-            )}
-            {filteredOthers.map(u => (
-              <div key={u.id} className="px-3 py-2 !text-[24px] flex items-center gap-2 cursor-pointer hover:bg-white/10" onClick={() => toggleOne(u.id)}>
-                <input type="checkbox" checked={false} readOnly className="accent-sky-500" style={{ width: '30px', height: '30px' }} />
-                <span className="text-[24px] text-slate-100">{u.name}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
+  // AssigneeMultiSelect component removed (unused)
 
 
   let filteredTasks = Array.isArray(tasks) ? tasks.filter(task => {
@@ -3436,16 +3311,16 @@ function App() {
                             {/* Selected chips */}
                             {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 && (
                               <div className="flex flex-wrap items-center gap-2 mb-3 overflow-hidden">
-                                {(selectedTask.assigned_users || []).filter(x => detailDraft.assigned_user_ids.includes(typeof x === 'object' ? x.id : x)).map((u) => {
-                                  const name = typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u);
-                                  const id = typeof u === 'object' ? u.id : u;
+                                {(detailDraft.assigned_user_ids || []).map((id) => {
+                                  const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
+                                  const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
                                   return (
                                     <span key={id} className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 rounded-full text-sm max-w-full px-3 py-1">
                                       <span className="truncate">{name}</span>
                                       <button
                                         type="button"
                                         aria-label="Atananı kaldır"
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
                                           const nextIds = (detailDraft?.assigned_user_ids || []).filter(v => v !== id);
                                           setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
@@ -3462,6 +3337,7 @@ function App() {
 
                             {/* Search input */}
                             <input
+                              ref={assigneeDetailInputRef}
                               type="text"
                               placeholder="Kullanıcı atayın..."
                               value={assigneeSearchDetail}
@@ -3499,7 +3375,7 @@ function App() {
                                     const name = (u.name || '').toLowerCase();
                                     const email = (u.email || '').toLowerCase();
                                     const matches = !q || name.includes(q) || email.includes(q);
-                                    const already = (selectedTask.assigned_users || []).some(x => (typeof x === 'object' ? x.id : x) === u.id);
+                                    const already = (detailDraft?.assigned_user_ids || []).includes(u.id);
                                     return matches && !already;
                                   })
                                   .map(u => (
@@ -3511,7 +3387,8 @@ function App() {
                                         const nextIds = Array.from(new Set([...(detailDraft?.assigned_user_ids || []), u.id]));
                                         setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
                                         setAssigneeSearchDetail('');
-                                        setShowAssigneeDropdownDetail(false);
+                                        setShowAssigneeDropdownDetail(true);
+                                        setTimeout(() => assigneeDetailInputRef.current?.focus(), 0);
                                       }}
                                     >
                                       {u.name}
@@ -3536,10 +3413,9 @@ function App() {
                           <div>
                             {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 ? (
                               <div className="flex flex-wrap items-center gap-2 overflow-hidden">
-                                {selectedTask.assigned_users.map((u) => {
-                                  const name = typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u);
-                                  const id = typeof u === 'object' ? u.id : u;
-                                  if (!(detailDraft?.assigned_user_ids || []).includes(id)) return null;
+                                {(detailDraft.assigned_user_ids || []).map((id) => {
+                                  const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
+                                  const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
                                   return (
                                     <span key={id} className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm max-w-[240px]">
                                       <span className="truncate">{name}</span>
