@@ -2193,8 +2193,8 @@ function App() {
               resetNewTask();
             }}
           />
-          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'none' }}>
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
+          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'none'}}>
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px'  }}>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
                 <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
@@ -2326,7 +2326,7 @@ function App() {
                 {/* Atananlar */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Atananlar</label>
-                  <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
+                  <div className="w-full rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
                     {/* Seçilen kullanıcılar */}
                     {newTask.assigned_users.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
@@ -2358,7 +2358,7 @@ function App() {
                         type="text"
                         placeholder="Kullanıcı atayın..."
                         value={assigneeSearch}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         style={{ minHeight: '48px' }}
                         onChange={(e) => {
                           setAssigneeSearch(e.target.value);
@@ -2373,9 +2373,9 @@ function App() {
                       {/* Dropdown */}
                       {showAssigneeDropdown && users && users.length > 0 && (
                         <div
-                          className="absolute w-full mt-1 border-2 border-gray-400 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
+                          className="absolute w-full mt-1 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
                           style={{
-                            backgroundColor: '#ffffff',
+                            backgroundColor: '#1f2937',
                             opacity: 1,
                             zIndex: 2147483647,
                             filter: 'none',
@@ -2394,8 +2394,8 @@ function App() {
                             .map(u => (
                               <div
                                 key={u.id}
-                                className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-b border-gray-200 last:border-b-0 text-left"
-                                style={{ backgroundColor: 'gray' }}
+                                className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-gray-200 last:border-b-0 text-left"
+                                style={{ backgroundColor: '#1f2937' }}
                                 onClick={() => {
                                   setNewTask({
                                     ...newTask,
