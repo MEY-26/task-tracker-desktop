@@ -2151,7 +2151,7 @@ function App() {
                       <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
                     </div>
 
-                    <div className="overflow-y-auto notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
+                    <div className="overflow-y-auto scrollbar-stable notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
                       {(!Array.isArray(notifications) || notifications.length === 0) ? (
                         <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
                       ) : (
@@ -2204,7 +2204,7 @@ function App() {
                   }} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
                 </div>
               </div>
-              <div className="overflow-y-auto flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
+              <div className="overflow-y-auto scrollbar-stable flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
                 {/* Error Display */}
                 {error && (
                   <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
@@ -2533,7 +2533,7 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div className="p-6 space-y-5 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
+              <div className="p-6 space-y-5 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="w-[10px]"></span>
                   <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20"
@@ -3167,7 +3167,7 @@ function App() {
               </div>
 
               <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden divide-x divide-white/10">
-                <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden" style={{ padding: '0px 24px' }}>
+                <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-stable" style={{ padding: '0px 24px' }}>
                   <div className="py-6 flex flex-col gap-4 sm:gap-6 min-h-[calc(105vh-280px)]">
                     {/* Error Display */}
                     {error && (
@@ -3714,7 +3714,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto space-y-4" style={{ padding: '10px' }}>
+                  <div className="flex-1 overflow-y-auto scrollbar-stable space-y-4" style={{ padding: '10px' }}>
                     {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
                       taskHistory.map((h) => (
                         <div key={h.id} className="bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
@@ -4010,7 +4010,7 @@ function App() {
               </div>
 
               {/* Body */}
-              <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+              <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(85vh - 80px)' }}>
                 <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
                   <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
                     <div>
@@ -4095,7 +4095,7 @@ function App() {
                 </div>
               )}
 
-              <div className="p-4 space-y-3 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 120px)' }}>
+              <div className="p-4 space-y-3 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(80vh - 120px)' }}>
                 {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
                   teamMembers.filter(m => m.role !== 'observer').map(m => (
                     <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 border border-white/10 rounded px-3 py-2"
@@ -4144,7 +4144,7 @@ function App() {
                 </div>
               </div>
               {/* Body */}
-              <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto" style={{ height: 'calc(80vh - 72px)' }}>
+              <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto scrollbar-stable" style={{ height: 'calc(80vh - 72px)' }}>
                 <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
                   {user?.role === 'admin' && (
                     <div className="pt-4" style={{ paddingTop: '5px' }}>
@@ -4153,7 +4153,7 @@ function App() {
                     </div>
                   )}
                 </div>
-                <div className="w-3/5 shrink-0 bg-[#0f172a] overflow-y-auto" style={{ padding: '20px' }}>
+                <div className="w-3/5 shrink-0 bg-[#0f172a] overflow-y-auto scrollbar-stable" style={{ padding: '20px' }}>
                   <div className="flex text-[24px] font-semibold mb-4 space-y-3" style={{ marginBottom: '10px' }}>
                     <span>Kullanıcılar</span> <span className="w-[50px]"></span>
                     <input

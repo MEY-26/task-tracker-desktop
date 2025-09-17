@@ -2,8 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  scrollbar-gutter: stable;
+html, body {
+  scrollbar-gutter: stable both-edges;
+}
+
+/* Utility: apply stable scrollbar gutter on scrollable containers */
+.scrollbar-stable {
+  scrollbar-gutter: stable both-edges;
 }
 
 :root {
@@ -100,6 +105,7 @@ button:focus-visible {
   background: #0b1220;
   color: #e5e7eb;
   box-shadow: 0 25px 80px rgba(0, 0, 0, .6);
+  scrollbar-gutter: stable both-edges;
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
