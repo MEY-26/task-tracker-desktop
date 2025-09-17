@@ -2007,7 +2007,6 @@ function App() {
             alt="Vaden Logo"
             style={{ width: '300px', height: '100px' }}
             className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
-            onLoad={() => { }}
             onError={(e) => {
               e.target.style.display = 'none';
               e.target.nextSibling.style.display = 'block';
@@ -2147,7 +2146,7 @@ function App() {
                     className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
                     style={{ pointerEvents: 'auto' }}
                   >
-                    {/* Header */}
+
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
                       <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
                     </div>
@@ -2193,8 +2192,8 @@ function App() {
               resetNewTask();
             }}
           />
-          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'none'}}>
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px'  }}>
+          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'none' }}>
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }}>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
                 <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
@@ -3451,58 +3450,53 @@ function App() {
                           </div>
                         )}
                         {(user?.role === 'admin' || (user?.role === 'team_leader' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id))) ? (
-                          <div className="space-y-3 !text-[18px] border-0" style={{ backgroundColor: '#1f2937' }}>
-                            <div className="flex items-center justify-between w-full h-[50px]">
-                              <div className="flex items-center gap-4 h-full">
-                                <input
-                                  type="file"
-                                  multiple
-                                  accept={[
-                                    'image/*',
-                                    '.pdf',
-                                    '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-                                    '.zip', '.rar', '.7z',
-                                    '.sldprt', '.sldasm', '.slddrw',
-                                    '.step', '.stp', '.iges', '.igs',
-                                    '.x_t', '.x_b', '.stl', '.3mf',
-                                    '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
-                                  ].join(',')}
-                                  onChange={async (e) => {
-                                    const files = Array.from(e.target.files || []);
-                                    if (files.length === 0) return;
-                                    try {
-                                      setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
-                                      await Tasks.uploadAttachments(selectedTask.id, files, (p) => {
-                                        setUploadProgress({ percent: p, label: 'Dosyalar yükleniyor' });
-                                      });
-                                      const t = await Tasks.get(selectedTask.id);
-                                      setSelectedTask(t.task || t);
-                                      addNotification('Dosyalar yüklendi', 'success');
-                                    } catch {
-                                      addNotification('Yükleme başarısız', 'error');
-                                    } finally {
-                                      setUploadProgress(null);
-                                      e.target.value = '';
-                                    }
-                                  }}
-                                  className="!text-[18px] sm:!text-[16px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[18px] sm:file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors flex items-center border-0"
-                                  style={{ width: '300px', height: '30px', paddingRight: '290px' }}
-                                />
-                                <span className="font-semibold text-[18px] sm:text-[16px] whitespace-nowrap flex items-center h-full">{(selectedTask.attachments || []).length} dosya</span>
-                              </div>
-                              {(selectedTask.attachments || []).length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setAttachmentsExpanded(v => !v)}
-                                  className="rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
-                                  aria-label={attachmentsExpanded ? 'Dosyaları gizle' : 'Dosyaları göster'}
-                                  style={{ width: '65px', height: '40px' }}
-                                >
-                                  {attachmentsExpanded ? '⮝' : '⮟'}
-                                </button>
-                              )}
-                            </div>
+                          <div className="space-y-3 !text-[18px]">
+                            <input
+                              type="file"
+                              multiple
+                              accept={[
+                                'image/*',
+                                '.pdf',
+                                '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                                '.zip', '.rar', '.7z',
+                                '.sldprt', '.sldasm', '.slddrw',
+                                '.step', '.stp', '.iges', '.igs',
+                                '.x_t', '.x_b', '.stl', '.3mf',
+                                '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
+                              ].join(',')}
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (files.length === 0) return;
+                                try {
+                                  setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
+                                  await Tasks.uploadAttachments(selectedTask.id, files, (p) => {
+                                    setUploadProgress({ percent: p, label: 'Dosyalar yükleniyor' });
+                                  });
+                                  const t = await Tasks.get(selectedTask.id);
+                                  setSelectedTask(t.task || t);
+                                  addNotification('Dosyalar yüklendi', 'success');
+                                } catch {
+                                  addNotification('Yükleme başarısız', 'error');
+                                } finally {
+                                  setUploadProgress(null);
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="w-full !text-[18px] sm:!text-[16px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[18px] sm:file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+                            />
                             <div className="space-y-2">
+                              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                                <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                                {(selectedTask.attachments || []).length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setAttachmentsExpanded(v => !v)}
+                                    className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                  >
+                                    {attachmentsExpanded ? '⮝' : '⮟'}
+                                  </button>
+                                )}
+                              </div>
                               {attachmentsExpanded && (selectedTask.attachments || []).length > 0 && (
                                 <div className="space-y-1">
                                   {(selectedTask.attachments || []).map(a => (
@@ -3558,18 +3552,17 @@ function App() {
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                              <div className="text-gray-800">Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
                               {(selectedTask.attachments || []).length > 0 && (
                                 <button
                                   type="button"
                                   onClick={() => setAttachmentsExpanded(v => !v)}
-                                  className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white mr-3"
-                                  aria-label={attachmentsExpanded ? 'Dosyaları gizle' : 'Dosyaları göster'}
+                                  className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
                                 >
                                   {attachmentsExpanded ? '⮝' : '⮟'}
                                 </button>
                               )}
-                              <div className="text-gray-800 ml-auto">Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
                             </div>
                             {attachmentsExpanded && (selectedTask.attachments || []).length > 0 ? (
                               <div className="space-y-1">
