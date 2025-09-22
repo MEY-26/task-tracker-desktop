@@ -428,7 +428,7 @@ function App() {
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]); // Sadece component mount olduğunda çalış
+  }, []); // Sadece component mount olduğunda çalış
 
   // Modal açıkken body scroll'unu engelle
   useEffect(() => {
@@ -649,7 +649,7 @@ function App() {
     }
   }
 
-  const refreshTasksOnce = useCallback(async () => {
+  async function refreshTasksOnce() {
     if (isRefreshingTasks.current) return;
     isRefreshingTasks.current = true;
     try {
@@ -704,7 +704,7 @@ function App() {
     } finally {
       isRefreshingTasks.current = false;
     }
-  }, [showAssigneeDropdownDetail]);
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1184,7 +1184,7 @@ function App() {
     }
   }
 
-  const handleCloseModal = useCallback(async () => {
+  async function handleCloseModal() {
     try {
       if (selectedTask) {
         const updates = {};
@@ -1244,7 +1244,7 @@ function App() {
     setEditingDates({ start_date: '', due_date: '' });
       setDetailDraft(null);
     }
-  }, [selectedTask, descDraft, detailDraft, editingDates, handleUpdateTask, addNotification]);
+  }
 
 
 
