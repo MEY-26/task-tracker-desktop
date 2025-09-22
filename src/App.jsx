@@ -79,7 +79,6 @@ function App() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
   const [descDraft, setDescDraft] = useState('');
-  const [selectedTeamLeader, setSelectedTeamLeader] = useState(null);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [bulkLeaderId, setBulkLeaderId] = useState('');
   const bellRef = useRef(null);
@@ -427,9 +426,43 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showProfileMenu, showAssigneeDropdown, showAssigneeDropdownDetail]);
 
+  const checkAuth = useCallback(async () => {
+    try {
+      setLoading(true);
+      const isAuthenticated = await restore();
+      if (isAuthenticated) {
+        try {
+          const userData = await getUser();
+          setUser(userData);
+          const jobs = [loadTasks(), loadNotifications()];
+          if (['admin', 'team_leader', 'observer'].includes(userData?.role)) {
+            jobs.push(loadUsers());
+          }
+          await Promise.all(jobs);
+        } catch (err) {
+          console.error('User fetch error:', err);
+          // 401 veya 500 + "Unauthenticated" hatası için logout yap
+          if (err.response?.status === 401 ||
+            (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
+            console.warn('Token expired or invalid, logging out...');
+            handleLogout();
+          } else {
+            console.error('Unexpected error in checkAuth:', err);
+            handleLogout();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Auth check error:', err);
+      setError('Oturum kontrolü başarısız');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadNotifications]);
+
   useEffect(() => {
     checkAuth();
-  }, []); // Sadece component mount olduğunda çalış
+  }, [checkAuth]); // Sadece component mount olduğunda çalış
 
   // Modal açıkken body scroll'unu engelle
   useEffect(() => {
@@ -523,39 +556,6 @@ function App() {
     }
   }, [showDetailModal]);
 
-  const checkAuth = useCallback(async () => {
-    try {
-      setLoading(true);
-      const isAuthenticated = await restore();
-      if (isAuthenticated) {
-        try {
-          const userData = await getUser();
-          setUser(userData);
-          const jobs = [loadTasks(), loadNotifications()];
-          if (['admin', 'team_leader', 'observer'].includes(userData?.role)) {
-            jobs.push(loadUsers());
-          }
-          await Promise.all(jobs);
-        } catch (err) {
-          console.error('User fetch error:', err);
-          // 401 veya 500 + "Unauthenticated" hatası için logout yap
-          if (err.response?.status === 401 ||
-            (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
-            console.warn('Token expired or invalid, logging out...');
-            handleLogout();
-          } else {
-            console.error('Unexpected error in checkAuth:', err);
-            handleLogout();
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Auth check error:', err);
-      setError('Oturum kontrolü başarısız');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   async function openTaskById(taskId) {
     try {
@@ -650,7 +650,7 @@ function App() {
     }
   }
 
-  async function refreshTasksOnce() {
+  const refreshTasksOnce = useCallback(async () => {
     if (isRefreshingTasks.current) return;
     isRefreshingTasks.current = true;
     try {
@@ -705,7 +705,7 @@ function App() {
     } finally {
       isRefreshingTasks.current = false;
     }
-  }
+  }, [showAssigneeDropdownDetail]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -745,7 +745,7 @@ function App() {
     }
   }, [showUserPanel, user?.role]);
 
-  async function loadPasswordResetRequests() {
+  const loadPasswordResetRequests = useCallback(async () => {
     try {
       if (user?.role === 'admin') {
         const requests = await PasswordReset.getResetRequests();
@@ -755,9 +755,9 @@ function App() {
       console.error('Load password reset requests error:', err);
       setPasswordResetRequests([]);
     }
-  }
+  }, [user?.role]);
 
-  async function loadNotifications() {
+  const loadNotifications = useCallback(async () => {
     try {
       const res = await Notifications.list();
 
@@ -809,7 +809,7 @@ function App() {
       }
       setNotifications([]);
     }
-  }
+  }, [user?.role, loadPasswordResetRequests]);
   async function markAllNotificationsAsRead() {
     if (markingAllNotifications) return;
     try {
@@ -996,7 +996,7 @@ function App() {
     }
   }
 
-  async function handleUpdateTask(taskId, updates) {
+  const handleUpdateTask = useCallback(async (taskId, updates) => {
     try {
       setLoading(true);
       setError(null);
@@ -1067,7 +1067,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedTask]);
 
 
   // Check if user can delete a specific task
@@ -1185,7 +1185,7 @@ function App() {
     }
   }
 
-  async function handleCloseModal() {
+  const handleCloseModal = useCallback(async () => {
     try {
       if (selectedTask) {
         const updates = {};
@@ -1245,7 +1245,7 @@ function App() {
       setEditingDates({ start_date: '', due_date: '' });
       setDetailDraft(null);
     }
-  }
+  }, [selectedTask, descDraft, detailDraft, editingDates, handleUpdateTask]);
 
 
 
@@ -4323,7 +4323,7 @@ function App() {
                   ))
                 ) : (
                   <div className="text-neutral-300">
-                    {selectedTeamLeader ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
+                    Takım üyesi bulunamadı.
                   </div>
                 )}
               </div>
