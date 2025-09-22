@@ -2149,13 +2149,11 @@ function App() {
                       <span>Profil</span>
                     </span>
                   </button>
-                  {(user?.role === 'team_leader' || user?.role === 'admin') && (
+                  {user?.role === 'team_leader' && (
                     <button
                       onClick={async () => {
                         setShowProfileMenu(false);
-                        // Admin kendi takımını göster, team_leader kendi takımını göster
-                        const leaderId = user?.role === 'admin' ? user?.id : user?.id;
-                        await loadTeamMembers(leaderId);
+                        await loadTeamMembers(user?.id);
                         setShowTeamModal(true);
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
