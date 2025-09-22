@@ -57,6 +57,7 @@ function App() {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [markingAllNotifications, setMarkingAllNotifications] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [users, setUsers] = useState([]);
@@ -68,6 +69,11 @@ function App() {
   const [weeklyGoals, setWeeklyGoals] = useState({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
   const [weeklyWeekStart, setWeeklyWeekStart] = useState('');
   const [weeklyUserId, setWeeklyUserId] = useState(null); // null = current user
+  const [showWeeklyOverview, setShowWeeklyOverview] = useState(false);
+  const [weeklyOverview, setWeeklyOverview] = useState({ week_start: '', items: [] });
+  const [weeklyOverviewLoading, setWeeklyOverviewLoading] = useState(false);
+  const [weeklyOverviewError, setWeeklyOverviewError] = useState(null);
+  const [weeklyOverviewWeekStart, setWeeklyOverviewWeekStart] = useState('');
   const [showGoalDescription, setShowGoalDescription] = useState(false);
   const [selectedGoalIndex, setSelectedGoalIndex] = useState(null);
   const [goalDescription, setGoalDescription] = useState('');
@@ -80,7 +86,7 @@ function App() {
   const bellRef = useRef(null);
   const notifPanelRef = useRef(null);
   const [notifPos, setNotifPos] = useState({ top: 64, right: 16 });
-  const badgeCount = Array.isArray(notifications) ? notifications.filter(n => !n.isFrontendNotification).length : 0;
+  const badgeCount = Array.isArray(notifications) ? notifications.filter(n => !n.isFrontendNotification && !n.read_at).length : 0;
   const [historyDeleteMode, setHistoryDeleteMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -261,6 +267,26 @@ function App() {
     }
   }
 
+  async function loadWeeklyOverview(weekStart = null) {
+    const ws = weekStart || weeklyOverviewWeekStart || fmtYMD(getMonday());
+    setWeeklyOverviewWeekStart(ws);
+
+    try {
+      setWeeklyOverviewLoading(true);
+      setWeeklyOverviewError(null);
+
+      const res = await WeeklyGoals.leaderboard({ week_start: ws });
+      const items = Array.isArray(res?.items) ? res.items.filter(item => item?.role !== 'observer') : [];
+      setWeeklyOverview({ week_start: res?.week_start || ws, items });
+    } catch (err) {
+      console.error('Weekly overview load error:', err);
+      setWeeklyOverviewError(err.response?.data?.message || 'Haftalık hedef listesi yüklenemedi');
+      setWeeklyOverview({ week_start: ws, items: [] });
+    } finally {
+      setWeeklyOverviewLoading(false);
+    }
+  }
+
   async function saveWeeklyGoals() {
     try {
       if (combinedLocks.targets_locked && user?.role !== 'observer') {
@@ -423,6 +449,12 @@ function App() {
     };
   }, [showAddForm, showDetailModal, showWeeklyGoals, showGoalDescription,
     showUserProfile, showTeamModal, showUserPanel, showNotifications]);
+
+  useEffect(() => {
+    if (user?.role !== 'admin' && showWeeklyOverview) {
+      setShowWeeklyOverview(false);
+    }
+  }, [user?.role, showWeeklyOverview]);
 
   useEffect(() => {
     const preventAutofill = () => {
@@ -779,6 +811,21 @@ function App() {
       setNotifications([]);
     }
   }
+  async function markAllNotificationsAsRead() {
+    if (markingAllNotifications) return;
+    try {
+      setMarkingAllNotifications(true);
+      setNotifications(prev => Array.isArray(prev) ? prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })) : prev);
+      await Notifications.markAllAsRead();
+      await loadNotifications();
+    } catch (err) {
+      console.error('Mark all notifications error:', err);
+      addNotification('Bildirimler okunamadı', 'error');
+    } finally {
+      setMarkingAllNotifications(false);
+    }
+  }
+
 
 
   async function doLogin() {
@@ -845,6 +892,11 @@ function App() {
 
   function handleLogout() {
     localStorage.removeItem('jwt');
+    setShowWeeklyOverview(false);
+    setWeeklyOverview({ week_start: '', items: [] });
+    setWeeklyOverviewError(null);
+    setWeeklyOverviewWeekStart('');
+    setWeeklyOverviewLoading(false);
     setUser(null);
     setTasks([]);
     setError(null);
@@ -1878,6 +1930,46 @@ function App() {
     });
   }
 
+  const [weeklyOverviewSort, setWeeklyOverviewSort] = useState({ key: null, dir: 'asc' });
+
+  const defaultWeekStart = fmtYMD(getMonday());
+  const effectiveWeeklyOverviewWeekStart = weeklyOverviewWeekStart || weeklyOverview.week_start || defaultWeekStart;
+
+  const sortedWeeklyOverview = useMemo(() => {
+    const items = Array.isArray(weeklyOverview.items) ? [...weeklyOverview.items] : [];
+    const { key, dir } = weeklyOverviewSort;
+    if (!key) return items;
+
+    const direction = dir === 'desc' ? -1 : 1;
+    return items.sort((a, b) => {
+      let av = a?.[key];
+      let bv = b?.[key];
+
+      const numericKeys = new Set(['total_target_minutes', 'total_actual_minutes', 'unplanned_minutes', 'planned_score', 'unplanned_bonus', 'final_score', 'completion_percent']);
+
+      if (numericKeys.has(key)) {
+        const numA = Number(av || 0);
+        const numB = Number(bv || 0);
+        if (numA === numB) return 0;
+        return numA > numB ? direction : -direction;
+      }
+
+      av = (av ?? '').toString().toLowerCase();
+      bv = (bv ?? '').toString().toLowerCase();
+      if (av === bv) return 0;
+      return av > bv ? direction : -direction;
+    });
+  }, [weeklyOverview.items, weeklyOverviewSort]);
+
+  function toggleWeeklyOverviewSort(key) {
+    setWeeklyOverviewSort(prev => {
+      if (prev.key !== key) return { key, dir: 'asc' };
+      if (prev.dir === 'asc') return { key, dir: 'desc' };
+      if (prev.dir === 'desc') return { key: null, dir: 'asc' };
+      return { key, dir: 'asc' };
+    });
+  }
+
   function toggleSort(key) {
     setSortConfig(prev => {
       if (prev.key !== key) return { key, dir: 'asc' };
@@ -2001,7 +2093,7 @@ function App() {
     <div className="min-h-[calc(95vh)] bg-gradient-to-br from-slate-50 to-blue-50" >
       {/* Header */}
       <div className="bg-white shadow-lg w-full">
-        <div className="flex justify-between w-full">
+        <div className="flex justify-between w-full max-w-7xl mx-auto px-4" style={{ maxWidth: '1440px' }}>
           <img
             src={logo}
             alt="Vaden Logo"
@@ -2079,6 +2171,22 @@ function App() {
                     <button
                       onClick={() => {
                         setShowProfileMenu(false);
+                        setShowWeeklyOverview(true);
+                        loadWeeklyOverview(null);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      style={{ padding: '10px' }}
+                    >
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <span>🎯</span>
+                        <span>Haftalık Hedef</span>
+                      </span>
+                    </button>
+                  )}
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
                         setShowUserPanel(true);
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
@@ -2149,6 +2257,13 @@ function App() {
 
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
                       <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                      <button
+                        onClick={markAllNotificationsAsRead}
+                        disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
+                        className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Tümünü Oku
+                      </button>
                     </div>
 
                     <div className="overflow-y-auto scrollbar-stable notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
@@ -2866,269 +2981,396 @@ function App() {
         document.body
       )}
       <div className="bg-white">
-        <div className="flex justify-center">
-          <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
-
-
-            <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
-              <button
-                onClick={() => setActiveTab('active')}
-                className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
-                  ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                  }`}
-              >
-                Aktif ({taskCounts.active})
-              </button>
-              <button
-                onClick={() => setActiveTab('completed')}
-                className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
-                  ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                  }`}
-                style={{ marginLeft: '5px' }}
-              >
-                Tamamlanan ({taskCounts.completed})
-              </button>
-              <button
-                onClick={() => setActiveTab('deleted')}
-                className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
-                  ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                  }`}
-                style={{ marginLeft: '5px' }}
-              >
-                İptal ({taskCounts.deleted})
-              </button>
-
-              {/* Görev Türü Filtresi */}
-              <div className="relative" style={{ marginLeft: '5px' }}>
-                <select
-                  value={selectedTaskType}
-                  onChange={(e) => setSelectedTaskType(e.target.value)}
-                  className="px-3 xs:px-4 sm:px-4 py-2.5 text-[16px] xs:text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
-                  style={{ height: '40px', minWidth: '140px' }}
-                >
-                  <option value="all">Tüm Türler</option>
-                  <option value="new_product">Yeni Ürün</option>
-                  <option value="fixture">Fikstür</option>
-                  <option value="apparatus">Aparat</option>
-                  <option value="development">Geliştirme</option>
-                  <option value="revision">Revizyon</option>
-                  <option value="mold">Kalıp</option>
-                  <option value="test_device">Test Cihazı</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
-
-              <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
-                <input
-                  type="text"
-                  placeholder="Görev ara..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                  style={{ height: '30px', fontSize: '16px' }}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck="false"
-                  data-lpignore="true"
-                  data-form-type="other"
-                  name="search"
-                  id="task-search"
-                  onFocus={(e) => {
-                    e.target.setAttribute('autocomplete', 'off');
-                    e.target.setAttribute('autocorrect', 'off');
-                    e.target.setAttribute('autocapitalize', 'off');
-                    e.target.setAttribute('spellcheck', 'false');
-                  }}
-                  onInput={(e) => {
-                    if (e.target.value && !e.isTrusted) {
-                      e.target.value = '';
-                      setSearchTerm('');
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-center">
-          <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
-            <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}>
-              <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
-                <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
-              </button>
-              <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
-                <span>Öncelik</span><span className="text-[10px] ml-1">{sortIndicator('priority')}</span>
-              </button>
-              <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
-                <span>Tür</span><span className="text-[10px] ml-1">{sortIndicator('task_type')}</span>
-              </button>
-              <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-center px-2">
-                <span>Sorumlu</span><span className="text-[10px] ml-1">{sortIndicator('responsible_name')}</span>
-              </button>
-              <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-center px-2">
-                <span>Oluşturan</span><span className="text-[10px] ml-1">{sortIndicator('creator_name')}</span>
-              </button>
-              <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
-                <span>Başlangıç</span><span className="text-[10px] ml-1">{sortIndicator('start_date')}</span>
-              </button>
-              <button onClick={() => toggleSort('assigned_count')} className="flex items-center justify-center px-2">
-                <span>Atananlar</span><span className="text-[10px] ml-1">{sortIndicator('assigned_count')}</span>
-              </button>
-              <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
-                <span>Dosyalar</span><span className="text-[10px] ml-1">{sortIndicator('attachments_count')}</span>
-              </button>
-              {activeTab === 'active' ? (
-                <button className="flex items-center justify-center px-2">
-                  <span>Güncel Durum</span>
-                </button>
-              ) : (
-                <div className="flex items-center justify-center px-2 select-none cursor-default">
-                  <span>Eylem</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex justify-center">
-          <div style={{ width: '1440px' }}>
-            {filteredTasks.map((task) => (
-              <div
-                key={task.id}
-                onClick={() => handleTaskClick(task)}
-                className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}
-                style={{ paddingTop: '10px', paddingBottom: '10px' }}
-              >
-                <div className="px-2">
-                  <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
-                    {task.title || `Görev ${task.id}`}
+        {showWeeklyOverview ? (
+          <div className="flex justify-center">
+            <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
+              <div className="space-y-4" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
+                <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 overflow-x-auto">
+                  <button
+                    onClick={() => {
+                      setShowWeeklyOverview(false);
+                      setWeeklyOverviewError(null);
+                    }}
+                    className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    Görev Listesine Dön
+                  </button>
+                  <span className="w-[10px]"></span>
+                  <button
+                    className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
+                    onClick={() => {
+                      const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
+                      base.setDate(base.getDate() - 7);
+                      loadWeeklyOverview(fmtYMD(getMonday(base)));
+                    }}
+                  >
+                    ◀ Önceki
+                  </button>
+                  <span className="w-[10px]"></span>
+                  <input
+                    type="date"
+                    className="rounded border border-gray-300 bg-white px-3 py-1 text-[24px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={effectiveWeeklyOverviewWeekStart}
+                    onChange={(e) => loadWeeklyOverview(e.target.value)}
+                  />
+                  <span className="w-[10px]"></span>
+                  <button
+                    className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
+                    onClick={() => {
+                      const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
+                      base.setDate(base.getDate() + 7);
+                      loadWeeklyOverview(fmtYMD(getMonday(base)));
+                    }}
+                  >
+                    Sonraki ▶
+                  </button>
+                  <div className="ml-auto text-sm text-gray-500 whitespace-nowrap">
+                    {(() => {
+                      const cur = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
+                      const next = new Date(cur);
+                      next.setDate(next.getDate() + 7);
+                      return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`;
+                    })()}
                   </div>
                 </div>
-                <div className="px-2">
-                  <span
-                    className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
-                    style={{
-                      backgroundColor: getPriorityColor(task.priority) + '20',
-                      color: getPriorityColor(task.priority),
-                      paddingBottom: '5px',
-                      paddingTop: '5px',
-                      paddingLeft: '5px',
-                      paddingRight: '5px'
-                    }}
-                  >
-                    {getPriorityText(task.priority)}
-                  </span>
-                </div>
-                <div className="px-2">
-                  <span
-                    className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
-                    style={{
-                      backgroundColor: getTaskTypeColor(task.task_type) + '20',
-                      color: getTaskTypeColor(task.task_type),
-                      paddingBottom: '5px',
-                      paddingTop: '5px',
-                      paddingLeft: '5px',
-                      paddingRight: '5px'
-                    }}
-                  >
-                    {getTaskTypeText(task.task_type)}
-                  </span>
-                </div>
-                <div className="px-2 text-xs xs:text-sm text-gray-900">
-                  {task.responsible?.name || 'Atanmamış'}
-                </div>
-                <div className="px-2 text-xs xs:text-sm text-gray-900">
-                  {task.creator?.name || 'Bilinmiyor'}
-                </div>
-                <div className="px-2 text-xs xs:text-sm text-gray-900">
-                  {task.start_date ? formatDateOnly(task.start_date) : '-'}
-                </div>
-                <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
-                  {Array.isArray(task.assigned_users) && task.assigned_users.length > 0
-                    ? task.assigned_users.map(u => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).join(', ')
-                    : '-'}
-                </div>
-                <div className="px-2 text-xs xs:text-sm text-gray-900">
-                  {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
-                </div>
-                <div className="px-2 flex justify-center items-center">
-                  {activeTab === 'active' ? (
-                    <div
-                      className="relative group"
-                      onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
-                        style={{
-                          backgroundColor: getStatusColor(task.status),
-                          border: '3px solid rgba(255, 255, 255, 0.3)',
-                          boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
-                          width: '24px',
-                          height: '24px'
-                        }}
-                        title={getStatusText(task.status)}
-                      ></div>
-                      <div
-                        className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
-                        style={{
-                          backgroundColor: 'rgba(17, 24, 39, 0.98)',
-                          backdropFilter: 'blur(8px)',
-                          WebkitBackdropFilter: 'blur(8px)',
-                          minWidth: '300px',
-                          maxWidth: '400px',
-                          padding: '20px 16px'
-                        }}
-                      >
-                        <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
-                        <div className="text-justify">Durum: {getStatusText(task.status)}</div>
-                        <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
-                        <div
-                          className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
-                          style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
-                        ></div>
-                      </div>
+                {weeklyOverviewError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    {weeklyOverviewError}
+                  </div>
+                )}
+                <div className="bg-[#1f2937] rounded-lg shadow-lg overflow-hidden">
+                  {weeklyOverviewLoading ? (
+                    <div className="py-12 text-center text-gray-500 text-sm">
+                      Haftalık hedef listesi yükleniyor...
                     </div>
                   ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePermanentDelete(task.id);
-                      }}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-colors"
-                      title="Görevi kalıcı olarak sil"
-                    >
-                      🗑️
-                    </button>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-white/10 text-[16px]">
+                        <thead className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white text-[18px]">
+                          <tr>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('name')} role="button">Kullanıcı</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('leader_name')} role="button">Lider</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_target_minutes')} role="button">Hedef (dk)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Gerçekleşme (dk)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_minutes')} role="button">Plandışı (dk)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('planned_score')} role="button">Planlı (%)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_bonus')} role="button">Plandışı (%)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('final_score')} role="button">Final Skor (%)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('completion_percent')} role="button">Tamamlanma (%)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-white">
+                          {weeklyOverview.items.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="px-4 py-6 text-center text-gray-500 text-sm">
+                                Listelenecek kullanıcı bulunamadı.
+                              </td>
+                            </tr>
+                          ) : (
+                            sortedWeeklyOverview.map((item, index) => {
+                              const grade = getPerformanceGrade(Number(item.final_score || 0));
+                              const targetWeek = weeklyOverview.week_start || effectiveWeeklyOverviewWeekStart;
+                              const baseBg = index % 2 === 0 ? 'rgba(55, 65, 81, 0.92)' : 'rgba(75, 85, 99, 0.88)';
+                              return (
+                                <tr
+                                  key={item.user_id}
+                                  onClick={() => {
+                                    setShowWeeklyGoals(true);
+                                    loadWeeklyGoals(targetWeek, item.user_id);
+                                  }}
+                                  className="cursor-pointer transition-colors"
+                                  style={{ backgroundColor: baseBg, height: '50px' }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(129, 140, 248, 0.45)'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = baseBg; }}
+                                >
+                                  <td className="px-4 py-3 text-sm text-left text-white text-indigo-400">{item.name}</td>
+                                  <td className="px-4 py-3 text-sm text-left text-white">{item.leader_name || '-'}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_target_minutes || 0).toLocaleString('tr-TR')}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_actual_minutes || 0).toLocaleString('tr-TR')}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_minutes || 0).toLocaleString('tr-TR')}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.planned_score || 0).toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_bonus || 0).toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-sm text-center font-semibold" style={{ color: grade.color }}>{Number(item.final_score || 0).toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.completion_percent || 0).toFixed(1)}</td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-
-          {filteredTasks.length === 0 && (
+        ) : (
+          <>
             <div className="flex justify-center">
-              <div className="text-center py-6 xs:py-8 sm:py-10 lg:py-12" style={{ width: '1440px' }}>
-                <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
-                  {activeTab === 'active' && 'Aktif görev bulunamadı'}
-                  {activeTab === 'completed' && 'Tamamlanan görev bulunamadı'}
-                  {activeTab === 'deleted' && 'İptal edilen görev bulunamadı'}
-                </div>
-                <div className="text-gray-400 text-xs mt-2">
-                  {searchTerm ? 'Aramayı temizlemeyi deneyin' :
-                    (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
+              <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
+
+
+                <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
+                  <button
+                    onClick={() => setActiveTab('active')}
+                    className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                      }`}
+                  >
+                    Aktif ({taskCounts.active})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
+                      ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                      }`}
+                    style={{ marginLeft: '5px' }}
+                  >
+                    Tamamlanan ({taskCounts.completed})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('deleted')}
+                    className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
+                      ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                      }`}
+                    style={{ marginLeft: '5px' }}
+                  >
+                    İptal ({taskCounts.deleted})
+                  </button>
+
+                  {/* Görev Türü Filtresi */}
+                  <div className="relative" style={{ marginLeft: '5px' }}>
+                    <select
+                      value={selectedTaskType}
+                      onChange={(e) => setSelectedTaskType(e.target.value)}
+                      className="px-3 xs:px-4 sm:px-4 py-2.5 text-[16px] xs:text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
+                      style={{ height: '40px', minWidth: '140px' }}
+                    >
+                      <option value="all">Tüm Türler</option>
+                      <option value="new_product">Yeni Ürün</option>
+                      <option value="fixture">Fikstür</option>
+                      <option value="apparatus">Aparat</option>
+                      <option value="development">Geliştirme</option>
+                      <option value="revision">Revizyon</option>
+                      <option value="mold">Kalıp</option>
+                      <option value="test_device">Test Cihazı</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
+                    <input
+                      type="text"
+                      placeholder="Görev ara..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                      style={{ height: '30px', fontSize: '16px' }}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      data-lpignore="true"
+                      data-form-type="other"
+                      name="search"
+                      id="task-search"
+                      onFocus={(e) => {
+                        e.target.setAttribute('autocomplete', 'off');
+                        e.target.setAttribute('autocorrect', 'off');
+                        e.target.setAttribute('autocapitalize', 'off');
+                        e.target.setAttribute('spellcheck', 'false');
+                      }}
+                      onInput={(e) => {
+                        if (e.target.value && !e.isTrusted) {
+                          e.target.value = '';
+                          setSearchTerm('');
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+            <div className="flex justify-center">
+              <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
+                <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}>
+                  <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
+                    <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
+                  </button>
+                  <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
+                    <span>Öncelik</span><span className="text-[10px] ml-1">{sortIndicator('priority')}</span>
+                  </button>
+                  <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
+                    <span>Tür</span><span className="text-[10px] ml-1">{sortIndicator('task_type')}</span>
+                  </button>
+                  <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-center px-2">
+                    <span>Sorumlu</span><span className="text-[10px] ml-1">{sortIndicator('responsible_name')}</span>
+                  </button>
+                  <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-center px-2">
+                    <span>Oluşturan</span><span className="text-[10px] ml-1">{sortIndicator('creator_name')}</span>
+                  </button>
+                  <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
+                    <span>Başlangıç</span><span className="text-[10px] ml-1">{sortIndicator('start_date')}</span>
+                  </button>
+                  <button onClick={() => toggleSort('assigned_count')} className="flex items-center justify-center px-2">
+                    <span>Atananlar</span><span className="text-[10px] ml-1">{sortIndicator('assigned_count')}</span>
+                  </button>
+                  <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
+                    <span>Dosyalar</span><span className="text-[10px] ml-1">{sortIndicator('attachments_count')}</span>
+                  </button>
+                  {activeTab === 'active' ? (
+                    <button className="flex items-center justify-center px-2">
+                      <span>Güncel Durum</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-center px-2 select-none cursor-default">
+                      <span>Eylem</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <div style={{ width: '1440px' }}>
+                {filteredTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() => handleTaskClick(task)}
+                    className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}
+                    style={{ paddingTop: '10px', paddingBottom: '10px' }}
+                  >
+                    <div className="px-2">
+                      <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
+                        {task.title || `Görev ${task.id}`}
+                      </div>
+                    </div>
+                    <div className="px-2">
+                      <span
+                        className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
+                        style={{
+                          backgroundColor: getPriorityColor(task.priority) + '20',
+                          color: getPriorityColor(task.priority),
+                          paddingBottom: '5px',
+                          paddingTop: '5px',
+                          paddingLeft: '5px',
+                          paddingRight: '5px'
+                        }}
+                      >
+                        {getPriorityText(task.priority)}
+                      </span>
+                    </div>
+                    <div className="px-2">
+                      <span
+                        className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: getTaskTypeColor(task.task_type) + '20',
+                          color: getTaskTypeColor(task.task_type),
+                          paddingBottom: '5px',
+                          paddingTop: '5px',
+                          paddingLeft: '5px',
+                          paddingRight: '5px'
+                        }}
+                      >
+                        {getTaskTypeText(task.task_type)}
+                      </span>
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
+                      {task.responsible?.name || 'Atanmamış'}
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
+                      {task.creator?.name || 'Bilinmiyor'}
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
+                      {task.start_date ? formatDateOnly(task.start_date) : '-'}
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
+                      {Array.isArray(task.assigned_users) && task.assigned_users.length > 0
+                        ? task.assigned_users.map(u => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).join(', ')
+                        : '-'}
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
+                      {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
+                    </div>
+                    <div className="px-2 flex justify-center items-center">
+                      {activeTab === 'active' ? (
+                        <div
+                          className="relative group"
+                          onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
+                            style={{
+                              backgroundColor: getStatusColor(task.status),
+                              border: '3px solid rgba(255, 255, 255, 0.3)',
+                              boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
+                              width: '24px',
+                              height: '24px'
+                            }}
+                            title={getStatusText(task.status)}
+                          ></div>
+                          <div
+                            className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
+                            style={{
+                              backgroundColor: 'rgba(17, 24, 39, 0.98)',
+                              backdropFilter: 'blur(8px)',
+                              WebkitBackdropFilter: 'blur(8px)',
+                              minWidth: '300px',
+                              maxWidth: '400px',
+                              padding: '20px 16px'
+                            }}
+                          >
+                            <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
+                            <div className="text-justify">Durum: {getStatusText(task.status)}</div>
+                            <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
+                            <div
+                              className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
+                              style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
+                            ></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePermanentDelete(task.id);
+                          }}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-colors"
+                          title="Görevi kalıcı olarak sil"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filteredTasks.length === 0 && (
+                <div className="flex justify-center">
+                  <div className="text-center py-6 xs:py-8 sm:py-10 lg:py-12" style={{ width: '1440px' }}>
+                    <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
+                      {activeTab === 'active' && 'Aktif görev bulunamadı'}
+                      {activeTab === 'completed' && 'Tamamlanan görev bulunamadı'}
+                      {activeTab === 'deleted' && 'İptal edilen görev bulunamadı'}
+                    </div>
+                    <div className="text-gray-400 text-xs mt-2">
+                      {searchTerm ? 'Aramayı temizlemeyi deneyin' :
+                        (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {showDetailModal && selectedTask && createPortal(

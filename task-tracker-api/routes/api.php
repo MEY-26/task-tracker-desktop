@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/team-members', [UserController::class, 'teamMembers']);
 
     // Weekly Goals
+    Route::get('/weekly-goals/leaderboard', [WeeklyGoalController::class, 'leaderboard']);
     Route::get('/weekly-goals', [WeeklyGoalController::class, 'get']);
     Route::post('/weekly-goals', [WeeklyGoalController::class, 'save']);
 

@@ -542,6 +542,15 @@ export const WeeklyGoals = {
       throw error;
     }
   },
+  leaderboard: async (params = {}) => {
+    try {
+      const response = await api.get('/weekly-goals/leaderboard', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Weekly goals leaderboard error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
   save: async (payload) => {
     try {
       const response = await api.post('/weekly-goals', payload);
