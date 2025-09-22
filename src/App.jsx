@@ -30,7 +30,6 @@ function App() {
   });
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
-  // Task Detail assignee UI state (separate from New Task)
   const [assigneeSearchDetail, setAssigneeSearchDetail] = useState('');
   const [showAssigneeDropdownDetail, setShowAssigneeDropdownDetail] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -4616,7 +4615,6 @@ function App() {
                           );
                           if (!matchesSearch) return false;
                         }
-
                         // Lider filtresi
                         return true;
                       }).length === 0 && userSearchTerm && (
@@ -4648,5 +4646,4 @@ function App() {
     </div>
   );
 }
-
 export default App;
