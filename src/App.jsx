@@ -1848,7 +1848,7 @@ function App() {
                   e.target.value = '';
                 }
               }}
-              className="text-gray-300 !text-[24px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+              className="text-gray-300 !text-[18px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
             />
           </div>
         </div>
@@ -4307,48 +4307,19 @@ function App() {
                   <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
                 </button>
               </div>
-
-              {/* Lider Seçimi - Sadece admin için */}
-              {user?.role === 'admin' && (
-                <div className="p-4 border-b border-white/10">
-                  <div className="flex items-center gap-3">
-                    <label className="text-[24px] text-neutral-300 whitespace-nowrap" style={{ paddingRight: '10px', paddingLeft: '5px' }}>Lider Seç</label>
-                    <select
-                      value={selectedTeamLeader || ''}
-                      onChange={(e) => {
-                        const leaderId = e.target.value ? parseInt(e.target.value) : null;
-                        setSelectedTeamLeader(leaderId);
-                        loadTeamMembers(leaderId);
-                      }}
-                      className="flex-1 rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Tüm Takımlar</option>
-                      {Array.isArray(users) && users
-                        .filter(u => u.role === 'team_leader' || u.role === 'admin')
-                        .map(leader => (
-                          <option key={`team-leader-${leader.id}`} value={leader.id}>
-                            {leader.name} ({getRoleText(leader.role)})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
               <div className="p-4 space-y-3 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(80vh - 120px)' }}>
                 {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
                   teamMembers.filter(m => m.role !== 'observer').map(m => (
-                    <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 border border-white/10 rounded px-3 py-2"
+                    <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 rounded px-3 py-2"
                       style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
                       <div>
                         <div className="font-medium text-white">{m.name}</div>
                         <div className="text-sm text-neutral-300">{m.email}</div>
-                        <div className="text-xs text-neutral-400">{getRoleText(m.role)}</div>
                       </div>
                       <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => {
                         setShowTeamModal(false); setWeeklyUserId(m.id);
                         setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
-                      }} style={{ height: '100px' }}>Hedefleri Aç</button>
+                      }} style={{ height: '70px' }}>Hedefleri Aç</button>
                     </div>
                   ))
                 ) : (
