@@ -3082,7 +3082,7 @@ function App() {
                                   <td className="px-4 py-3 text-sm text-center text-white">{Number(item.planned_score || 0).toFixed(1)}</td>
                                   <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_bonus || 0).toFixed(1)}</td>
                                   <td className="px-4 py-3 text-sm text-center font-semibold" style={{ color: grade.color }}>{Number(item.final_score || 0).toFixed(1)}</td>
-                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_actual_minutes || 0)}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number((item.total_actual_minutes || 0) + (item.unplanned_minutes || 0))}</td>
                                 </tr>
                               );
                             })
