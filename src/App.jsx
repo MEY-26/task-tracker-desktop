@@ -554,7 +554,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleLogout, loadTasks, loadNotifications, loadUsers]);
 
   async function openTaskById(taskId) {
     try {
@@ -4322,7 +4322,7 @@ function App() {
                   ))
                 ) : (
                   <div className="text-neutral-300">
-                    {selectedTeamLeader ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
+                    {bulkLeaderId ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
                   </div>
                 )}
               </div>
