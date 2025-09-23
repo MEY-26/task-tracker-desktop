@@ -1951,7 +1951,7 @@ function App() {
       let av = a?.[key];
       let bv = b?.[key];
 
-      const numericKeys = new Set(['total_target_minutes', 'total_actual_minutes', 'unplanned_minutes', 'planned_score', 'unplanned_bonus', 'final_score', 'completion_percent']);
+      const numericKeys = new Set(['total_target_minutes', 'total_actual_minutes', 'unplanned_minutes', 'planned_score', 'unplanned_bonus', 'final_score']);
 
       if (numericKeys.has(key)) {
         const numA = Number(av || 0);
@@ -3047,7 +3047,7 @@ function App() {
                             <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('planned_score')} role="button">Planlı (%)</th>
                             <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_bonus')} role="button">Plandışı (%)</th>
                             <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('final_score')} role="button">Final Skor (%)</th>
-                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('completion_percent')} role="button">Tamamlanma (%)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Toplam Süre (DK)</th>
                           </tr>
                         </thead>
                         <tbody className="text-white">
@@ -3082,7 +3082,7 @@ function App() {
                                   <td className="px-4 py-3 text-sm text-center text-white">{Number(item.planned_score || 0).toFixed(1)}</td>
                                   <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_bonus || 0).toFixed(1)}</td>
                                   <td className="px-4 py-3 text-sm text-center font-semibold" style={{ color: grade.color }}>{Number(item.final_score || 0).toFixed(1)}</td>
-                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.completion_percent || 0).toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_actual_minutes || 0)}</td>
                                 </tr>
                               );
                             })
