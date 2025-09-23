@@ -323,11 +323,14 @@ class WeeklyGoalController extends Controller
                     'updated_at' => now(),
                 ];
 
-                if (!$isUnplanned && !$locks['targets_locked']) {
+                // Admin kullanıcılar kilitleme kurallarını bypass edebilir
+                $isAdmin = $auth->role === 'admin';
+                
+                if (!$isUnplanned && (!$locks['targets_locked'] || $isAdmin)) {
                     $data['target_minutes'] = (int)($it['target_minutes'] ?? 0);
                     $data['weight_percent'] = round((($data['target_minutes'] ?? 0) / 2700) * 100, 2);
                 }
-                if (!$locks['actuals_locked']) {
+                if (!$locks['actuals_locked'] || $isAdmin) {
                     $data['actual_minutes'] = (int)($it['actual_minutes'] ?? 0);
                 }
                 $data['is_unplanned'] = $isUnplanned;

@@ -286,7 +286,7 @@ function App() {
 
   async function saveWeeklyGoals() {
     try {
-      if (combinedLocks.targets_locked && user?.role !== 'observer') {
+      if (combinedLocks.targets_locked && user?.role !== 'observer' && user?.role !== 'admin') {
         addNotification('Hedefler şu an kilitli. Bu zaman aralığında hedefler değiştirilemez.', 'error');
         return;
       }
@@ -2755,10 +2755,10 @@ function App() {
                       })}
                     </tbody>
                   </table>
-                  {user?.role !== 'observer' && !combinedLocks.targets_locked && (
+                  {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
                     <div className="mt-2" style={{ padding: '10px' }}>
                       <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
-                        disabled={combinedLocks.targets_locked}
+                        disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
                         onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false }] }); }}
                       >
                         + Satır Ekle</button>
@@ -2782,14 +2782,14 @@ function App() {
                         {(weeklyGoals.items || []).filter(x => x.is_unplanned).map((row, idx) => (
                           <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
                             <td className="px-3 py-2">
-                              <textarea disabled={combinedLocks.actuals_locked || user?.role === 'observer'} value={row.title || ''} onChange={e => {
+                              <textarea disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.title || ''} onChange={e => {
                                 const items = [...weeklyGoals.items];
                                 items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
                                 setWeeklyGoals({ ...weeklyGoals, items });
                               }}
                                 className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
                             <td className="px-3 py-2">
-                              <textarea disabled={combinedLocks.actuals_locked || user?.role === 'observer'} value={row.action_plan || ''}
+                              <textarea disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.action_plan || ''}
                                 onChange={e => {
                                   const items = [...weeklyGoals.items];
                                   items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
@@ -2797,7 +2797,7 @@ function App() {
                                 }}
                                 className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
                             <td className="px-3 py-2 text-right">
-                              <input type="number" disabled={combinedLocks.actuals_locked || user?.role === 'observer'} value={row.actual_minutes || 0}
+                              <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
                                 onChange={e => {
                                   const items = [...weeklyGoals.items];
                                   items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
@@ -2820,7 +2820,7 @@ function App() {
                                   🔍
                                 </button>
                                 <span className="w-[10px]"></span>
-                                {(!combinedLocks.actuals_locked && user?.role !== 'observer') && (
+                                {((!combinedLocks.actuals_locked || user?.role === 'admin') && user?.role !== 'observer') && (
                                   <button className="text-rose-300 hover:text-rose-200 text-[24px]"
                                     onClick={() => {
                                       const items = weeklyGoals.items.filter(x => x !== row);
@@ -2832,7 +2832,7 @@ function App() {
                         ))}
                       </tbody>
                     </table>
-                    {!combinedLocks.actuals_locked && user?.role !== 'observer' && (
+                    {(!combinedLocks.actuals_locked || user?.role === 'admin') && user?.role !== 'observer' && (
                       <div className="mt-2" style={{ paddingLeft: '10px' }}>
                         <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
                           onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true }] }); }}
@@ -2867,7 +2867,7 @@ function App() {
                 <div className="flex items-center gap-3 w-[98%]" style={{ paddingTop: '10px', paddingLeft: '15px', paddingBottom: '10px' }}>
                   <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                   <span className="w-[10px]"></span>
-                  {user?.role !== 'observer' && !combinedLocks.targets_locked && (
+                  {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
                     <button className="flex-1 rounded px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={weeklyLive.totalTarget > 2700} onClick={saveWeeklyGoals}>Kaydet</button>
                   )}
                 </div>
@@ -2930,7 +2930,7 @@ function App() {
                   onChange={(e) => setGoalDescription(e.target.value)}
                   className="w-full h-[150px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-y text-base"
                   placeholder="Bu hedefle ilgili ek açıklamalarınızı buraya yazabilirsiniz..."
-                  disabled={user?.role === 'observer' || combinedLocks.targets_locked}
+                  disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
                 />
               </div>
 
@@ -2942,7 +2942,7 @@ function App() {
                   İptal
                 </button>
                 <span className="w-[20px]"></span>
-                {user?.role !== 'observer' && !combinedLocks.targets_locked && (
+                {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
                   <button
                     onClick={async () => {
                       if (selectedGoalIndex !== null) {
