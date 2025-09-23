@@ -30,6 +30,18 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔄 Görev durumu değişiklik bildirimleri
 - 👥 Kullanıcı atama bildirimleri
 
+### 🎯 Haftalık Hedef Sistemi
+- 📊 Haftalık hedef oluşturma ve takibi
+- 🔒 Hedef kilitleme sistemi (Pazartesi 10:00)
+- 🏆 Liderlik tablosu ve performans skorlama
+- 📈 Gerçek zamanlı hedef analizi
+
+### ⚡ Performans ve Optimizasyon
+- 🚀 Memoized görev filtreleme sistemi
+- 🔧 Optimized React hooks kullanımı
+- 📱 Responsive tasarım ve mobil uyumluluk
+- 🎨 Modern UI/UX tasarımı
+
 ## 📋 Gereksinimler
 
 ### Frontend (Electron App)
@@ -329,7 +341,16 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.2.0 - Dosya İndirme ve UI İyileştirmeleri (Son Güncelleme)
+### v2.8.0 - Performans İyileştirmeleri ve Kod Optimizasyonu (Son Güncelleme)
+- ✅ **Görev Filtreleme Optimizasyonu**: `filteredTasks` useMemo ile performans artırıldı
+- ✅ **Kod Organizasyonu**: Gereksiz yorumlar ve kullanılmayan component referansları temizlendi
+- ✅ **Filtreleme Mantığı İyileştirildi**: Aktif/tamamlanan tab'lar için daha verimli filtreleme
+- ✅ **React Hooks Optimizasyonu**: useCallback dependency array'leri düzeltildi
+- ✅ **CI/CD Hataları Çözüldü**: GitHub Actions pipeline'ı başarılı çalışıyor
+- ✅ **Laravel Controller'ları Eklendi**: WeeklyGoalController ve PasswordResetRequested notification
+- ✅ **Gitignore Düzeltildi**: Laravel app klasörü artık GitHub'da mevcut
+
+### v2.7.3 - Dosya İndirme ve UI İyileştirmeleri
 - ✅ **Dosya İndirme Sorunu Çözüldü**: Dosyalar artık orijinal isimleriyle ve uzantılarıyla iniyor
 - ✅ **Backend İyileştirmesi**: Attachment endpoint'i güncellendi, proper download header'ları eklendi
 - ✅ **Frontend İyileştirmesi**: Dosya linklerine download attribute'u eklendi
