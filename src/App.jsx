@@ -98,7 +98,6 @@ function App() {
   const [detailDraft, setDetailDraft] = useState(null);
   const assigneeDetailInputRef = useRef(null);
 
-  // Weekly goals helpers (inside component to access state)
   function getMonday(date = new Date()) {
     const d = new Date(date);
     const day = d.getDay();
@@ -1854,33 +1853,37 @@ function App() {
     );
   }
 
-  // AssigneeMultiSelect component removed (unused)
+  const filteredTasks = useMemo(() => {
+    if (!Array.isArray(tasks)) return [];
 
+    const query = lowerSafe(searchTerm);
+    const filtered = tasks.filter(task => {
+      if (activeTab === 'active' && (task.status === 'completed' || task.status === 'cancelled')) {
+        return false;
+      }
+      if (activeTab === 'completed' && task.status !== 'completed') {
+        return false;
+      }
+      if (activeTab === 'deleted' && task.status !== 'cancelled') {
+        return false;
+      }
+      if (selectedTaskType !== 'all' && task.task_type !== selectedTaskType) {
+        return false;
+      }
+      if (!query) return true;
+      const title = lowerSafe(task?.title);
+      const desc = lowerSafe(task?.description);
+      return title.includes(query) || desc.includes(query);
+    });
 
-  let filteredTasks = Array.isArray(tasks) ? tasks.filter(task => {
-    if (activeTab === 'active' && (task.status === 'completed' || task.status === 'cancelled')) {
-      return false;
+    if (!sortConfig?.key) {
+      return filtered;
     }
-    if (activeTab === 'completed' && task.status !== 'completed') {
-      return false;
-    }
-    if (activeTab === 'deleted' && task.status !== 'cancelled') {
-      return false;
-    }
-    if (selectedTaskType !== 'all' && task.task_type !== selectedTaskType) {
-      return false;
-    }
-    const q = lowerSafe(searchTerm);
-    if (!q) return true;
-    const title = lowerSafe(task?.title);
-    const desc = lowerSafe(task?.description);
-    return title.includes(q) || desc.includes(q);
-  }) : [];
 
-  if (Array.isArray(filteredTasks) && sortConfig?.key) {
     const key = sortConfig.key;
     const dir = sortConfig.dir === 'asc' ? 1 : -1;
-    filteredTasks = [...filteredTasks].sort((a, b) => {
+
+    return [...filtered].sort((a, b) => {
       let av = a?.[key];
       let bv = b?.[key];
       if (key === 'id') {
@@ -1888,24 +1891,28 @@ function App() {
         const bt = Number(b?.id) || 0;
         if (at === bt) return 0;
         return at > bt ? dir : -dir;
-      } else if (key === 'start_date' || key === 'due_date' || key === 'end_date') {
+      }
+      if (key === 'start_date' || key === 'due_date' || key === 'end_date') {
         const at = av ? new Date(av).getTime() : 0;
         const bt = bv ? new Date(bv).getTime() : 0;
         if (at === bt) return 0;
         return at > bt ? dir : -dir;
-      } else if (key === 'priority') {
+      }
+      if (key === 'priority') {
         const map = { low: 1, medium: 2, high: 3, critical: 4 };
         const at = map[a?.priority] ?? 0;
         const bt = map[b?.priority] ?? 0;
         if (at === bt) return 0;
         return at > bt ? dir : -dir;
-      } else if (key === 'status') {
+      }
+      if (key === 'status') {
         const order = { waiting: 1, in_progress: 2, investigating: 3, completed: 4, cancelled: 5 };
         const at = order[a?.status] ?? 0;
         const bt = order[b?.status] ?? 0;
         if (at === bt) return 0;
         return at > bt ? dir : -dir;
-      } else if (key === 'responsible_name') {
+      }
+      if (key === 'responsible_name') {
         av = a?.responsible?.name || '';
         bv = b?.responsible?.name || '';
       } else if (key === 'creator_name') {
@@ -1926,9 +1933,10 @@ function App() {
       bv = (bv ?? '').toString();
       return av.localeCompare(bv) * dir;
     });
-  }
+  }, [tasks, activeTab, selectedTaskType, searchTerm, sortConfig]);
 
   const [weeklyOverviewSort, setWeeklyOverviewSort] = useState({ key: null, dir: 'asc' });
+
 
   const defaultWeekStart = fmtYMD(getMonday());
   const effectiveWeeklyOverviewWeekStart = weeklyOverviewWeekStart || weeklyOverview.week_start || defaultWeekStart;
@@ -2089,7 +2097,6 @@ function App() {
 
   return (
     <div className="min-h-[calc(95vh)] bg-gradient-to-br from-slate-50 to-blue-50" >
-      {/* Header */}
       <div className="bg-white shadow-lg w-full">
         <div className="flex justify-between w-full max-w-7xl mx-auto px-4" style={{ maxWidth: '1440px' }}>
           <img
@@ -2316,7 +2323,6 @@ function App() {
                 </div>
               </div>
               <div className="overflow-y-auto scrollbar-stable flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
-                {/* Error Display */}
                 {error && (
                   <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
                     {error}
@@ -2335,7 +2341,6 @@ function App() {
                   />
                 </div>
                 <br />
-                {/* Öncelik */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                   <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Öncelik</label>
                   <select
@@ -2351,7 +2356,6 @@ function App() {
                   </select>
                 </div>
                 <br />
-                {/* Görev Türü */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                   <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Görev Türü</label>
                   <select
@@ -2370,7 +2374,6 @@ function App() {
                   </select>
                 </div>
                 <br />
-                {/* Durum */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                   <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Durum</label>
                   <select
@@ -2387,7 +2390,6 @@ function App() {
                   </select>
                 </div>
                 <br />
-                {/* Sorumlu */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                   <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Sorumlu</label>
                   <select
@@ -2405,7 +2407,6 @@ function App() {
                   </select>
                 </div>
                 <br />
-                {/* Tarihler */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                   <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Tarihler</label>
                   <div className="flex flex-row gap-2 sm:gap-4">
@@ -2433,11 +2434,9 @@ function App() {
                   </div>
                 </div>
                 <br />
-                {/* Atananlar */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Atananlar</label>
                   <div className="w-full rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
-                    {/* Seçilen kullanıcılar */}
                     {newTask.assigned_users.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
                         {newTask.assigned_users.map((userId) => {
@@ -2462,7 +2461,6 @@ function App() {
                       </div>
                     )}
 
-                    {/* Kullanıcı arama ve seçme - Combobox */}
                     <div className="relative z-[2147483647] assignee-dropdown-container">
                       <input
                         type="text"
@@ -2480,7 +2478,6 @@ function App() {
                         }}
                       />
 
-                      {/* Dropdown */}
                       {showAssigneeDropdown && users && users.length > 0 && (
                         <div
                           className="absolute w-full mt-1 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
@@ -2535,7 +2532,6 @@ function App() {
                   </div>
                 </div>
                 <br />
-                {/* Dosyalar */}
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Dosyalar</label>
                   <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '24px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '5px' }}>
@@ -2882,7 +2878,6 @@ function App() {
         document.body
       )}
 
-      {/* Hedef Açıklama Modal */}
       {showGoalDescription && createPortal(
         <div className="fixed inset-0 z-[999998]" style={{
           display: 'flex',
@@ -3137,7 +3132,6 @@ function App() {
                     İptal ({taskCounts.deleted})
                   </button>
 
-                  {/* Görev Türü Filtresi */}
                   <div className="relative" style={{ marginLeft: '5px' }}>
                     <select
                       value={selectedTaskType}
@@ -3407,14 +3401,12 @@ function App() {
               <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden divide-x divide-white/10">
                 <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-stable" style={{ padding: '0px 24px' }}>
                   <div className="py-6 flex flex-col gap-4 sm:gap-6 min-h-[calc(105vh-280px)]">
-                    {/* Error Display */}
                     {error && (
                       <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
                         {error}
                       </div>
                     )}
                     <br />
-                    {/* Başlık */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Başlık
@@ -3424,7 +3416,6 @@ function App() {
                       </div>
                     </div>
                     <br />
-                    {/* Durum */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Durum
@@ -3449,7 +3440,6 @@ function App() {
                       )}
                     </div>
                     <br />
-                    {/* Öncelik */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Öncelik
@@ -3473,7 +3463,6 @@ function App() {
                       )}
                     </div>
                     <br />
-                    {/* Görev Türü */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Görev Türü
@@ -3500,7 +3489,6 @@ function App() {
                       )}
                     </div>
                     <br />
-                    {/* Sorumlu */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Sorumlu
@@ -3527,7 +3515,6 @@ function App() {
                       )}
                     </div>
                     <br />
-                    {/* Oluşturan */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Oluşturan
@@ -3537,7 +3524,6 @@ function App() {
                       </div>
                     </div>
                     <br />
-                    {/* Atananlar */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Atananlar
@@ -3545,7 +3531,6 @@ function App() {
                       <div className="w-full rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
                         {user?.role === 'admin' ? (
                           <div className="assignee-dropdown-detail-container relative">
-                            {/* Selected chips */}
                             {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 && (
                               <div className="flex flex-wrap items-center gap-2 mb-3 overflow-hidden">
                                 {(detailDraft.assigned_user_ids || []).map((id) => {
@@ -3572,7 +3557,6 @@ function App() {
                               </div>
                             )}
 
-                            {/* Search input */}
                             <input
                               ref={assigneeDetailInputRef}
                               type="text"
@@ -3590,7 +3574,6 @@ function App() {
                               }}
                             />
 
-                            {/* Dropdown */}
                             {showAssigneeDropdownDetail && users && users.length > 0 && (
                               <div
                                 className="absolute w-full mt-1 border-2 border-gray-400 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
@@ -3668,7 +3651,6 @@ function App() {
                       </div>
                     </div>
                     <br />
-                    {/* Dosyalar */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center ">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Dosyalar
@@ -3840,7 +3822,6 @@ function App() {
                       </div>
                     </div>
                     <br />
-                    {/* Tarihler */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Tarihler
@@ -3893,7 +3874,6 @@ function App() {
                       </div>
                     </div>
                     <br />
-                    {/* Açıklama */}
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Görev Açıklaması
@@ -3922,7 +3902,6 @@ function App() {
                 </div>
 
                 <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 bg-[#0f172a] flex flex-col overflow-hidden">
-                  {/* Son Görüntüleme */}
                   <div className="border-b border-white/10 flex-none" style={{ padding: '10px' }}>
                     <h3 className="text-lg md:text-xl font-semibold text-white">👁️ Son Görüntüleme</h3>
                     <div className="mt-3 space-y-2">
@@ -4170,7 +4149,6 @@ function App() {
                   {user?.role !== 'observer' && (
                     <div className="border-t border-white/10 flex-none p-4">
                       <div className="relative flex items-center bg-gray-800 rounded-2xl border-none border-gray-600 py-2">
-                        {/* Input alanı */}
                         <textarea
                           value={newComment}
                           onChange={(e) => setNewComment(e.target.value)}
@@ -4237,7 +4215,6 @@ function App() {
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
           <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
             <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
-              {/* Header */}
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
                 <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
@@ -4247,7 +4224,6 @@ function App() {
                 </div>
               </div>
 
-              {/* Body */}
               <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(85vh - 80px)' }}>
                 <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
                   <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
@@ -4338,7 +4314,6 @@ function App() {
           <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
             <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
               style={{ pointerEvents: 'auto' }}>
-              {/* Header */}
               <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div className="justify-self-start"></div>
@@ -4352,7 +4327,6 @@ function App() {
                   </div>
                 </div>
               </div>
-              {/* Body */}
               <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto scrollbar-stable" style={{ height: 'calc(80vh - 72px)' }}>
                 <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
                   {user?.role === 'admin' && (
@@ -4395,7 +4369,6 @@ function App() {
                     />
                   </div>
                   <div className="text-[16px] font-semibold mb-4 space-y-3">
-                    {/* Toplu Lider Atama */}
                     <div className="flex items-center gap-3 bg-blue-500/20 border rounded-[20px] !w-[100%] justify-end" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px' }}>
                       <span className="text-[18px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px' }}>
                         {selectedUsers.length} kullanıcı seçildi ▶
@@ -4501,7 +4474,6 @@ function App() {
                             >
                               <div className="flex items-center justify-between">
                                 <div className="min-w-0 flex text-[16px] items-center gap-3">
-                                  {/* Checkbox - Tüm kullanıcılar için, admin ve team_leader pasif */}
                                   <input
                                     type="checkbox"
                                     checked={selectedUsers.includes(u.id)}
@@ -4525,7 +4497,6 @@ function App() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
-                                  {/* Lider atama - Sadece takım üyesi ve gözlemci için */}
                                   {(u.role === 'team_member') && (
                                     <select
                                       className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -4633,7 +4604,6 @@ function App() {
         document.body
       )}
 
-      {/* Error Display */}
       {
         error && (
           <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50">
