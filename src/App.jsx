@@ -2684,8 +2684,8 @@ function App() {
                     </thead>
                     <tbody>
                       {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
-                        const lockedTargets = combinedLocks.targets_locked;
-                        const lockedActuals = combinedLocks.actuals_locked;
+                        const lockedTargets = combinedLocks.targets_locked && user?.role !== 'admin';
+                        const lockedActuals = combinedLocks.actuals_locked && user?.role !== 'admin';
                         const t = Math.max(0, Number(row.target_minutes || 0));
                         const a = Math.max(0, Number(row.actual_minutes || 0));
                         const w = (t / 2700) * 100; // satır ağırlığı
@@ -2742,7 +2742,7 @@ function App() {
                                   🔍
                                 </button>
                                 <span className="w-[10px]"></span>
-                                {user?.role !== 'observer' && !lockedTargets && (
+                                {user?.role !== 'observer' && (!lockedTargets || user?.role === 'admin') && (
                                   <button className="text-rose-300 hover:text-rose-200 text-[24px]" onClick={() => {
                                     const items = weeklyGoals.items.filter(x => x !== row);
                                     setWeeklyGoals({ ...weeklyGoals, items });
