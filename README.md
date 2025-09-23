@@ -14,8 +14,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔄 Gerçek zamanlı güncellemeler
 
 ### 👥 Kullanıcı Yönetimi
-- 🎯 Rol tabanlı erişim kontrolü (Admin, Team Leader, User, Observer)
-- 👁️ Observer (Gözlemci) rolü - sadece görüntüleme yetkisi
+- 🎯 Rol tabanlı erişim kontrolü
 - 📊 Excel'den toplu kullanıcı ekleme
 - 🔍 Gelişmiş kullanıcı arama sistemi
 - 🔐 Şifre sıfırlama sistemi
@@ -30,13 +29,6 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔔 Gerçek zamanlı bildirim güncellemeleri
 - 🔄 Görev durumu değişiklik bildirimleri
 - 👥 Kullanıcı atama bildirimleri
-
-### 🎨 Kullanıcı Arayüzü
-- 📱 Responsive tasarım ve mobil uyumluluk
-- 🌙 Koyu tema desteği
-- ⚡ Hızlı ve akıcı kullanıcı deneyimi
-- 🔍 Gelişmiş arama ve filtreleme
-- 🎯 Özel VADEN logosu ve branding
 
 ## 📋 Gereksinimler
 
