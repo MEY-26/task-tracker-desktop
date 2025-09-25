@@ -10,6 +10,8 @@ use App\Models\User;
 
 class WeeklyGoalController extends Controller
 {
+    private const WEEKLY_BASE_MINUTES = 2700;
+
     private function mondayOfWeek(?string $date = null): string
     {
         $tz = 'Europe/Istanbul';
@@ -44,6 +46,18 @@ class WeeklyGoalController extends Controller
         return false;
     }
 
+    private function normalizeLeaveMinutes($value): int
+    {
+        $leave = max(0, (int)($value ?? 0));
+        return (int) min(self::WEEKLY_BASE_MINUTES, $leave);
+    }
+
+    private function weekCapacity(int $leaveMinutes): int
+    {
+        $leave = $this->normalizeLeaveMinutes($leaveMinutes);
+        return max(0, self::WEEKLY_BASE_MINUTES - $leave);
+    }
+
     public function get(Request $request)
     {
         $request->validate([
@@ -69,21 +83,27 @@ class WeeklyGoalController extends Controller
                     'goal' => null,
                     'items' => [],
                     'locks' => $locks,
-                    'summary' => $this->computeSummary([]),
+                    'summary' => $this->computeSummary([], 0),
                     'message' => 'Observer kullanıcılar için haftalık hedef oluşturulamaz.'
                 ]);
             }
             $id = DB::table('weekly_goals')->insertGetId([
                 'user_id' => $userId,
                 'week_start' => $weekStart,
+                'leave_minutes' => 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
             $goal = DB::table('weekly_goals')->where('id', $id)->first();
         }
+
+        if (!isset($goal->leave_minutes)) {
+            $goal->leave_minutes = 0;
+        }
+
         $items = DB::table('weekly_goal_items')->where('weekly_goal_id', $goal->id)->orderBy('id')->get();
 
-        $summary = $this->computeSummary($items);
+        $summary = $this->computeSummary($items, (int)($goal->leave_minutes ?? 0));
 
         return response()->json([
             'goal' => $goal,
@@ -93,41 +113,56 @@ class WeeklyGoalController extends Controller
         ]);
     }
 
-    private function computeSummary($items)
+    private function computeSummary($items, int $leaveMinutes = 0)
     {
-        $planned = collect($items)->where('is_unplanned', false);
-        $unplanned = collect($items)->where('is_unplanned', true);
+        $collection = collect($items);
+        $planned = $collection->where('is_unplanned', false);
+        $unplanned = $collection->where('is_unplanned', true);
 
-        $totalTarget = (int)$planned->sum('target_minutes');
-        // Weight is derived from 2700 baseline (% of week)
-        $totalWeight = (float)$planned->sum(function ($it) {
-            $t = max(0, (int)$it->target_minutes);
-            return round(($t / 2700) * 100, 2);
+        $leaveMinutes = $this->normalizeLeaveMinutes($leaveMinutes);
+        $capacity = $this->weekCapacity($leaveMinutes);
+
+        $totalTarget = (int)$planned->sum(function ($it) {
+            return max(0, (int)$it->target_minutes);
         });
+
+        $totalWeight = $capacity > 0
+            ? (float)$planned->sum(function ($it) use ($capacity) {
+                $t = max(0, (int)$it->target_minutes);
+                return ($t / $capacity) * 100;
+            })
+            : 0.0;
 
         $score = 0.0;
         foreach ($planned as $it) {
             $t = max(0, (int)$it->target_minutes);
-            $w = max(0.0, (float)$it->weight_percent);
             $a = max(0, (int)$it->actual_minutes);
-            if ($t <= 0 || $w <= 0) continue;
-            $factor = $a > 0 ? ($t / $a) : 0; // hızlı tamamlanan daha yüksek katsayı
-            $score += $w * $factor; // satır katkısı = ağırlık * katsayı
+            if ($t <= 0 || $capacity <= 0) {
+                continue;
+            }
+            $w = ($t / $capacity) * 100;
+            if ($w <= 0) {
+                continue;
+            }
+            $factor = $a > 0 ? ($t / $a) : 0.0;
+            $score += $w * $factor;
         }
 
-        // Unplanned contribution: proportion of week used
-        $unplannedMinutes = (int)$unplanned->sum('actual_minutes');
-        $bonus = ($unplannedMinutes / 2700) * 100.0;
-
+        $unplannedMinutes = (int)$unplanned->sum(function ($it) {
+            return max(0, (int)$it->actual_minutes);
+        });
+        $bonus = $capacity > 0 ? ($unplannedMinutes / $capacity) * 100.0 : 0.0;
         $final = min(120.0, $score + $bonus);
 
         return [
             'total_target_minutes' => $totalTarget,
-            'total_weight_percent' => $totalWeight,
+            'total_weight_percent' => round($totalWeight, 2),
             'unplanned_minutes' => $unplannedMinutes,
             'planned_score' => round($score, 2),
             'unplanned_bonus' => round($bonus, 2),
             'final_score' => round($final, 2),
+            'available_minutes' => $capacity,
+            'leave_minutes' => $leaveMinutes,
         ];
     }
 
@@ -136,47 +171,32 @@ class WeeklyGoalController extends Controller
         $request->validate([
             'week_start' => 'nullable|date',
             'leader_id' => 'nullable|integer|exists:users,id',
-            'user_id' => 'nullable|integer|exists:users,id',
-            'search' => 'nullable|string|max:100',
+            'search' => 'nullable|string'
         ]);
 
-        $weekStart = $this->mondayOfWeek($request->input('week_start'));
         $auth = $request->user();
+        if (!$auth) {
+            return response()->json(['message' => 'Yetkilendirme başarısız.'], 401);
+        }
 
-        $usersQuery = DB::table('users')
-            ->leftJoin('users as leaders', 'leaders.id', '=', 'users.leader_id')
-            ->select(
-                'users.id',
-                'users.name',
-                'users.email',
-                'users.role',
-                'users.leader_id',
-                'leaders.name as leader_name'
-            );
+        $weekStart = $this->mondayOfWeek($request->input('week_start'));
+        $leaderId = $request->input('leader_id');
 
-        if ($auth->role === 'admin' || $auth->role === 'observer') {
-            // full access
-        } elseif ($auth->role === 'team_leader') {
+        $usersQuery = User::query()
+            ->select('users.*', 'leaders.name as leader_name')
+            ->leftJoin('users as leaders', 'leaders.id', '=', 'users.leader_id');
+
+        if ($auth->role === 'team_leader') {
             $usersQuery->where(function ($query) use ($auth) {
                 $query->where('users.id', $auth->id)
                     ->orWhere('users.leader_id', $auth->id);
             });
-        } else {
+        } elseif ($auth->role !== 'admin') {
             $usersQuery->where('users.id', $auth->id);
         }
 
-        if ($request->filled('leader_id')) {
-            $leaderId = (int)$request->input('leader_id');
-
-            if ($auth->role === 'team_leader' && $leaderId !== $auth->id) {
-                return response()->json(['message' => 'Yetkiniz yok.'], 403);
-            }
-
+        if ($leaderId) {
             $usersQuery->where('users.leader_id', $leaderId);
-        }
-
-        if ($request->filled('user_id')) {
-            $usersQuery->where('users.id', (int)$request->input('user_id'));
         }
 
         if ($request->filled('search')) {
@@ -198,6 +218,7 @@ class WeeklyGoalController extends Controller
                 ->leftJoin('weekly_goal_items as wgi', 'wgi.weekly_goal_id', '=', 'wg.id')
                 ->select(
                     'wg.user_id',
+                    'wg.leave_minutes',
                     'wgi.id as item_id',
                     'wgi.target_minutes',
                     'wgi.actual_minutes',
@@ -211,7 +232,8 @@ class WeeklyGoalController extends Controller
             $itemsByUser = $rawItems
                 ->groupBy('user_id')
                 ->map(function ($rows) {
-                    return $rows
+                    $leave = (int)($rows->first()->leave_minutes ?? 0);
+                    $items = $rows
                         ->filter(function ($row) {
                             return $row->item_id !== null;
                         })
@@ -222,14 +244,29 @@ class WeeklyGoalController extends Controller
                                 'weight_percent' => (float)($row->weight_percent ?? 0),
                                 'is_unplanned' => (bool)($row->is_unplanned ?? false),
                             ];
-                        });
+                        })
+                        ->values();
+
+                    return (object) [
+                        'leave_minutes' => $leave,
+                        'items' => $items,
+                    ];
                 });
         }
 
         $items = $users->map(function ($user) use ($itemsByUser) {
-            $userItems = $itemsByUser->get($user->id, collect());
-            $summary = $this->computeSummary($userItems);
-            $plannedItems = collect($userItems)->where('is_unplanned', false);
+            $userData = $itemsByUser->get($user->id, (object) [
+                'leave_minutes' => 0,
+                'items' => collect(),
+            ]);
+
+            $leaveMinutes = (int)($userData->leave_minutes ?? 0);
+            $userItems = $userData->items instanceof \Illuminate\Support\Collection
+                ? $userData->items
+                : collect($userData->items ?? []);
+
+            $summary = $this->computeSummary($userItems, $leaveMinutes);
+            $plannedItems = $userItems->where('is_unplanned', false);
             $totalActual = (int)$plannedItems->sum('actual_minutes');
             $totalTarget = max(0, (int)($summary['total_target_minutes'] ?? 0));
             $completionPercent = 0.0;
@@ -251,6 +288,8 @@ class WeeklyGoalController extends Controller
                 'planned_score' => $summary['planned_score'] ?? 0,
                 'unplanned_bonus' => $summary['unplanned_bonus'] ?? 0,
                 'completion_percent' => $completionPercent,
+                'available_minutes' => $summary['available_minutes'] ?? $this->weekCapacity($leaveMinutes),
+                'leave_minutes' => $summary['leave_minutes'] ?? $leaveMinutes,
             ];
         })->values();
 
@@ -265,6 +304,7 @@ class WeeklyGoalController extends Controller
         $request->validate([
             'user_id' => 'nullable|integer|exists:users,id',
             'week_start' => 'nullable|date',
+            'leave_minutes' => 'nullable|integer|min:0|max:'.self::WEEKLY_BASE_MINUTES,
             'items' => 'required|array',
             'items.*.id' => 'nullable|integer',
             'items.*.title' => 'required|string|max:255',
@@ -289,26 +329,41 @@ class WeeklyGoalController extends Controller
             $id = DB::table('weekly_goals')->insertGetId([
                 'user_id' => $userId,
                 'week_start' => $weekStart,
+                'leave_minutes' => 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
             $goal = DB::table('weekly_goals')->where('id', $id)->first();
         }
 
+        $requestedLeave = $this->normalizeLeaveMinutes($request->input('leave_minutes'));
+        $existingLeave = $this->normalizeLeaveMinutes($goal->leave_minutes ?? 0);
+        $canEditTargets = !$locks['targets_locked'] || $auth->role === 'admin';
+        $leaveMinutes = $canEditTargets ? $requestedLeave : $existingLeave;
+        $capacity = $this->weekCapacity($leaveMinutes);
+
         $items = $request->input('items', []);
 
         // Validate totals for planned
         $planned = collect($items)->where('is_unplanned', false);
-        $totalTarget = (int)$planned->sum(function ($x) { return max(0, (int)($x['target_minutes'] ?? 0)); });
-        $totalWeight = (float)$planned->sum(function ($x) {
-            $t = max(0, (int)($x['target_minutes'] ?? 0));
-            return round(($t / 2700) * 100, 2);
+        $totalTarget = (int)$planned->sum(function ($x) {
+            return max(0, (int)($x['target_minutes'] ?? 0));
         });
-        if ($totalTarget > 2700) {
-            return response()->json(['message' => 'Haftalık hedef toplamı 2700 dakikayı aşamaz.'], 422);
+        $totalWeight = $capacity > 0
+            ? (float)$planned->sum(function ($x) use ($capacity) {
+                $t = max(0, (int)($x['target_minutes'] ?? 0));
+                return ($t / $capacity) * 100;
+            })
+            : 0.0;
+
+        if ($totalTarget > $capacity) {
+            return response()->json(['message' => 'Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.'], 422);
         }
-        if ($totalWeight > 100.0 + 0.001) {
+        if ($capacity > 0 && $totalWeight > 100.0 + 0.001) {
             return response()->json(['message' => "Hedef ağırlık toplamı %100'ü aşamaz."], 422);
+        }
+        if ($capacity === 0 && $totalTarget > 0) {
+            return response()->json(['message' => 'İzin süresi bu hafta için planlı hedef bırakmıyor.'], 422);
         }
 
         DB::beginTransaction();
@@ -321,26 +376,40 @@ class WeeklyGoalController extends Controller
                     'action_plan' => $it['action_plan'] ?? null,
                     'description' => $it['description'] ?? null,
                     'updated_at' => now(),
+                    'is_unplanned' => $isUnplanned,
                 ];
 
                 // Admin kullanıcılar kilitleme kurallarını bypass edebilir
                 $isAdmin = $auth->role === 'admin';
-                
-                if (!$isUnplanned && (!$locks['targets_locked'] || $isAdmin)) {
+
+                if (!$isUnplanned && ($canEditTargets || $isAdmin)) {
                     $data['target_minutes'] = (int)($it['target_minutes'] ?? 0);
-                    $data['weight_percent'] = round((($data['target_minutes'] ?? 0) / 2700) * 100, 2);
+                    $data['weight_percent'] = $capacity > 0
+                        ? round((($data['target_minutes'] ?? 0) / $capacity) * 100, 2)
+                        : 0;
                 }
                 if (!$locks['actuals_locked'] || $isAdmin) {
                     $data['actual_minutes'] = (int)($it['actual_minutes'] ?? 0);
                 }
-                $data['is_unplanned'] = $isUnplanned;
 
                 if (!empty($it['id'])) {
-                    DB::table('weekly_goal_items')->where('id', (int)$it['id'])->where('weekly_goal_id', $goal->id)->update($data);
+                    DB::table('weekly_goal_items')
+                        ->where('id', (int)$it['id'])
+                        ->where('weekly_goal_id', $goal->id)
+                        ->update($data);
                 } else {
                     $data['created_at'] = now();
                     DB::table('weekly_goal_items')->insert($data);
                 }
+            }
+
+            if ($canEditTargets) {
+                DB::table('weekly_goals')
+                    ->where('id', $goal->id)
+                    ->update([
+                        'leave_minutes' => $leaveMinutes,
+                        'updated_at' => now(),
+                    ]);
             }
 
             DB::commit();
@@ -351,13 +420,14 @@ class WeeklyGoalController extends Controller
         }
 
         $fresh = DB::table('weekly_goal_items')->where('weekly_goal_id', $goal->id)->orderBy('id')->get();
+        $goal = DB::table('weekly_goals')->where('id', $goal->id)->first();
+
         return response()->json([
             'goal' => $goal,
             'items' => $fresh,
             'locks' => $locks,
-            'summary' => $this->computeSummary($fresh),
+            'summary' => $this->computeSummary($fresh, (int)($goal->leave_minutes ?? 0)),
             'message' => 'Kaydedildi'
         ]);
     }
 }
-

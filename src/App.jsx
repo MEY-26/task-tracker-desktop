@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import * as ExcelJS from 'exceljs';
 import logo from './assets/logo.svg';
 
+const WEEKLY_BASE_MINUTES = 2700;
 
 function App() {
   const [user, setUser] = useState(null);
@@ -73,6 +74,7 @@ function App() {
   const [weeklyOverviewLoading, setWeeklyOverviewLoading] = useState(false);
   const [weeklyOverviewError, setWeeklyOverviewError] = useState(null);
   const [weeklyOverviewWeekStart, setWeeklyOverviewWeekStart] = useState('');
+  const [weeklyLeaveMinutesInput, setWeeklyLeaveMinutesInput] = useState('0');
   const [showGoalDescription, setShowGoalDescription] = useState(false);
   const [selectedGoalIndex, setSelectedGoalIndex] = useState(null);
   const [goalDescription, setGoalDescription] = useState('');
@@ -178,6 +180,46 @@ function App() {
     };
   }, [weeklyGoals?.locks, uiLocks]);
 
+  const weeklyLeaveMinutes = useMemo(() => {
+    try {
+      const normalized = (weeklyLeaveMinutesInput ?? '').toString().replace(',', '.').trim();
+      if (!normalized) return 0;
+      const minutes = Math.round(Number(normalized));
+      if (!Number.isFinite(minutes) || minutes <= 0) return 0;
+      return Math.min(WEEKLY_BASE_MINUTES, Math.max(0, minutes));
+    } catch (err) {
+      console.warn('weeklyLeaveMinutes compute failed:', err);
+      return 0;
+    }
+  }, [weeklyLeaveMinutesInput]);
+
+  const handleWeeklyLeaveMinutesChange = useCallback((event) => {
+    const raw = (event?.target?.value ?? '').toString();
+    if (raw === '') {
+      setWeeklyLeaveMinutesInput('');
+      return;
+    }
+    if (!/^\d*$/.test(raw)) {
+      return;
+    }
+    setWeeklyLeaveMinutesInput(raw);
+  }, []);
+
+  const handleWeeklyLeaveMinutesBlur = useCallback(() => {
+    const normalized = (weeklyLeaveMinutesInput ?? '').toString().trim();
+    if (!normalized) {
+      setWeeklyLeaveMinutesInput('0');
+      return;
+    }
+    const parsed = parseInt(normalized, 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setWeeklyLeaveMinutesInput('0');
+      return;
+    }
+    const clamped = Math.min(parsed, WEEKLY_BASE_MINUTES);
+    setWeeklyLeaveMinutesInput(clamped.toString());
+  }, [weeklyLeaveMinutesInput]);
+
   // Performans harfi ve rengi hesaplama
   function getPerformanceGrade(score) {
     if (score >= 111) return { grade: 'A', color: '#00c800', description: 'Olağan Üstü Performans' };
@@ -193,23 +235,27 @@ function App() {
     const planned = items.filter(x => !x.is_unplanned);
     const unplanned = items.filter(x => x.is_unplanned);
 
+    const leaveMinutes = weeklyLeaveMinutes;
+    const availableMinutes = Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutes);
+
     const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x?.target_minutes || 0)), 0);
-    const totalWeightRaw = (totalTarget / 2700) * 100;
+    const totalWeightRaw = availableMinutes > 0 ? (totalTarget / availableMinutes) * 100 : 0;
     const totalWeight = Math.min(100, Number(totalWeightRaw.toFixed(1)));
     const unplannedMinutes = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
 
-    // Planlı skor: sum(weight% * (t/a))
     let plannedScore = 0;
-    for (const it of planned) {
-      const t = Math.max(0, Number(it?.target_minutes || 0));
-      const a = Math.max(0, Number(it?.actual_minutes || 0));
-      if (t > 0 && a > 0) {
-        const w = (t / 2700) * 100;
-        const eff = t / a; // sınır yok, finale clamp var
-        plannedScore += w * eff;
+    if (availableMinutes > 0) {
+      for (const it of planned) {
+        const t = Math.max(0, Number(it?.target_minutes || 0));
+        const a = Math.max(0, Number(it?.actual_minutes || 0));
+        if (t > 0 && a > 0) {
+          const w = (t / availableMinutes) * 100;
+          const eff = t / a; // sınır yok, finale clamp var
+          plannedScore += w * eff;
+        }
       }
     }
-    const unplannedBonus = (unplannedMinutes / 2700) * 100;
+    const unplannedBonus = availableMinutes > 0 ? (unplannedMinutes / availableMinutes) * 100 : 0;
     const finalScore = Math.min(120, plannedScore + unplannedBonus);
 
     return {
@@ -219,22 +265,29 @@ function App() {
       plannedScore: Number(plannedScore.toFixed(2)),
       unplannedBonus: Number(unplannedBonus.toFixed(2)),
       finalScore: Number(finalScore.toFixed(2)),
+      leaveMinutes,
+      availableMinutes,
+      overCapacity: totalTarget > availableMinutes,
     };
-  }, [weeklyGoals.items]);
+  }, [weeklyGoals.items, weeklyLeaveMinutes]);
 
-  // Warn if total planned time exceeds 2700 minutes
+  // Warn if total planned time exceeds available minutes after leave
   const overTargetWarnedRef = useRef(false);
   useEffect(() => {
     const tt = Number(weeklyLive?.totalTarget || 0);
-    if (tt > 2700) {
+    const capacity = Number.isFinite(weeklyLive?.availableMinutes)
+      ? Number(weeklyLive.availableMinutes)
+      : WEEKLY_BASE_MINUTES;
+
+    if (capacity >= 0 && tt > capacity) {
       if (!overTargetWarnedRef.current) {
-        addNotification('Planlı hedef toplamı 2700 dakikayı aşıyor', 'warning');
+        addNotification('Planlı hedef toplamı izin sonrası kullanılabilir süreyi aşıyor', 'warning');
         overTargetWarnedRef.current = true;
       }
     } else {
       overTargetWarnedRef.current = false;
     }
-  }, [weeklyLive.totalTarget]);
+  }, [weeklyLive.totalTarget, weeklyLive.availableMinutes]);
 
   async function loadWeeklyGoals(weekStart = null, userId = null) {
     try {
@@ -258,9 +311,16 @@ function App() {
       if (uid) params.user_id = uid;
       const res = await WeeklyGoals.get(params);
       setWeeklyGoals({ goal: res.goal, items: Array.isArray(res.items) ? res.items : [], locks: res.locks || {}, summary: res.summary || null });
+      const leaveFromServer = Number(res.goal?.leave_minutes ?? 0);
+      if (Number.isFinite(leaveFromServer) && leaveFromServer > 0) {
+        setWeeklyLeaveMinutesInput(String(Math.max(0, Math.round(leaveFromServer))));
+      } else {
+        setWeeklyLeaveMinutesInput('0');
+      }
     } catch (err) {
       console.error('Weekly goals load error:', err);
       setWeeklyGoals({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
+      setWeeklyLeaveMinutesInput('0');
     }
   }
 
@@ -290,8 +350,17 @@ function App() {
         addNotification('Hedefler şu an kilitli. Bu zaman aralığında hedefler değiştirilemez.', 'error');
         return;
       }
-      if ((weeklyLive?.totalTarget || 0) > 2700) {
-        addNotification('Haftalık hedef toplamı 2700 dakikayı aşamaz.', 'error');
+      const leaveMinutesForSave = weeklyLeaveMinutes;
+      const availableMinutes = Number.isFinite(weeklyLive?.availableMinutes)
+        ? Number(weeklyLive.availableMinutes)
+        : Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutesForSave);
+
+      if ((weeklyLive?.totalTarget || 0) > availableMinutes) {
+        addNotification('Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.', 'error');
+        return;
+      }
+      if (availableMinutes === 0 && (weeklyLive?.totalTarget || 0) > 0) {
+        addNotification('İzin sonrası kullanılabilir süre 0 dakika, planlı hedef ekleyemezsiniz.', 'error');
         return;
       }
       // Auto compute weights from target minutes (planned only)
@@ -318,11 +387,18 @@ function App() {
 
       const payload = {
         week_start: weeklyWeekStart || fmtYMD(getMonday()),
+        leave_minutes: leaveMinutesForSave,
         items,
         ...(weeklyUserId ? { user_id: weeklyUserId } : {}),
       };
       const res = await WeeklyGoals.save(payload);
       setWeeklyGoals({ goal: res.goal, items: res.items || [], locks: res.locks || {}, summary: res.summary || null });
+      const savedLeave = Number(res.goal?.leave_minutes ?? leaveMinutesForSave);
+      if (Number.isFinite(savedLeave) && savedLeave > 0) {
+        setWeeklyLeaveMinutesInput(String(Math.max(0, Math.round(savedLeave))));
+      } else {
+        setWeeklyLeaveMinutesInput('0');
+      }
       addNotification('Haftalık hedefler kaydedildi', 'success');
     } catch (err) {
       console.error('Weekly goals save error:', err);
@@ -2656,7 +2732,27 @@ function App() {
                   <div className="text-sm text-neutral-300 text-[24px]" style={{ paddingLeft: '30px' }}>
                     {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
                   </div>
-                  <div className="ml-auto flex items-center gap-3 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
+                  <div className="flex items-center gap-2 text-[20px] bg-white/10 border border-white/20 rounded px-3 py-1">
+                    <label className="whitespace-nowrap text-[18px]">İzin (dk)</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      step="5"
+                      min="0"
+                      max={WEEKLY_BASE_MINUTES}
+                      value={weeklyLeaveMinutesInput}
+                      onChange={handleWeeklyLeaveMinutesChange}
+                      onBlur={handleWeeklyLeaveMinutesBlur}
+                      disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                      className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
+                      placeholder="0"
+                      title="Planlanan hafta için izinli olacağınız toplam dakika"
+                    />
+                  </div>
+                  <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
+                    <div className="text-[18px] text-neutral-400 whitespace-nowrap">
+                      Kullanılabilir: {weeklyLive.availableMinutes} dk{weeklyLive.availableMinutes ? ` (${(weeklyLive.availableMinutes / 60).toFixed(1)} saat)` : ''}
+                    </div>
                     <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
                     <span
                       className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
@@ -2688,7 +2784,8 @@ function App() {
                         const lockedActuals = combinedLocks.actuals_locked && user?.role !== 'admin';
                         const t = Math.max(0, Number(row.target_minutes || 0));
                         const a = Math.max(0, Number(row.actual_minutes || 0));
-                        const w = (t / 2700) * 100; // satır ağırlığı
+                        const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
+                        const w = capacity > 0 ? (t / capacity) * 100 : 0; // satır ağırlığı
                         const eff = a > 0 && t > 0 ? (t / a) : 0; // verimlilik (katsayı) — sınır yok
                         const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
                         return (
@@ -2720,7 +2817,7 @@ function App() {
                                 style={{ width: '90px', height: '83px', textAlign: 'center' }}
                               />
                             </td>
-                            <td className="px-3 py-2 text-center text-neutral-200 text-[32px]" style={{ verticalAlign: 'middle' }}>{((t / 2700) * 100).toFixed(1)}</td>
+                            <td className="px-3 py-2 text-center text-neutral-200 text-[32px]" style={{ verticalAlign: 'middle' }}>{capacity > 0 ? ((t / capacity) * 100).toFixed(1) : '0.0'}</td>
                             <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle', width: '20px' }}>
                               <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
                                 onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
@@ -2845,6 +2942,8 @@ function App() {
                 </div>
                 <div className="mt-6 grid grid-cols-2 gap-4" style={{ marginLeft: '2px' }}>
                   <div className="bg-white/5 border border-white/10 rounded p-3 text-[24px]" style={{ paddingLeft: '10px' }}>
+                    <div>İzin Süresi: <span className="font-semibold">{weeklyLive.leaveMinutes} dk{weeklyLive.leaveMinutes ? ` (${(weeklyLive.leaveMinutes / 60).toFixed(1)} saat)` : ''}</span></div>
+                    <div>Kullanılabilir Süre: <span className="font-semibold">{weeklyLive.availableMinutes} dk{weeklyLive.availableMinutes ? ` (${(weeklyLive.availableMinutes / 60).toFixed(1)} saat)` : ''}</span></div>
                     <div>Toplam Hedef Zamanı: <span className="font-semibold">{weeklyLive.totalTarget} dk</span></div>
                     <div>Toplam Ağırlık: <span className="font-semibold">{weeklyLive.totalWeight}%</span></div>
                     <div>Plandışı Süre: <span className="font-semibold">{weeklyLive.unplannedMinutes} dk</span></div>
@@ -2868,7 +2967,7 @@ function App() {
                   <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                   <span className="w-[10px]"></span>
                   {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
-                    <button className="flex-1 rounded px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={weeklyLive.totalTarget > 2700} onClick={saveWeeklyGoals}>Kaydet</button>
+                    <button className="flex-1 rounded px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0)} onClick={saveWeeklyGoals}>Kaydet</button>
                   )}
                 </div>
               </div>
