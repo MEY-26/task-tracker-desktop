@@ -58,7 +58,7 @@ class TaskController extends Controller
      */
     public function store(Request $request)
     {
-        
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -101,7 +101,7 @@ class TaskController extends Controller
 
         if (!empty($request->assigned_users)) {
             $assignedUsers = User::whereIn('id', $request->assigned_users)->get();
-            
+
             $observers = $assignedUsers->where('role', 'observer');
             if ($observers->count() > 0) {
                 return response()->json([
@@ -216,21 +216,21 @@ class TaskController extends Controller
 
         return response()->json([
             'message' => 'Görev oluşturuldu.',
-            'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
+            'task' => $task->load(['assignedUsers', 'attachments', 'creator', 'responsible']),
         ], 201);
     }
 
     public function show(Request $request, Task $task)
     {
         $user = $request->user();
-        
+
         if (!$user) {
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
 
         if ($user->role === 'admin' || $user->role === 'observer') {
             return response()->json([
-                'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
+                'task' => $task->load(['assignedUsers', 'attachments', 'creator', 'responsible']),
             ]);
         }
 
@@ -243,7 +243,7 @@ class TaskController extends Controller
         }
 
         return response()->json([
-            'task' => $task->load(['assignedUsers','attachments','creator','responsible']),
+            'task' => $task->load(['assignedUsers', 'attachments', 'creator', 'responsible']),
         ]);
     }
 
@@ -282,7 +282,7 @@ class TaskController extends Controller
         ]);
         if ($request->has('responsible_id')) {
             $responsibleUser = User::find($request->responsible_id);
-            
+
             if ($responsibleUser && $responsibleUser->role === 'observer') {
                 return response()->json([
                     'message' => 'Observer rolündeki kullanıcılara görev sorumluluğu atayamazsınız.'
@@ -298,7 +298,7 @@ class TaskController extends Controller
         if ($user->role === 'team_leader') {
             $allowedFields = ['due_date', 'status', 'comment'];
             $requestFields = array_keys($request->all());
-            
+
             foreach ($requestFields as $field) {
                 if (!in_array($field, $allowedFields)) {
                     return response()->json([
@@ -310,7 +310,7 @@ class TaskController extends Controller
 
         if ($request->has('assigned_users') && !empty($request->assigned_users)) {
             $assignedUsers = User::whereIn('id', $request->assigned_users)->get();
-            
+
             $observers = $assignedUsers->where('role', 'observer');
             if ($observers->count() > 0) {
                 return response()->json([
@@ -380,7 +380,11 @@ class TaskController extends Controller
 
         $formatDate = function ($v) {
             if (!$v) return '-';
-            try { return \Carbon\Carbon::parse($v)->format('Y-m-d'); } catch (\Throwable $e) { return (string)$v; }
+            try {
+                return \Carbon\Carbon::parse($v)->format('Y-m-d');
+            } catch (\Throwable $e) {
+                return (string)$v;
+            }
         };
 
         foreach ($validated as $key => $newValue) {
@@ -420,7 +424,7 @@ class TaskController extends Controller
                     $changeSummaries[] = ucfirst(str_replace('_', ' ', $key)) . ' güncellendi';
             }
         }
-        
+
 
         foreach ($validated as $key => $newValue) {
             if (in_array($key, ['attachments', 'assigned_users'])) {
@@ -458,9 +462,9 @@ class TaskController extends Controller
                 'user_id'    => $user->id,
                 'field'      => 'attachments',
                 'old_value'  => null,
-                'new_value'  => json_encode(array_map(fn($f)=>$f['original_name'], $uploadedFiles)),
+                'new_value'  => json_encode(array_map(fn($f) => $f['original_name'], $uploadedFiles)),
             ]);
-            $addedNames = array_map(fn($f)=>$f['original_name'], $uploadedFiles);
+            $addedNames = array_map(fn($f) => $f['original_name'], $uploadedFiles);
             if (!empty($addedNames)) {
                 $changeSummaries[] = 'Ekler: +' . implode(', +', array_slice($addedNames, 0, 3)) . (count($addedNames) > 3 ? '…' : '');
             }
@@ -552,14 +556,14 @@ class TaskController extends Controller
 
         return response()->json([
             'message' => 'Görev güncellendi.',
-            'task' => $task->load(['assignedUsers','attachments','creator','responsible'])
+            'task' => $task->load(['assignedUsers', 'attachments', 'creator', 'responsible'])
         ]);
     }
 
     public function destroy(Request $request, Task $task)
     {
         $user = $request->user();
-        
+
         if (!$user) {
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
@@ -595,7 +599,7 @@ class TaskController extends Controller
         // Tüm ekleri ve dosyaları sil
         $deletedFiles = 0;
         $failedFiles = 0;
-        
+
         foreach ($task->attachments as $attachment) {
             try {
                 // Fiziksel dosyayı sil
@@ -608,7 +612,7 @@ class TaskController extends Controller
                         'original_name' => $attachment->original_name
                     ]);
                 }
-                
+
                 // Veritabanı kaydını sil
                 $attachment->delete();
             } catch (\Exception $e) {
@@ -624,7 +628,7 @@ class TaskController extends Controller
         // Görev ilişkilerini temizle
         $task->assignedUsers()->detach();
         $task->histories()->delete();
-        
+
         // Görevi sil
         $task->delete();
 
@@ -644,7 +648,7 @@ class TaskController extends Controller
     {
         $attachment = TaskAttachment::findOrFail($id);
         $user = request()->user();
-        
+
         if (!$user) {
             return response()->json(['message' => 'Kullanıcı doğrulanamadı.'], 401);
         }
@@ -684,13 +688,13 @@ class TaskController extends Controller
             'user_id'   => $user->id,
             'field'     => 'attachments',
             'old_value' => $originalName,
-            'new_value' => null,    
+            'new_value' => null,
         ]);
 
         $attachment->delete();
 
-        $message = $fileDeleted 
-            ? 'Dosya başarıyla silindi.' 
+        $message = $fileDeleted
+            ? 'Dosya başarıyla silindi.'
             : 'Dosya kaydı silindi, ancak fiziksel dosya bulunamadı.';
 
         return response()->json(['message' => $message]);
@@ -701,13 +705,13 @@ class TaskController extends Controller
         if (!Storage::disk('public')->exists($attachment->path)) {
             abort(404);
         }
-        
+
         $filePath = Storage::disk('public')->path($attachment->path);
         $originalName = $attachment->original_name;
-        
+
         return response()->file($filePath, [
             'Content-Disposition' => 'attachment; filename="' . $originalName . '"',
-            'Content-Type' => Storage::disk('public')->mimeType($attachment->path),
+            'Content-Type' => Storage::mimeType($attachment->path),
         ]);
     }
 
@@ -903,7 +907,7 @@ class TaskController extends Controller
     public function canDelete(Request $request, Task $task)
     {
         $user = $request->user();
-        
+
         if (!$user) {
             return response()->json(['can_delete' => false, 'reason' => 'Kullanıcı doğrulanamadı.'], 401);
         }

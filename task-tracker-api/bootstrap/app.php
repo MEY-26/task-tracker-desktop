@@ -53,7 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 $statusCode = 500;
                 if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
                     $statusCode = $e->getStatusCode();
-                } elseif (method_exists($e, 'getStatusCode') && is_callable([$e, 'getStatusCode'])) {
+                } elseif ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
                     $statusCode = $e->getStatusCode();
                 }
                 

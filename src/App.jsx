@@ -3927,16 +3927,16 @@ function App() {
                         onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
                         className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'}`}
                         title={user?.role === 'admin' ? (historyDeleteMode ? 'Silme modunu kapat' : 'Silme modunu aç') : 'Sadece admin'}
-                      >⚙️</button>
+                      >🗑️</button>
                     </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto scrollbar-stable space-y-4" style={{ padding: '10px' }}>
                     {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
                       taskHistory.map((h) => (
-                        <div key={h.id} className="bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
+                        <div key={h.id} className="relative bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                            <div className="flex-1 min-w-0 max-w-full overflow-hidden pr-8">
                               <div className="text-[11px] text-blue-300 mb-1">{formatDateOnly(h.created_at)}</div>
                               {h.field === 'comment' ? (
                                 <div className="text-sm max-w-full overflow-hidden">
@@ -4125,7 +4125,8 @@ function App() {
                             {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
                               <button
                                 onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); setTaskHistories(prev => ({ ...prev, [selectedTask.id]: Array.isArray(h2) ? h2 : [] })); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
-                                className="shrink-0 rounded px-2 py-1 text-rose-300 hover:text-white hover:bg-rose-600/30 text-xs"
+                                className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-rose-300 hover:text-white hover:bg-rose-600/30 transition z-10"
+                                style={{ position: 'absolute', top: '5px', right: '0px', zIndex: 10, width: '40px', height: '40px' }}
                                 title="Yorumu sil"
                               >🗑️</button>
                             )}
@@ -4616,3 +4617,4 @@ function App() {
   );
 }
 export default App;
+
