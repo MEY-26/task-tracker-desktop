@@ -65,6 +65,15 @@ function App() {
   const [taskLastViews, setTaskLastViews] = useState([]);
   const [taskHistories, setTaskHistories] = useState({});
   const [showUserPanel, setShowUserPanel] = useState(false);
+  const [showTaskSettings, setShowTaskSettings] = useState(false);
+  const [selectedTaskTypeForStatuses, setSelectedTaskTypeForStatuses] = useState('development');
+  const [newTaskTypeName, setNewTaskTypeName] = useState('');
+  const [newTaskTypeColor, setNewTaskTypeColor] = useState('#3b82f6');
+  const [newStatusName, setNewStatusName] = useState('');
+  const [newStatusColor, setNewStatusColor] = useState('#ef4444');
+  const [customTaskTypes, setCustomTaskTypes] = useState([]);
+  const [customTaskStatuses, setCustomTaskStatuses] = useState({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
   const [weeklyGoals, setWeeklyGoals] = useState({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
   const [weeklyWeekStart, setWeeklyWeekStart] = useState('');
@@ -509,7 +518,7 @@ function App() {
   useEffect(() => {
     const isModalOpen = showAddForm || showDetailModal || showWeeklyGoals ||
       showGoalDescription || showUserProfile || showTeamModal ||
-      showUserPanel || showNotifications;
+      showUserPanel || showNotifications || showTaskSettings;
 
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
@@ -521,7 +530,7 @@ function App() {
       document.body.style.overflow = 'unset';
     };
   }, [showAddForm, showDetailModal, showWeeklyGoals, showGoalDescription,
-    showUserProfile, showTeamModal, showUserPanel, showNotifications]);
+    showUserProfile, showTeamModal, showUserPanel, showNotifications, showTaskSettings]);
 
   useEffect(() => {
     if (user?.role !== 'admin' && showWeeklyOverview) {
@@ -579,15 +588,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!showDetailModal) return;
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        handleCloseModal();
+        if (showDetailModal) {
+          handleCloseModal();
+        } else if (showTaskSettings) {
+          setShowTaskSettings(false);
+        }
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [showDetailModal, selectedTask, descDraft, user?.role, handleCloseModal]);
+    if (showDetailModal || showTaskSettings) {
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }
+  }, [showDetailModal, showTaskSettings, selectedTask, descDraft, user?.role, handleCloseModal]);
 
   useEffect(() => {
     if (showDetailModal) {
@@ -812,6 +826,11 @@ function App() {
     }
   }
 
+  // Load saved task settings on component mount
+  useEffect(() => {
+    loadTaskSettings();
+  }, []);
+
   // Ensure users refresh when the panel is opened (avoids stale state race)
   useEffect(() => {
     if (showUserPanel && ['admin', 'team_leader', 'observer'].includes(user?.role)) {
@@ -987,12 +1006,18 @@ function App() {
 
       const responsibleId = newTask.responsible_id ? parseInt(newTask.responsible_id) : user.id;
 
+      // Renk bilgilerini al
+      const taskTypeColor = getTaskTypeColor(newTask.task_type);
+      const statusColor = getStatusColor(newTask.status);
+
       const taskData = {
         title: newTask.title,
         description: newTask.description,
         priority: newTask.priority,
         status: newTask.status,
         task_type: newTask.task_type,
+        task_type_color: taskTypeColor,
+        status_color: statusColor,
         responsible_id: responsibleId,
         assigned_users: newTask.assigned_users,
         start_date: newTask.start_date || null,
@@ -1273,12 +1298,14 @@ function App() {
         if (detailDraft) {
           if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
             updates.status = detailDraft.status || 'waiting';
+            updates.status_color = getStatusColor(detailDraft.status || 'waiting');
           }
           if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
             updates.priority = detailDraft.priority || 'medium';
           }
           if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
             updates.task_type = detailDraft.task_type || 'development';
+            updates.task_type_color = getTaskTypeColor(detailDraft.task_type || 'development');
           }
           const currentResponsibleId = selectedTask.responsible?.id || '';
           if ((detailDraft.responsible_id || '') !== currentResponsibleId) {
@@ -1362,16 +1389,7 @@ function App() {
     }
   }
 
-  function getStatusText(status) {
-    switch (status) {
-      case 'waiting': return 'Bekliyor';
-      case 'in_progress': return 'Devam Ediyor';
-      case 'investigating': return 'Araştırılıyor';
-      case 'completed': return 'Tamamlandı';
-      case 'cancelled': return 'İptal';
-      default: return 'Bekliyor';
-    }
-  }
+
 
   function getPriorityColor(priority) {
     switch (priority) {
@@ -1393,31 +1411,240 @@ function App() {
     }
   }
 
-  function getTaskTypeText(taskType) {
-    switch (taskType) {
-      case 'new_product': return 'Yeni Ürün';
-      case 'fixture': return 'Fikstür';
-      case 'apparatus': return 'Aparat';
-      case 'development': return 'Geliştirme';
-      case 'revision': return 'Revizyon';
-      case 'mold': return 'Kalıp';
-      case 'test_device': return 'Test Cihazı';
-      default: return 'Geliştirme';
+  function getTaskTypeText(taskType, task = null) {
+    // Eğer task nesnesi varsa, önce ondan kontrol et
+    if (task && task.task_type === taskType && task.getTaskTypeText) {
+      return task.getTaskTypeText;
     }
+
+    // Tüm türleri al ve eşleştir
+    const allTypes = getAllTaskTypes();
+    const foundType = allTypes.find(type =>
+      type.value === taskType || type.id === taskType || type.key === taskType
+    );
+    return foundType ? foundType.label : 'Geliştirme';
   }
 
-  function getTaskTypeColor(taskType) {
-    switch (taskType) {
-      case 'new_product': return '#10b981';
-      case 'fixture': return '#3b82f6';
-      case 'apparatus': return '#8b5cf6';
-      case 'development': return '#f59e0b';
-      case 'revision': return '#ef4444';
-      case 'mold': return '#06b6d4';
-      case 'test_device': return '#84cc16';
-      default: return '#6b7280';
+  function getTaskTypeColor(taskType, task = null) {
+    // Eğer task nesnesi varsa ve task_type_color alanı varsa, onu kullan
+    if (task && task.task_type === taskType && task.task_type_color) {
+      return task.task_type_color;
     }
+
+    // Tüm türleri al ve eşleştir
+    const allTypes = getAllTaskTypes();
+    const foundType = allTypes.find(type =>
+      type.value === taskType || type.id === taskType || type.key === taskType
+    );
+    return foundType ? foundType.color : '#f59e0b';
   }
+
+  function getStatusText(status) {
+    // Tüm durumları al ve eşleştir - taskType parametresi olmadığı için genel aramaya yapalım
+    const systemStatuses = [
+      { value: 'waiting', label: 'Bekliyor' },
+      { value: 'in_progress', label: 'Devam Ediyor' },
+      { value: 'investigating', label: 'Araştırılıyor' },
+      { value: 'completed', label: 'Tamamlandı' },
+      { value: 'cancelled', label: 'İptal' }
+    ];
+
+    const foundStatus = systemStatuses.find(s => s.value === status);
+    if (foundStatus) return foundStatus.label;
+
+    // Özel durumları kontrol et
+    for (const taskType in customTaskStatuses) {
+      const customStatus = customTaskStatuses[taskType].find(s =>
+        (s.id || s.key || s.value) === status
+      );
+      if (customStatus) return customStatus.name || customStatus.label;
+    }
+
+    return status || 'Bekliyor';
+  }
+
+  function getStatusColor(status) {
+    // Benzer şekilde durum rengini al
+    const systemStatuses = [
+      { value: 'waiting', color: '#6b7280' },
+      { value: 'in_progress', color: '#3b82f6' },
+      { value: 'investigating', color: '#f59e0b' },
+      { value: 'completed', color: '#10b981' },
+      { value: 'cancelled', color: '#ef4444' }
+    ];
+
+    const foundStatus = systemStatuses.find(s => s.value === status);
+    if (foundStatus) return foundStatus.color;
+
+    // Özel durumları kontrol et
+    for (const taskType in customTaskStatuses) {
+      const customStatus = customTaskStatuses[taskType].find(s =>
+        (s.id || s.key || s.value) === status
+      );
+      if (customStatus) return customStatus.color;
+    }
+
+    return '#6b7280';
+  }
+
+  const handleAddTaskType = () => {
+    if (!newTaskTypeName.trim()) {
+      addNotification('Tür adı boş olamaz', 'error');
+      return;
+    }
+
+    // Benzersiz ID oluştur
+    const typeId = `type_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const newType = {
+      id: typeId,
+      key: typeId, // Backward compatibility
+      name: newTaskTypeName.trim(),
+      color: newTaskTypeColor,
+      isCustom: true,
+      isPermanent: false
+    };
+
+    setCustomTaskTypes(prev => [...prev, newType]);
+    setNewTaskTypeName('');
+    setNewTaskTypeColor('#3b82f6');
+    setHasUnsavedChanges(true);
+    addNotification(`"${newType.name}" türü eklendi`, 'success');
+  }; const handleAddTaskStatus = () => {
+    if (!newStatusName.trim()) {
+      addNotification('Durum adı boş olamaz', 'error');
+      return;
+    }
+
+    // Benzersiz ID oluştur
+    const statusId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const newStatus = {
+      id: statusId,
+      key: statusId, // Backward compatibility
+      name: newStatusName.trim(),
+      color: newStatusColor,
+      isCustom: true
+    };
+
+    setCustomTaskStatuses(prev => ({
+      ...prev,
+      [selectedTaskTypeForStatuses]: [
+        ...(prev[selectedTaskTypeForStatuses] || []),
+        newStatus
+      ]
+    }));
+
+    setNewStatusName('');
+    setNewStatusColor('#ef4444');
+    setHasUnsavedChanges(true);
+    addNotification(`"${newStatus.name}" durumu eklendi`, 'success');
+  }; const handleDeleteTaskType = (typeId) => {
+    setCustomTaskTypes(prev => prev.filter(type => (type.id || type.key) !== typeId));
+    setHasUnsavedChanges(true);
+    addNotification('Tür silindi', 'success');
+  };
+
+  const handleDeleteTaskStatus = (statusId) => {
+    setCustomTaskStatuses(prev => ({
+      ...prev,
+      [selectedTaskTypeForStatuses]: prev[selectedTaskTypeForStatuses]?.filter(status => (status.id || status.key) !== statusId) || []
+    }));
+    setHasUnsavedChanges(true);
+    addNotification('Durum silindi', 'success');
+  };
+
+  const getAllTaskTypes = () => {
+    // Sadece Geliştirme türü sabit kalacak
+    const systemTypes = [
+      {
+        id: 'development',
+        value: 'development',
+        label: 'Geliştirme',
+        color: '#f59e0b',
+        isCustom: false,
+        isPermanent: true
+      }
+    ];
+
+    // Özel türleri ID bazlı formata çevir
+    const formattedCustomTypes = customTaskTypes.map((type, index) => ({
+      id: type.id || `custom_${index}`,
+      value: type.id || type.key || type.value || `custom_${index}`,
+      label: type.name || type.label,
+      color: type.color || '#6b7280',
+      isCustom: true,
+      isPermanent: false
+    }));
+
+    return [...systemTypes, ...formattedCustomTypes];
+  };
+
+  const getAllTaskStatuses = (taskType) => {
+    // Sistem durumları (her zaman mevcut)
+    const systemStatuses = [
+      { id: 'waiting', value: 'waiting', label: 'Bekliyor', color: '#6b7280', isSystem: true },
+      { id: 'completed', value: 'completed', label: 'Tamamlandı', color: '#10b981', isSystem: true },
+      { id: 'cancelled', value: 'cancelled', label: 'İptal', color: '#ef4444', isSystem: true }
+    ];
+
+    // Özel durumlar (türe göre) - ID bazlı sistem
+    const customStatuses = (customTaskStatuses[taskType] || []).map((status, index) => ({
+      id: status.id || `custom_status_${index}`,
+      value: status.id || status.key || status.value || `custom_status_${index}`,
+      label: status.name || status.label,
+      color: status.color || '#6b7280',
+      isSystem: false
+    }));
+
+    // Eski durumlar (geçici uyumluluk için)
+    const legacyStatuses = [
+      { id: 'in_progress', value: 'in_progress', label: 'Devam Ediyor', color: '#3b82f6', isSystem: false },
+      { id: 'investigating', value: 'investigating', label: 'Araştırılıyor', color: '#f59e0b', isSystem: false }
+    ];
+
+    return [...systemStatuses, ...customStatuses, ...legacyStatuses];
+  };
+
+  const handleSaveTaskSettings = async () => {
+    try {
+      setLoading(true);
+
+      // LocalStorage'a kaydetme (geçici çözüm)
+      const taskSettingsData = {
+        customTaskTypes,
+        customTaskStatuses,
+        lastUpdated: new Date().toISOString()
+      };
+
+      localStorage.setItem('taskSettings', JSON.stringify(taskSettingsData));
+
+      // Burada ileride API çağrısı yapılacak
+      // await api.post('/task-settings', taskSettingsData);
+
+      setHasUnsavedChanges(false);
+      addNotification('Görev ayarları başarıyla kaydedildi! 🚀', 'success');
+
+    } catch (error) {
+      console.error('Task settings save error:', error);
+      addNotification('Görev ayarları kaydedilemedi: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTaskSettings = () => {
+    try {
+      const savedSettings = localStorage.getItem('taskSettings');
+      if (savedSettings) {
+        const { customTaskTypes: savedTypes, customTaskStatuses: savedStatuses } = JSON.parse(savedSettings);
+        setCustomTaskTypes(savedTypes || []);
+        setCustomTaskStatuses(savedStatuses || {});
+      }
+    } catch (error) {
+      console.error('Error loading task settings:', error);
+    }
+  };
 
   function formatDate(dateLike) {
     if (!dateLike) return '-';
@@ -1682,7 +1909,7 @@ function App() {
             role: userData.role,
             leader_id: null // Liderler ve adminlerin lideri olmaz
           });
-          
+
           // Yeni eklenen kullanıcının ID'sini kaydet
           if (result && result.user && result.user.id) {
             processedUsers.set(userData.email.toLowerCase(), result.user.id);
@@ -1698,17 +1925,17 @@ function App() {
       for (const userData of members) {
         try {
           let leaderId = null;
-          
+
           if (userData.leaderEmail) {
             const leaderEmail = userData.leaderEmail.toLowerCase();
-            
+
             // Önce yeni eklenen liderlerden ara
             if (processedUsers.has(leaderEmail)) {
               leaderId = processedUsers.get(leaderEmail);
             } else {
               // Mevcut kullanıcılardan ara
-              const existingLeader = existingUsers.find(u => 
-                u.email.toLowerCase() === leaderEmail && 
+              const existingLeader = existingUsers.find(u =>
+                u.email.toLowerCase() === leaderEmail &&
                 (u.role === 'team_leader' || u.role === 'admin')
               );
               if (existingLeader) {
@@ -1729,7 +1956,7 @@ function App() {
             role: userData.role,
             leader_id: leaderId
           });
-          
+
           // Yeni eklenen kullanıcının ID'sini kaydet
           if (result && result.user && result.user.id) {
             processedUsers.set(userData.email.toLowerCase(), result.user.id);
@@ -2272,6 +2499,21 @@ function App() {
                       <span>Profil</span>
                     </span>
                   </button>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setShowTaskSettings(true);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      style={{ padding: '10px' }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>📋</span>
+                        <span>Görev Ayarları</span>
+                      </span>
+                    </button>
+                  )}
                   {user?.role === 'team_leader' && (
                     <button
                       onClick={async () => {
@@ -2482,13 +2724,11 @@ function App() {
                     className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ minHeight: '48px' }}
                   >
-                    <option value="new_product">Yeni Ürün</option>
-                    <option value="fixture">Fikstür</option>
-                    <option value="apparatus">Aparat</option>
-                    <option value="development">Geliştirme</option>
-                    <option value="revision">Revizyon</option>
-                    <option value="mold">Kalıp</option>
-                    <option value="test_device">Test Cihazı</option>
+                    {getAllTaskTypes().map(taskType => (
+                      <option key={taskType.value} value={taskType.value}>
+                        {taskType.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <br />
@@ -2500,11 +2740,11 @@ function App() {
                     className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ minHeight: '48px' }}
                   >
-                    <option value="waiting">Bekliyor</option>
-                    <option value="in_progress">Devam Ediyor</option>
-                    <option value="investigating">Araştırılıyor</option>
-                    <option value="completed">Tamamlandı</option>
-                    <option value="cancelled">İptal</option>
+                    {getAllTaskStatuses(newTask.task_type).map(status => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <br />
@@ -3280,13 +3520,11 @@ function App() {
                       style={{ height: '40px', minWidth: '140px' }}
                     >
                       <option value="all">Tüm Türler</option>
-                      <option value="new_product">Yeni Ürün</option>
-                      <option value="fixture">Fikstür</option>
-                      <option value="apparatus">Aparat</option>
-                      <option value="development">Geliştirme</option>
-                      <option value="revision">Revizyon</option>
-                      <option value="mold">Kalıp</option>
-                      <option value="test_device">Test Cihazı</option>
+                      {getAllTaskTypes().map(taskType => (
+                        <option key={taskType.value} value={taskType.value}>
+                          {taskType.label}
+                        </option>
+                      ))}
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                       <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3401,15 +3639,15 @@ function App() {
                       <span
                         className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
                         style={{
-                          backgroundColor: getTaskTypeColor(task.task_type) + '20',
-                          color: getTaskTypeColor(task.task_type),
+                          backgroundColor: getTaskTypeColor(task.task_type, task) + '20',
+                          color: getTaskTypeColor(task.task_type, task),
                           paddingBottom: '5px',
                           paddingTop: '5px',
                           paddingLeft: '5px',
                           paddingRight: '5px'
                         }}
                       >
-                        {getTaskTypeText(task.task_type)}
+                        {getTaskTypeText(task.task_type, task)}
                       </span>
                     </div>
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
@@ -3567,11 +3805,11 @@ function App() {
                           className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ height: '40px' }}
                         >
-                          <option value="waiting">Bekliyor</option>
-                          <option value="in_progress">Devam Ediyor</option>
-                          <option value="investigating">Araştırılıyor</option>
-                          <option value="completed">Tamamlandı</option>
-                          <option value="cancelled">İptal</option>
+                          {getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').map(status => (
+                            <option key={status.value} value={status.value}>
+                              {status.label}
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
@@ -3614,13 +3852,11 @@ function App() {
                           className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ height: '40px' }}
                         >
-                          <option value="new_product">Yeni Ürün</option>
-                          <option value="fixture">Fikstür</option>
-                          <option value="apparatus">Aparat</option>
-                          <option value="development">Geliştirme</option>
-                          <option value="revision">Revizyon</option>
-                          <option value="mold">Kalıp</option>
-                          <option value="test_device">Test Cihazı</option>
+                          {getAllTaskTypes().map(taskType => (
+                            <option key={taskType.value} value={taskType.value}>
+                              {taskType.label}
+                            </option>
+                          ))}
                         </select>
                       ) : (
                         <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
@@ -4737,6 +4973,253 @@ function App() {
                   ) : (
                     <div className="text-xs text-neutral-400">Yalnızca admin kullanıcı listesi görüntüler.</div>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showTaskSettings && createPortal(
+        <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+              style={{ pointerEvents: 'auto' }}>
+              <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <div className="justify-self-start">
+                    <button
+                      onClick={handleSaveTaskSettings}
+                      disabled={loading || !hasUnsavedChanges}
+                      className={`px-4 py-2 rounded-lg text-[14px] font-medium transition-colors ${hasUnsavedChanges
+                        ? 'bg-green-600 hover:bg-green-700 text-white animate-pulse'
+                        : 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                        } ${loading ? 'bg-gray-600' : ''}`}
+                    >
+                      {loading ? 'Kaydediliyor...' : hasUnsavedChanges ? '💾 Kaydet *' : '✓ Kaydedildi'}
+                    </button>
+                    {hasUnsavedChanges && (
+                      <div className="text-yellow-400 text-[12px] mt-1">
+                        Kaydedilmemiş değişiklikler var
+                      </div>
+                    )}
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Ayarları</h2>
+                  <div className="justify-self-end">
+                    <button
+                      onClick={() => setShowTaskSettings(false)}
+                      className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                      aria-label="Kapat"
+                    >✕</button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto scrollbar-stable" style={{ height: 'calc(80vh - 72px)' }}>
+                <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
+                  <div className="pt-4" style={{ paddingTop: '5px' }}>
+                    <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Türleri</div>
+
+                    {/* Yeni Görev Türü Ekleme */}
+                    <div className="rounded-lg p-4 mb-4">
+                      <label className="text-[18px] font-medium mb-3">Yeni Görev Türü Ekle</label>
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="text"
+                            placeholder="Görev türü adı (örn: Fikstür, Yeni Ürün)"
+                            value={newTaskTypeName}
+                            onChange={(e) => setNewTaskTypeName(e.target.value)}
+                            className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-[16px] text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                            style={{ height: '40px' }}
+                          />
+                          <input
+                            type="color"
+                            value={newTaskTypeColor}
+                            onChange={(e) => setNewTaskTypeColor(e.target.value)}
+                            className="w-12 h-10 border border-gray-600 rounded-lg cursor-pointer bg-transparent"
+                            title="Renk seç"
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <button
+                          onClick={handleAddTaskType}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px]"
+                        >
+                          Tür Ekle
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mevcut Görev Türleri */}
+                    <div className="space-y-3" style={{ marginTop: '30px' }}>
+                      <label className="text-[18px]">Mevcut Görev Türleri</label>
+                      <div className="space-y-2" style={{ marginTop: '10px' }}>
+                        {getAllTaskTypes().map(taskType => (
+                          <div key={taskType.id || taskType.value} className="rounded-lg p-3 flex items-center justify-between">
+                            <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
+                              <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
+                              <span className="text-[18px]">{taskType.label}</span>
+                              <div className="flex items-center justify-end space-x-2 ml-auto">
+                                {taskType.isCustom && !taskType.isPermanent ? (
+                                  <>
+                                    <button className="text-blue-400 hover:text-blue-300 text-[14px]">Düzenle</button>
+                                    <button
+                                      onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
+                                      className="text-red-400 hover:text-red-300 text-[14px]"
+                                    >
+                                      Sil
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-500 text-[16px]">
+                                    {taskType.isPermanent ? 'Silinmez' : 'Sistem Türü'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
+                  <div className="pt-4" style={{ paddingTop: '5px' }}>
+                    <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Durumları</div>
+
+                    {/* Görev Türü Seçimi */}
+                    <div className="mb-4">
+                      <label className="block text-[18px] mb-3">Görev Türü Seçin</label>
+                      <select
+                        value={selectedTaskTypeForStatuses}
+                        onChange={(e) => setSelectedTaskTypeForStatuses(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[18px] focus:outline-none focus:border-blue-500"
+                        style={{ height: '40px' }}
+                      >
+                        {getAllTaskTypes().map(taskType => (
+                          <option key={taskType.value} value={taskType.value}>
+                            {taskType.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Yeni Durum Ekleme */}
+                    <div className="rounded-lg p-4 mb-4">
+                      <label className="text-[18px] mb-3">Yeni Durum Ekle</label>
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="text"
+                            placeholder="Durum adı (örn: Tasarlanacak, Test Edilecek)"
+                            value={newStatusName}
+                            onChange={(e) => setNewStatusName(e.target.value)}
+                            className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[16px] placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                            style={{ height: '40px' }}
+                          />
+                          <input
+                            type="color"
+                            value={newStatusColor}
+                            onChange={(e) => setNewStatusColor(e.target.value)}
+                            className="w-12 h-10 border border-gray-600 rounded-lg cursor-pointer bg-transparent"
+                            title="Renk seç"
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <button
+                          onClick={handleAddTaskStatus}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px] font-medium"
+                        >
+                          Durum Ekle
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Seçilen Tür için Mevcut Durumlar */}
+                    <div className="space-y-3">
+                      <h3 className="text-[20px] font-medium">{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</h3>
+
+                      {/* Sistem Durumları (Sabit) */}
+                      <div className="mb-4">
+                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Sistem Durumları (Değiştirilemez)</h4>
+                        <div className="space-y-2">
+                          {/* Waiting - Default */}
+                          <div className="bg-[#1f2937] rounded-lg p-3 border-l-4 border-yellow-500">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px' }}></div>
+                                <span className="text-[18px] min-w-[120px]">Bekliyor</span>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right">Varsayılan</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Completed */}
+                          <div className="bg-[#1f2937] rounded-lg p-3 border-l-4 border-green-500">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px' }}></div>
+                                <span className="text-[18px] min-w-[120px]">Tamamlandı</span>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right">Sistem</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Cancelled */}
+                          <div className="bg-[#1f2937] rounded-lg p-3 border-l-4 border-red-500">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px' }}></div>
+                                <span className="text-[18px] min-w-[120px]">İptal</span>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right">Sistem</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Özel Durumlar (Dinamik) */}
+                      <div>
+                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Özel Durumlar ({getTaskTypeText(selectedTaskTypeForStatuses)})</h4>
+                        <div className="space-y-2">
+                          {customTaskStatuses[selectedTaskTypeForStatuses]?.length > 0 ? (
+                            customTaskStatuses[selectedTaskTypeForStatuses].map(status => (
+                              <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
+                                  <span className="text-[18px]">{status.name || status.label}</span>
+                                </div>
+                                <div className="flex items-center justify-end space-x-2 ml-auto">
+                                  <button className="text-blue-400 hover:text-blue-300 text-[14px]">Düzenle</button>
+                                  <button
+                                    onClick={() => handleDeleteTaskStatus(status.id || status.key)}
+                                    className="text-red-400 hover:text-red-300 text-[14px]"
+                                  >
+                                    Sil
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-gray-400 text-center py-4 border-2 border-dashed border-gray-600 rounded-lg">
+                              Bu görev türü için henüz özel durum tanımlanmamış.
+                              <br />
+                              <span className="text-[14px]">Yukarıdan yeni durum ekleyebilirsiniz.</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

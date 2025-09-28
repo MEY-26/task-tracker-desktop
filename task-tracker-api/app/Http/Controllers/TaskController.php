@@ -63,8 +63,10 @@ class TaskController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'priority' => 'required|in:low,medium,high,critical',
-            'status' => 'required|in:waiting,in_progress,investigating,completed,cancelled',
-            'task_type' => 'required|in:new_product,fixture,apparatus,development,revision,mold,test_device',
+            'status' => 'required|string|max:50',
+            'task_type' => 'required|string|max:50',
+            'task_type_color' => 'nullable|string|max:7|regex:/^#[0-9A-Fa-f]{6}$/',
+            'status_color' => 'nullable|string|max:7|regex:/^#[0-9A-Fa-f]{6}$/',
             // Allow images, office docs, archives and CAD-related extensions; max ~1GB per file (by extension)
             'attachments.*' => [
                 Rule::file()->max(1048576), // in KB
@@ -131,6 +133,8 @@ class TaskController extends Controller
             'priority' => $request->priority,
             'status' => $validated['status'] ?? 'waiting',
             'task_type' => $request->task_type,
+            'task_type_color' => $request->task_type_color ?? '#f59e0b',
+            'status_color' => $request->status_color ?? '#6b7280',
             'responsible_id' => $request->responsible_id,
             'created_by' => $currentUserId,
             'start_date' => $request->start_date,
@@ -267,8 +271,10 @@ class TaskController extends Controller
             'title' => 'sometimes|string|max:255',
             'description' => 'sometimes|nullable|string',
             'priority' => 'in:low,medium,high,critical',
-            'status' => 'in:waiting,in_progress,investigating,completed,cancelled',
-            'task_type' => 'in:new_product,fixture,apparatus,development,revision,mold,test_device',
+            'status' => 'string|max:50',
+            'task_type' => 'string|max:50',
+            'task_type_color' => 'nullable|string|max:7|regex:/^#[0-9A-Fa-f]{6}$/',
+            'status_color' => 'nullable|string|max:7|regex:/^#[0-9A-Fa-f]{6}$/',
             // Allow images, office docs, archives and CAD-related extensions; max ~1GB per file (by extension)
             'attachments.*' => [
                 Rule::file()->max(1048576), // in KB
@@ -342,11 +348,13 @@ class TaskController extends Controller
             $task->description = $request->input('description');
         }
 
-        if (in_array($request->status, ['in_progress', 'investigating']) && !$task->start_date) {
+        // Flexible status handling for custom statuses
+        $statusLower = strtolower($request->status ?? '');
+        if ((str_contains($statusLower, 'progress') || str_contains($statusLower, 'investigating') || str_contains($statusLower, 'devam')) && !$task->start_date) {
             $task->start_date = now();
         }
 
-        if (in_array($request->status, ['completed', 'cancelled']) && !$task->end_date) {
+        if ((str_contains($statusLower, 'completed') || str_contains($statusLower, 'cancelled') || str_contains($statusLower, 'tamamlan') || str_contains($statusLower, 'iptal')) && !$task->end_date) {
             $task->end_date = now();
         }
 
@@ -569,13 +577,14 @@ class TaskController extends Controller
         }
 
         // İptal edilen görevler: Admin yetkisi olan kullanıcılar silebilir
-        if ($task->status === 'cancelled') {
+        $statusLower = strtolower($task->status);
+        if (str_contains($statusLower, 'cancelled') || str_contains($statusLower, 'iptal')) {
             if (!$user->isAdmin() && $user->role !== 'team_leader') {
                 return response()->json(['message' => 'İptal edilen görevleri sadece admin yetkisi olan kullanıcılar silebilir.'], 403);
             }
         }
         // Tamamlanan görevler: Sadece admin silebilir
-        elseif ($task->status === 'completed') {
+        elseif (str_contains($statusLower, 'completed') || str_contains($statusLower, 'tamamlan')) {
             if (!$user->isAdmin()) {
                 return response()->json(['message' => 'Tamamlanan görevleri sadece admin kullanıcılar silebilir.'], 403);
             }
@@ -868,7 +877,11 @@ class TaskController extends Controller
     {
         $task = Task::findOrFail($id);
 
+        // Only toggle for standard statuses, custom statuses should be changed manually
         switch ($task->status) {
+            case 'waiting':
+                $task->status = 'in_progress';
+                break;
             case 'in_progress':
                 $task->status = 'investigating';
                 break;
@@ -876,6 +889,7 @@ class TaskController extends Controller
                 $task->status = 'completed';
                 break;
             default:
+                // For custom statuses, don't auto-toggle
                 break;
         }
 
@@ -916,7 +930,8 @@ class TaskController extends Controller
         $reason = '';
 
         // İptal edilen görevler: Admin yetkisi olan kullanıcılar silebilir
-        if ($task->status === 'cancelled') {
+        $statusLower = strtolower($task->status);
+        if (str_contains($statusLower, 'cancelled') || str_contains($statusLower, 'iptal')) {
             if ($user->isAdmin() || $user->role === 'team_leader') {
                 $canDelete = true;
             } else {
@@ -924,7 +939,7 @@ class TaskController extends Controller
             }
         }
         // Tamamlanan görevler: Sadece admin silebilir
-        elseif ($task->status === 'completed') {
+        elseif (str_contains($statusLower, 'completed') || str_contains($statusLower, 'tamamlan')) {
             if ($user->isAdmin()) {
                 $canDelete = true;
             } else {

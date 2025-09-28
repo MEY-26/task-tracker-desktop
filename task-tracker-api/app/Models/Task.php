@@ -17,6 +17,8 @@ class Task extends Model
         'priority',
         'status',
         'task_type',
+        'task_type_color',
+        'status_color',
         'responsible_id',
         'created_by',
         'start_date',
