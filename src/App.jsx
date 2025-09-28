@@ -1378,17 +1378,6 @@ function App() {
   }
 
 
-  function getStatusColor(status) {
-    switch (status) {
-      case 'waiting': return '#f59e0b';
-      case 'in_progress': return '#3b82f6';
-      case 'investigating': return '#8b5cf6';
-      case 'completed': return '#10b981';
-      case 'cancelled': return '#ef4444';
-      default: return '#6b7280';
-    }
-  }
-
 
 
   function getPriorityColor(priority) {
@@ -1442,9 +1431,7 @@ function App() {
   function getStatusText(status) {
     // Tüm durumları al ve eşleştir - taskType parametresi olmadığı için genel aramaya yapalım
     const systemStatuses = [
-      { value: 'waiting', label: 'Bekliyor' },
-      { value: 'in_progress', label: 'Devam Ediyor' },
-      { value: 'investigating', label: 'Araştırılıyor' },
+      { value: 'waiting', label: 'Bekliyor' },      
       { value: 'completed', label: 'Tamamlandı' },
       { value: 'cancelled', label: 'İptal' }
     ];
@@ -1599,8 +1586,7 @@ function App() {
 
     // Eski durumlar (geçici uyumluluk için)
     const legacyStatuses = [
-      { id: 'in_progress', value: 'in_progress', label: 'Devam Ediyor', color: '#3b82f6', isSystem: false },
-      { id: 'investigating', value: 'investigating', label: 'Araştırılıyor', color: '#f59e0b', isSystem: false }
+      { id: 'in_progress', value: 'in_progress', label: 'Devam Ediyor', color: '#3b82f6', isSystem: false }
     ];
 
     return [...systemStatuses, ...customStatuses, ...legacyStatuses];
@@ -5061,7 +5047,7 @@ function App() {
                             <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
                               <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
                               <span className="text-[18px]">{taskType.label}</span>
-                              <div className="flex items-center justify-end space-x-2 ml-auto">
+                              <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
                                 {taskType.isCustom && !taskType.isPermanent ? (
                                   <>
                                     <button className="text-blue-400 hover:text-blue-300 text-[14px]">Düzenle</button>
@@ -5074,7 +5060,7 @@ function App() {
                                   </>
                                 ) : (
                                   <span className="text-gray-500 text-[16px]">
-                                    {taskType.isPermanent ? 'Silinmez' : 'Sistem Türü'}
+                                    {taskType.isPermanent ? 'Sistem Türü' : 'Silinmez'}
                                   </span>
                                 )}
                               </div>
@@ -5240,4 +5226,5 @@ function App() {
   );
 }
 export default App;
+
 
