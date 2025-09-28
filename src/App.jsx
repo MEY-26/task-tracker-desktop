@@ -1659,21 +1659,58 @@ function App() {
         return;
       }
 
+      // Mevcut kullanıcıları al
+      const existingUsers = await getUsers();
+
       let successCount = 0;
       let errorCount = 0;
       const errors = [];
+      const processedUsers = new Map(); // Email -> user ID mapping
 
-      for (const userData of users) {
+      // Önce takım liderlerini ve adminleri ekle
+      const leadersAndAdmins = users.filter(u => u.role === 'team_leader' || u.role === 'admin');
+      const members = users.filter(u => u.role !== 'team_leader' && u.role !== 'admin');
+
+      // 1. Adım: Takım liderlerini ve adminleri ekle
+      for (const userData of leadersAndAdmins) {
         try {
-          // Takım lideri email'i ile lider ID'sini bul
+          const result = await registerUser({
+            name: userData.name,
+            email: userData.email,
+            password: userData.password,
+            password_confirmation: userData.password,
+            role: userData.role,
+            leader_id: null // Liderler ve adminlerin lideri olmaz
+          });
+          
+          // Yeni eklenen kullanıcının ID'sini kaydet
+          if (result && result.user && result.user.id) {
+            processedUsers.set(userData.email.toLowerCase(), result.user.id);
+          }
+          successCount++;
+        } catch (error) {
+          errorCount++;
+          errors.push(`Satır ${userData.rowIndex}: ${userData.name} - ${error.response?.data?.message || 'Bilinmeyen hata'}`);
+        }
+      }
+
+      // 2. Adım: Diğer kullanıcıları ekle
+      for (const userData of members) {
+        try {
           let leaderId = null;
+          
           if (userData.leaderEmail) {
-            const leader = users.find(u => u.email.toLowerCase() === userData.leaderEmail.toLowerCase() && (u.role === 'team_leader' || u.role === 'admin'));
-            if (leader) {
-              leaderId = leader.id;
+            const leaderEmail = userData.leaderEmail.toLowerCase();
+            
+            // Önce yeni eklenen liderlerden ara
+            if (processedUsers.has(leaderEmail)) {
+              leaderId = processedUsers.get(leaderEmail);
             } else {
-              // Mevcut kullanıcılar listesinden de ara
-              const existingLeader = Array.isArray(users) ? users.find(u => u.email.toLowerCase() === userData.leaderEmail.toLowerCase() && (u.role === 'team_leader' || u.role === 'admin')) : null;
+              // Mevcut kullanıcılardan ara
+              const existingLeader = existingUsers.find(u => 
+                u.email.toLowerCase() === leaderEmail && 
+                (u.role === 'team_leader' || u.role === 'admin')
+              );
               if (existingLeader) {
                 leaderId = existingLeader.id;
               } else {
@@ -1684,7 +1721,7 @@ function App() {
             }
           }
 
-          await registerUser({
+          const result = await registerUser({
             name: userData.name,
             email: userData.email,
             password: userData.password,
@@ -1692,6 +1729,11 @@ function App() {
             role: userData.role,
             leader_id: leaderId
           });
+          
+          // Yeni eklenen kullanıcının ID'sini kaydet
+          if (result && result.user && result.user.id) {
+            processedUsers.set(userData.email.toLowerCase(), result.user.id);
+          }
           successCount++;
         } catch (error) {
           errorCount++;

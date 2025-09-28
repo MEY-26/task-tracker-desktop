@@ -76,5 +76,15 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    public function leader()
+    {
+        return $this->belongsTo(User::class, 'leader_id');
+    }
+
+    public function teamMembers()
+    {
+        return $this->hasMany(User::class, 'leader_id');
+    }
+
     // removed unused helpers and relations
 }

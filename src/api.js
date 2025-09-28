@@ -158,15 +158,22 @@ export async function changePassword(currentPassword, newPassword) {
 
 // Email-based password reset flow removed. Use PasswordReset.requestReset + admin action.
 
-export async function registerUser({ name, email, password, password_confirmation, role }) {
+export async function registerUser({ name, email, password, password_confirmation, role, leader_id }) {
   try {
-    const response = await api.post('/register', {
+    const requestData = {
       name,
       email,
       password,
       password_confirmation,
       role,
-    });
+    };
+    
+    // leader_id varsa ekle
+    if (leader_id !== null && leader_id !== undefined) {
+      requestData.leader_id = leader_id;
+    }
+    
+    const response = await api.post('/register', requestData);
     return response.data;
   } catch (error) {
     console.error('Register user error:', error.response?.data || error.message);

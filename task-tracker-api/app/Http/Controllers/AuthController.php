@@ -17,14 +17,22 @@ class AuthController extends Controller
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:4|confirmed',
             'role' => 'required|in:admin,team_leader,team_member,observer',
+            'leader_id' => 'nullable|exists:users,id',
         ]);
 
-        $user = User::create([
+        $userData = [
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
-        ]);
+        ];
+
+        // leader_id varsa ekle
+        if ($request->has('leader_id') && $request->leader_id !== null) {
+            $userData['leader_id'] = $request->leader_id;
+        }
+
+        $user = User::create($userData);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -32,6 +40,7 @@ class AuthController extends Controller
             'message' => 'Kayıt başarılı',
             'access_token' => $token,
             'token_type' => 'Bearer',
+            'user' => $user, // user objesini döndür
         ]);
     }
 
