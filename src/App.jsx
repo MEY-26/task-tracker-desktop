@@ -2711,6 +2711,17 @@ function App() {
                   <h3 className="!text-[24px] font-semibold">Haftalık Hedefler</h3>
                 </div>
                 <div className="flex-1 flex justify-end">
+                  <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
+                    <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
+                    <span
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
+                      title={
+                        'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 10:00’a kadar içinde bulunulan haftanın hedefleri açık, 10:00’dan sonra hedefler kapalı. \nGerçekleşme Pazartesi 10:00’dan sonra açık.'
+                      }
+                    >
+                      ℹ️
+                    </span>
+                  </div>
                   <button onClick={() => setShowWeeklyGoals(false)} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">
                     ✕
                   </button>
@@ -2732,8 +2743,8 @@ function App() {
                   <div className="text-sm text-neutral-300 text-[24px]" style={{ paddingLeft: '30px' }}>
                     {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
                   </div>
-                  <div className="flex items-center gap-2 text-[20px] bg-white/10 border border-white/20 rounded px-3 py-1">
-                    <label className="whitespace-nowrap text-[18px]">İzin (dk)</label>
+                  <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]">
+                    <label className="whitespace-nowrap text-[24px]">İzin (dk)</label>
                     <input
                       type="number"
                       inputMode="numeric"
@@ -2747,22 +2758,10 @@ function App() {
                       className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
                       placeholder="0"
                       title="Planlanan hafta için izinli olacağınız toplam dakika"
+                      style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
                     />
                   </div>
-                  <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
-                    <div className="text-[18px] text-neutral-400 whitespace-nowrap">
-                      Kullanılabilir: {weeklyLive.availableMinutes} dk{weeklyLive.availableMinutes ? ` (${(weeklyLive.availableMinutes / 60).toFixed(1)} saat)` : ''}
-                    </div>
-                    <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
-                    <span
-                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
-                      title={
-                        'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 10:00’a kadar içinde bulunulan haftanın hedefleri açık, 10:00’dan sonra hedefler kapalı. \nGerçekleşme Pazartesi 10:00’dan sonra açık.'
-                      }
-                    >
-                      ℹ️
-                    </span>
-                  </div>
+
                 </div>
 
                 <div className="overflow-x-auto">
