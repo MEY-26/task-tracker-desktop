@@ -74,6 +74,14 @@ function App() {
   const [customTaskTypes, setCustomTaskTypes] = useState([]);
   const [customTaskStatuses, setCustomTaskStatuses] = useState({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Edit mode states
+  const [editingTaskTypeId, setEditingTaskTypeId] = useState(null);
+  const [editingTaskStatusId, setEditingTaskStatusId] = useState(null);
+  const [editingTaskTypeName, setEditingTaskTypeName] = useState('');
+  const [editingTaskTypeColor, setEditingTaskTypeColor] = useState('');
+  const [editingTaskStatusName, setEditingTaskStatusName] = useState('');
+  const [editingTaskStatusColor, setEditingTaskStatusColor] = useState('');
   const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
   const [weeklyGoals, setWeeklyGoals] = useState({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
   const [weeklyWeekStart, setWeeklyWeekStart] = useState('');
@@ -1431,7 +1439,7 @@ function App() {
   function getStatusText(status) {
     // Tüm durumları al ve eşleştir - taskType parametresi olmadığı için genel aramaya yapalım
     const systemStatuses = [
-      { value: 'waiting', label: 'Bekliyor' },      
+      { value: 'waiting', label: 'Bekliyor' },
       { value: 'completed', label: 'Tamamlandı' },
       { value: 'cancelled', label: 'İptal' }
     ];
@@ -1454,8 +1462,6 @@ function App() {
     // Benzer şekilde durum rengini al
     const systemStatuses = [
       { value: 'waiting', color: '#6b7280' },
-      { value: 'in_progress', color: '#3b82f6' },
-      { value: 'investigating', color: '#f59e0b' },
       { value: 'completed', color: '#10b981' },
       { value: 'cancelled', color: '#ef4444' }
     ];
@@ -1480,13 +1486,29 @@ function App() {
       return;
     }
 
+    const trimmedName = newTaskTypeName.trim();
+
+    // Sistem türü isimlerini kontrol et
+    const systemNames = getSystemTaskTypeNames();
+    if (systemNames.includes(trimmedName)) {
+      addNotification('Bu isim sistem türü olarak kullanılıyor, farklı bir isim seçin', 'error');
+      return;
+    }
+
+    // Mevcut custom türlerde aynı isim var mı kontrol et
+    const existingCustomTypes = customTaskTypes.map(type => type.name || type.label);
+    if (existingCustomTypes.includes(trimmedName)) {
+      addNotification('Bu isimde bir tür zaten mevcut, farklı bir isim seçin', 'error');
+      return;
+    }
+
     // Benzersiz ID oluştur
     const typeId = `type_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const newType = {
       id: typeId,
       key: typeId, // Backward compatibility
-      name: newTaskTypeName.trim(),
+      name: trimmedName,
       color: newTaskTypeColor,
       isCustom: true,
       isPermanent: false
@@ -1532,6 +1554,65 @@ function App() {
     addNotification('Tür silindi', 'success');
   };
 
+  const handleEditTaskType = (taskType) => {
+    setEditingTaskTypeId(taskType.id || taskType.value);
+    setEditingTaskTypeName(taskType.label || taskType.name);
+    setEditingTaskTypeColor(taskType.color);
+  };
+
+  const handleSaveTaskType = () => {
+    if (!editingTaskTypeName.trim()) {
+      addNotification('Tür adı boş olamaz', 'error');
+      return;
+    }
+
+    const trimmedName = editingTaskTypeName.trim();
+
+    // Sistem türü isimlerini kontrol et
+    const systemNames = getSystemTaskTypeNames();
+    if (systemNames.includes(trimmedName)) {
+      addNotification('Bu isim sistem türü olarak kullanılıyor, farklı bir isim seçin', 'error');
+      return;
+    }
+
+    // Mevcut custom türlerde aynı isim var mı kontrol et (kendisi hariç)
+    const existingCustomTypes = customTaskTypes
+      .filter(type => (type.id || type.key) !== editingTaskTypeId)
+      .map(type => type.name || type.label);
+    if (existingCustomTypes.includes(trimmedName)) {
+      addNotification('Bu isimde bir tür zaten mevcut, farklı bir isim seçin', 'error');
+      return;
+    }
+
+    const updatedTypes = customTaskTypes.map(type =>
+      (type.id || type.key) === editingTaskTypeId
+        ? { ...type, name: trimmedName, label: trimmedName, color: editingTaskTypeColor }
+        : type
+    );
+
+    setCustomTaskTypes(updatedTypes);
+
+    // Doğrudan localStorage'a kaydet
+    const taskSettingsData = {
+      customTaskTypes: updatedTypes,
+      customTaskStatuses,
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem('taskSettings', JSON.stringify(taskSettingsData));
+
+    setEditingTaskTypeId(null);
+    setEditingTaskTypeName('');
+    setEditingTaskTypeColor('');
+    setHasUnsavedChanges(false);
+    addNotification('Tür güncellendi', 'success');
+  };
+
+  const handleCancelEditTaskType = () => {
+    setEditingTaskTypeId(null);
+    setEditingTaskTypeName('');
+    setEditingTaskTypeColor('');
+  };
+
   const handleDeleteTaskStatus = (statusId) => {
     setCustomTaskStatuses(prev => ({
       ...prev,
@@ -1540,6 +1621,46 @@ function App() {
     setHasUnsavedChanges(true);
     addNotification('Durum silindi', 'success');
   };
+
+  const handleEditTaskStatus = (status) => {
+    setEditingTaskStatusId(status.id || status.key);
+    setEditingTaskStatusName(status.name || status.label);
+    setEditingTaskStatusColor(status.color);
+  };
+
+  const handleSaveTaskStatus = () => {
+    if (!editingTaskStatusName.trim()) {
+      addNotification('Durum adı boş olamaz', 'error');
+      return;
+    }
+
+    setCustomTaskStatuses(prev => ({
+      ...prev,
+      [selectedTaskTypeForStatuses]: prev[selectedTaskTypeForStatuses]?.map(status =>
+        (status.id || status.key) === editingTaskStatusId
+          ? { ...status, name: editingTaskStatusName.trim(), label: editingTaskStatusName.trim(), color: editingTaskStatusColor }
+          : status
+      ) || []
+    }));
+
+    setEditingTaskStatusId(null);
+    setEditingTaskStatusName('');
+    setEditingTaskStatusColor('');
+    setHasUnsavedChanges(true);
+    addNotification('Durum güncellendi', 'success');
+  };
+
+  const handleCancelEditTaskStatus = () => {
+    setEditingTaskStatusId(null);
+    setEditingTaskStatusName('');
+    setEditingTaskStatusColor('');
+  };
+
+  const getSystemTaskTypeNames = () => {
+    return ['Geliştirme']; // Sistem türü isimleri
+  };
+
+  // Duplicate türleri temizle
 
   const getAllTaskTypes = () => {
     // Sadece Geliştirme türü sabit kalacak
@@ -1555,27 +1676,23 @@ function App() {
     ];
 
     // Özel türleri ID bazlı formata çevir
-    const formattedCustomTypes = customTaskTypes.map((type, index) => ({
-      id: type.id || `custom_${index}`,
-      value: type.id || type.key || type.value || `custom_${index}`,
-      label: type.name || type.label,
-      color: type.color || '#6b7280',
-      isCustom: true,
-      isPermanent: false
-    }));
+    const formattedCustomTypes = customTaskTypes.map((type, index) => {
+      const typeId = type.id || type.key || `custom_${index}`;
+      return {
+        id: typeId,
+        value: typeId,
+        label: type.label || type.name,
+        color: type.color || '#6b7280',
+        isCustom: true,
+        isPermanent: false
+      };
+    });
 
     return [...systemTypes, ...formattedCustomTypes];
   };
 
   const getAllTaskStatuses = (taskType) => {
-    // Sistem durumları (her zaman mevcut)
-    const systemStatuses = [
-      { id: 'waiting', value: 'waiting', label: 'Bekliyor', color: '#6b7280', isSystem: true },
-      { id: 'completed', value: 'completed', label: 'Tamamlandı', color: '#10b981', isSystem: true },
-      { id: 'cancelled', value: 'cancelled', label: 'İptal', color: '#ef4444', isSystem: true }
-    ];
-
-    // Özel durumlar (türe göre) - ID bazlı sistem
+    // Sadece özel durumlar (türe göre) - ID bazlı sistem
     const customStatuses = (customTaskStatuses[taskType] || []).map((status, index) => ({
       id: status.id || `custom_status_${index}`,
       value: status.id || status.key || status.value || `custom_status_${index}`,
@@ -1584,40 +1701,17 @@ function App() {
       isSystem: false
     }));
 
-    // Eski durumlar (geçici uyumluluk için)
-    const legacyStatuses = [
-      { id: 'in_progress', value: 'in_progress', label: 'Devam Ediyor', color: '#3b82f6', isSystem: false }
+    return customStatuses;
+  };
+
+  const getSystemTaskStatuses = () => {
+    return [
+      { id: 'waiting', value: 'waiting', label: 'Bekliyor', color: '#6b7280', isSystem: true },
+      { id: 'completed', value: 'completed', label: 'Tamamlandı', color: '#10b981', isSystem: true },
+      { id: 'cancelled', value: 'cancelled', label: 'İptal', color: '#ef4444', isSystem: true }
     ];
-
-    return [...systemStatuses, ...customStatuses, ...legacyStatuses];
   };
 
-  const handleSaveTaskSettings = async () => {
-    try {
-      setLoading(true);
-
-      // LocalStorage'a kaydetme (geçici çözüm)
-      const taskSettingsData = {
-        customTaskTypes,
-        customTaskStatuses,
-        lastUpdated: new Date().toISOString()
-      };
-
-      localStorage.setItem('taskSettings', JSON.stringify(taskSettingsData));
-
-      // Burada ileride API çağrısı yapılacak
-      // await api.post('/task-settings', taskSettingsData);
-
-      setHasUnsavedChanges(false);
-      addNotification('Görev ayarları başarıyla kaydedildi! 🚀', 'success');
-
-    } catch (error) {
-      console.error('Task settings save error:', error);
-      addNotification('Görev ayarları kaydedilemedi: ' + error.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadTaskSettings = () => {
     try {
@@ -1631,6 +1725,19 @@ function App() {
       console.error('Error loading task settings:', error);
     }
   };
+
+  // Otomatik kaydetme - hasUnsavedChanges değiştiğinde
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      const taskSettingsData = {
+        customTaskTypes,
+        customTaskStatuses,
+        lastUpdated: new Date().toISOString()
+      };
+      localStorage.setItem('taskSettings', JSON.stringify(taskSettingsData));
+      setHasUnsavedChanges(false);
+    }
+  }, [hasUnsavedChanges]);
 
   function formatDate(dateLike) {
     if (!dateLike) return '-';
@@ -1757,6 +1864,9 @@ function App() {
         return 'yorumu';
       case 'task_response':
         return 'görev yanıtını';
+      case 'task_type_color':
+      case 'status_color':
+        return null; // Renk değişikliklerini gizle
       default:
         return field;
     }
@@ -2237,7 +2347,7 @@ function App() {
         return at > bt ? dir : -dir;
       }
       if (key === 'status') {
-        const order = { waiting: 1, in_progress: 2, investigating: 3, completed: 4, cancelled: 5 };
+        const order = { waiting: 1, completed: 2, cancelled: 3 };
         const at = order[a?.status] ?? 0;
         const bt = order[b?.status] ?? 0;
         if (at === bt) return 0;
@@ -2656,8 +2766,8 @@ function App() {
               resetNewTask();
             }}
           />
-          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'none' }}>
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }}>
+          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'auto' }}>
+            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }} onClick={(e) => e.stopPropagation()}>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
                 <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
@@ -2676,7 +2786,7 @@ function App() {
                 )}
                 <br />
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Görev Başlığı</label>
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Başlık</label>
                   <input
                     type="text"
                     placeholder="Görev başlığını girin..."
@@ -2685,21 +2795,6 @@ function App() {
                     className="rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border shadow-sm"
                     style={{ minHeight: '48px' }}
                   />
-                </div>
-                <br />
-                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Öncelik</label>
-                  <select
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    style={{ minHeight: '48px' }}
-                  >
-                    <option value="low">Düşük</option>
-                    <option value="medium">Orta</option>
-                    <option value="high">Yüksek</option>
-                    <option value="critical">Kritik</option>
-                  </select>
                 </div>
                 <br />
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
@@ -2719,18 +2814,17 @@ function App() {
                 </div>
                 <br />
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Durum</label>
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Öncelik</label>
                   <select
-                    value={newTask.status}
-                    onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
                     className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     style={{ minHeight: '48px' }}
                   >
-                    {getAllTaskStatuses(newTask.task_type).map(status => (
-                      <option key={status.value} value={status.value}>
-                        {status.label}
-                      </option>
-                    ))}
+                    <option value="low">Düşük</option>
+                    <option value="medium">Orta</option>
+                    <option value="high">Yüksek</option>
+                    <option value="critical">Kritik</option>
                   </select>
                 </div>
                 <br />
@@ -2942,6 +3036,7 @@ function App() {
                     {addingTask ? 'Ekleniyor...' : 'Ekle'}
                   </button>
                 </div>
+
               </div>
             </div>
           </div>
@@ -2951,9 +3046,9 @@ function App() {
       {showWeeklyGoals && createPortal(
         <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
             <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-[1500px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-              style={{ paddingBottom: '10px', pointerEvents: 'auto' }}>
+              style={{ paddingBottom: '10px', pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
                 <div className="flex-1">
                   {weeklyUserId && Array.isArray(users) ? (
@@ -3264,7 +3359,7 @@ function App() {
               margin: 'auto',
               paddingRight: '5px',
               pointerEvents: 'auto'
-            }}>
+            }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
               <div className="flex-1"></div>
               <div className="flex-1 text-center">
@@ -3554,7 +3649,7 @@ function App() {
             </div>
             <div className="flex justify-center">
               <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
-                <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}>
+                <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider grid-cols-[400px_100px_100px_220px_140px_220px_80px_180px]`}>
                   <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
                     <span>Başlık</span><span className="text-[10px] ml-1">{sortIndicator('title')}</span>
                   </button>
@@ -3566,9 +3661,6 @@ function App() {
                   </button>
                   <button onClick={() => toggleSort('responsible_name')} className="flex items-center justify-center px-2">
                     <span>Sorumlu</span><span className="text-[10px] ml-1">{sortIndicator('responsible_name')}</span>
-                  </button>
-                  <button onClick={() => toggleSort('creator_name')} className="flex items-center justify-center px-2">
-                    <span>Oluşturan</span><span className="text-[10px] ml-1">{sortIndicator('creator_name')}</span>
                   </button>
                   <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
                     <span>Başlangıç</span><span className="text-[10px] ml-1">{sortIndicator('start_date')}</span>
@@ -3598,7 +3690,7 @@ function App() {
                   <div
                     key={task.id}
                     onClick={() => handleTaskClick(task)}
-                    className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 grid-cols-[180px_100px_100px_220px_220px_140px_220px_80px_180px]`}
+                    className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 grid-cols-[400px_100px_100px_220px_140px_220px_80px_180px]`}
                     style={{ paddingTop: '10px', paddingBottom: '10px' }}
                   >
                     <div className="px-2">
@@ -3638,9 +3730,6 @@ function App() {
                     </div>
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {task.responsible?.name || 'Atanmamış'}
-                    </div>
-                    <div className="px-2 text-xs xs:text-sm text-gray-900">
-                      {task.creator?.name || 'Bilinmiyor'}
                     </div>
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {task.start_date ? formatDateOnly(task.start_date) : '-'}
@@ -3730,11 +3819,11 @@ function App() {
       {showDetailModal && selectedTask && createPortal(
         <div className="fixed inset-0 z-[999996]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} style={{ pointerEvents: 'auto' }} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'none' }}>
+          <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'auto' }}>
             <div
               className="
                 fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-                w-[95vw] max-w-[58%]
+                w-[95vw] max-w-[1400px]
                 max-h-[90vh] rounded-2xl border border-white/10 box-border
                 shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
               "
@@ -3782,21 +3871,96 @@ function App() {
                     <br />
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                        Durum
+                        Görev Türü
                       </label>
-                      {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || user?.role === 'admin')) ? (
+                      {user?.role === 'admin' ? (
                         <select
-                          value={detailDraft?.status || 'waiting'}
-                          onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), status: e.target.value }))}
-                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={detailDraft?.task_type || 'development'}
+                          onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), task_type: e.target.value }))}
+                          className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ height: '40px' }}
                         >
-                          {getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').map(status => (
-                            <option key={status.value} value={status.value}>
-                              {status.label}
+                          {getAllTaskTypes().map(taskType => (
+                            <option key={taskType.value} value={taskType.value}>
+                              {taskType.label}
                             </option>
                           ))}
                         </select>
+                      ) : (
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                          {getTaskTypeText(selectedTask.task_type)}
+                        </div>
+                      )}
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Durum
+                      </label>
+                      {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || user?.role === 'admin')) ? (
+                        <div className="space-y-3">
+                          {/* Durum Geçiş Butonları ve Select */}
+                          <div className="flex items-center space-x-2">
+                            {/* Önceki Durum Butonu */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentStatus = detailDraft?.status || '';
+                                const customStatuses = getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development');
+                                const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
+                                if (currentIndex > 0) {
+                                  const prevStatus = customStatuses[currentIndex - 1];
+                                  setDetailDraft(prev => ({ ...(prev || {}), status: prevStatus.value }));
+                                }
+                              }}
+                              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                              title="Önceki özel durum"
+                              disabled={getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').length === 0}
+                            >
+                              ←
+                            </button>
+                            
+                            {/* Durum Select - Sadece Özel Durumlar */}
+                            {getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').length > 0 ? (
+                              <select
+                                value={detailDraft?.status || ''}
+                                onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), status: e.target.value }))}
+                                className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                style={{ height: '40px' }}
+                              >
+                                <option value="">Özel durum seçin...</option>
+                                {getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').map(status => (
+                                  <option key={status.value} value={status.value}>
+                                    {status.label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-gray-100 text-gray-500 flex items-center" style={{ height: '40px' }}>
+                                Özel durum yok
+                              </div>
+                            )}
+                            
+                            {/* Sonraki Durum Butonu */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentStatus = detailDraft?.status || '';
+                                const customStatuses = getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development');
+                                const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
+                                if (currentIndex < customStatuses.length - 1) {
+                                  const nextStatus = customStatuses[currentIndex + 1];
+                                  setDetailDraft(prev => ({ ...(prev || {}), status: nextStatus.value }));
+                                }
+                              }}
+                              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                              title="Sonraki özel durum"
+                              disabled={getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').length === 0}
+                            >
+                              →
+                            </button>
+                          </div>
+                        </div>
                       ) : (
                         <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                           {getStatusText(selectedTask.status)}
@@ -3823,30 +3987,6 @@ function App() {
                       ) : (
                         <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
                           {getPriorityText(selectedTask.priority)}
-                        </div>
-                      )}
-                    </div>
-                    <br />
-                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                        Görev Türü
-                      </label>
-                      {user?.role === 'admin' ? (
-                        <select
-                          value={detailDraft?.task_type || 'development'}
-                          onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), task_type: e.target.value }))}
-                          className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          style={{ height: '40px' }}
-                        >
-                          {getAllTaskTypes().map(taskType => (
-                            <option key={taskType.value} value={taskType.value}>
-                              {taskType.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
-                          {getTaskTypeText(selectedTask.task_type)}
                         </div>
                       )}
                     </div>
@@ -4260,9 +4400,27 @@ function App() {
                         )}
                       </div>
                     </div>
+                    {/* Sistem Durumları (Sabit Alt Butonlar) */}
+                    <div className="bottom-0 left-0 right-0 bg-[#0f172a] p-4 z-[100200]" style={{ alignItems: 'center', paddingBottom: '10px' }}>
+                      <div className="flex gap-2 justify-center max-w-[1400px] mx-auto">
+                        {getSystemTaskStatuses().map(status => (
+                          <button
+                            key={status.value}
+                            type="button"
+                            onClick={() => setDetailDraft(prev => ({ ...(prev || {}), status: status.value }))}
+                            className={`px-6 py-3 rounded-md text-sm font-medium transition-colors flex-1 ${(detailDraft?.status || selectedTask.status) === status.value
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            style={{ backgroundColor: (detailDraft?.status || selectedTask.status) === status.value ? status.color : undefined }}
+                          >
+                            {status.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
-
                 <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 bg-[#0f172a] flex flex-col overflow-hidden">
                   <div className="border-b border-white/10 flex-none" style={{ padding: '10px' }}>
                     <h3 className="text-lg md:text-xl font-semibold text-white">👁️ Son Görüntüleme</h3>
@@ -4295,7 +4453,7 @@ function App() {
 
                   <div className="flex-1 overflow-y-auto scrollbar-stable space-y-4" style={{ padding: '10px' }}>
                     {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
-                      taskHistory.map((h) => (
+                      taskHistory.filter(h => !h.field.includes('_color')).map((h) => (
                         <div key={h.id} className="relative bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 min-w-0 max-w-full overflow-hidden pr-8">
@@ -4310,6 +4468,7 @@ function App() {
                                 !h.field.includes('task_type') && !h.field.includes('date') &&
                                 !h.field.includes('attachments') && !h.field.includes('assigned') &&
                                 !h.field.includes('responsible') && !h.field.includes('assigned_users') &&
+                                !h.field.includes('_color') && // Renk değişikliklerini gizle
                                 !h.new_value.toLowerCase().includes('dosya') &&
                                 !h.new_value.toLowerCase().includes('eklendi') &&
                                 !h.new_value.toLowerCase().includes('silindi') &&
@@ -4476,13 +4635,13 @@ function App() {
                                     );
                                   })()}
                                 </div>
-                              ) : (
+                              ) : renderFieldLabel(h.field) ? (
                                 <div className="text-sm">
                                   <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}</span>{' '}
                                   {renderFieldLabel(h.field)} değiştirdi <br></br> "<span className="text-neutral-300">{renderHistoryValue(h.field, h.old_value)}</span> →{' '}
                                   <span className="text-neutral-300">{renderHistoryValue(h.field, h.new_value)}</span>"
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                             {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
                               <button
@@ -4576,8 +4735,8 @@ function App() {
       {showUserProfile && createPortal(
         <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                 <div></div>
                 <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
@@ -4636,8 +4795,8 @@ function App() {
       {showTeamModal && createPortal(
         <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
-            <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }}>
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+            <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
                 <h2 className="font-semibold text-center">Takım</h2>
                 <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
@@ -4674,9 +4833,9 @@ function App() {
       {showUserPanel && createPortal(
         <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
             <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-              style={{ pointerEvents: 'auto' }}>
+              style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
               <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div className="justify-self-start"></div>
@@ -4970,25 +5129,15 @@ function App() {
       {showTaskSettings && createPortal(
         <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'none' }}>
+          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
             <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-              style={{ pointerEvents: 'auto' }}>
+              style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
               <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div className="justify-self-start">
-                    <button
-                      onClick={handleSaveTaskSettings}
-                      disabled={loading || !hasUnsavedChanges}
-                      className={`px-4 py-2 rounded-lg text-[14px] font-medium transition-colors ${hasUnsavedChanges
-                        ? 'bg-green-600 hover:bg-green-700 text-white animate-pulse'
-                        : 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                        } ${loading ? 'bg-gray-600' : ''}`}
-                    >
-                      {loading ? 'Kaydediliyor...' : hasUnsavedChanges ? '💾 Kaydet *' : '✓ Kaydedildi'}
-                    </button>
                     {hasUnsavedChanges && (
-                      <div className="text-yellow-400 text-[12px] mt-1">
-                        Kaydedilmemiş değişiklikler var
+                      <div className="text-yellow-400 text-[12px]">
+                        Değişiklikler otomatik kaydediliyor...
                       </div>
                     )}
                   </div>
@@ -5024,9 +5173,9 @@ function App() {
                             type="color"
                             value={newTaskTypeColor}
                             onChange={(e) => setNewTaskTypeColor(e.target.value)}
-                            className="w-12 h-10 border border-gray-600 rounded-lg cursor-pointer bg-transparent"
+                            className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
                             title="Renk seç"
-                            style={{ height: '40px' }}
+                            style={{ height: '40px', width: '40px', backgroundColor: newTaskTypeColor, marginLeft: '5px' }}
                           />
                         </div>
                         <button
@@ -5045,25 +5194,67 @@ function App() {
                         {getAllTaskTypes().map(taskType => (
                           <div key={taskType.id || taskType.value} className="rounded-lg p-3 flex items-center justify-between">
                             <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
-                              <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
-                              <span className="text-[18px]">{taskType.label}</span>
-                              <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
-                                {taskType.isCustom && !taskType.isPermanent ? (
-                                  <>
-                                    <button className="text-blue-400 hover:text-blue-300 text-[14px]">Düzenle</button>
+                              {editingTaskTypeId === (taskType.id || taskType.value) ? (
+                                <>
+                                  <input
+                                    type="color"
+                                    value={editingTaskTypeColor}
+                                    onChange={(e) => setEditingTaskTypeColor(e.target.value)}
+                                    className="w-5 h-5 rounded-full cursor-pointer"
+                                    style={{ backgroundColor: taskType.color, width: '24px', height: '24px' }}
+                                    title="Renk seç"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={editingTaskTypeName}
+                                    onChange={(e) => setEditingTaskTypeName(e.target.value)}
+                                    className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                    placeholder="Tür adı"
+                                    style={{ paddingLeft: '5px' }}
+                                  />
+                                  <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
                                     <button
-                                      onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
-                                      className="text-red-400 hover:text-red-300 text-[14px]"
+                                      onClick={handleSaveTaskType}
+                                      className="text-green-400 hover:text-green-300 text-[14px]"
                                     >
-                                      Sil
+                                      Kaydet
                                     </button>
-                                  </>
-                                ) : (
-                                  <span className="text-gray-500 text-[16px]">
-                                    {taskType.isPermanent ? 'Sistem Türü' : 'Silinmez'}
-                                  </span>
-                                )}
-                              </div>
+                                    <button
+                                      onClick={handleCancelEditTaskType}
+                                      className="text-gray-400 hover:text-gray-300 text-[14px]"
+                                    >
+                                      İptal
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
+                                  <span className="text-[18px]" style={{ paddingLeft: '5px' }}>{taskType.label}</span>
+                                  <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
+                                    {taskType.isCustom && !taskType.isPermanent ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleEditTaskType(taskType)}
+                                          className="text-blue-400 hover:text-blue-300 text-[14px]"
+                                        >
+                                          Düzenle
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
+                                          className="text-red-400 hover:text-red-300 text-[14px]"
+                                        >
+                                          Sil
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <span className="text-gray-500 text-[16px]">
+                                        {taskType.isPermanent ? 'Sistem Türü' : 'Silinmez'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -5110,9 +5301,9 @@ function App() {
                             type="color"
                             value={newStatusColor}
                             onChange={(e) => setNewStatusColor(e.target.value)}
-                            className="w-12 h-10 border border-gray-600 rounded-lg cursor-pointer bg-transparent"
+                            className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
                             title="Renk seç"
-                            style={{ height: '40px' }}
+                            style={{ height: '40px', width: '40px', backgroundColor: newStatusColor, marginLeft: '5px' }}
                           />
                         </div>
                         <button
@@ -5126,47 +5317,47 @@ function App() {
 
                     {/* Seçilen Tür için Mevcut Durumlar */}
                     <div className="space-y-3">
-                      <h3 className="text-[20px] font-medium">{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</h3>
+                      <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</div>
 
                       {/* Sistem Durumları (Sabit) */}
                       <div className="mb-4">
-                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Sistem Durumları (Değiştirilemez)</h4>
+                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Sistem Durumları</h4>
                         <div className="space-y-2">
                           {/* Waiting - Default */}
-                          <div className="bg-[#1f2937] rounded-lg p-3 border-l-4 border-yellow-500">
-                            <div className="flex items-center justify-between">
+                          <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                            <div className="flex items-center justify-between h-full">
                               <div className="flex items-center space-x-3">
                                 <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px' }}></div>
-                                <span className="text-[18px] min-w-[120px]">Bekliyor</span>
+                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Bekliyor</span>
                               </div>
                               <div className="flex items-center space-x-4">
-                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right">Varsayılan</span>
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Varsayılan</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Completed */}
-                          <div className="bg-[#1f2937] rounded-lg p-3 border-l-4 border-green-500">
-                            <div className="flex items-center justify-between">
+                          <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                            <div className="flex items-center justify-between h-full">
                               <div className="flex items-center space-x-3">
                                 <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px' }}></div>
-                                <span className="text-[18px] min-w-[120px]">Tamamlandı</span>
+                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Tamamlandı</span>
                               </div>
                               <div className="flex items-center space-x-4">
-                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right">Sistem</span>
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Cancelled */}
-                          <div className="bg-[#1f2937] rounded-lg p-3 border-l-4 border-red-500">
-                            <div className="flex items-center justify-between">
+                          <div className="bg-[#1f2937] rounded-lg p-3 " style={{ marginBottom: '5px', height: '50px' }}>
+                            <div className="flex items-center justify-between h-full">
                               <div className="flex items-center space-x-3">
                                 <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px' }}></div>
-                                <span className="text-[18px] min-w-[120px]">İptal</span>
+                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>İptal</span>
                               </div>
                               <div className="flex items-center space-x-4">
-                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right">Sistem</span>
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
                               </div>
                             </div>
                           </div>
@@ -5175,24 +5366,68 @@ function App() {
 
                       {/* Özel Durumlar (Dinamik) */}
                       <div>
-                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Özel Durumlar ({getTaskTypeText(selectedTaskTypeForStatuses)})</h4>
+                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Özel Durumlar</h4>
                         <div className="space-y-2">
                           {customTaskStatuses[selectedTaskTypeForStatuses]?.length > 0 ? (
                             customTaskStatuses[selectedTaskTypeForStatuses].map(status => (
-                              <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
-                                  <span className="text-[18px]">{status.name || status.label}</span>
-                                </div>
-                                <div className="flex items-center justify-end space-x-2 ml-auto">
-                                  <button className="text-blue-400 hover:text-blue-300 text-[14px]">Düzenle</button>
-                                  <button
-                                    onClick={() => handleDeleteTaskStatus(status.id || status.key)}
-                                    className="text-red-400 hover:text-red-300 text-[14px]"
-                                  >
-                                    Sil
-                                  </button>
-                                </div>
+                              <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between" style={{ marginBottom: '5px', height: '50px' }}>
+                                {editingTaskStatusId === (status.id || status.key) ? (
+                                  <>
+                                    <div className="flex items-center space-x-3 flex-1">
+                                      <input
+                                        type="color"
+                                        value={editingTaskStatusColor}
+                                        onChange={(e) => setEditingTaskStatusColor(e.target.value)}
+                                        className="w-5 h-5 rounded-full border-2 border-white/20 cursor-pointer"
+                                        style={{ backgroundColor: status.color, width: '24px', height: '24px' }}
+                                        title="Renk seç"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={editingTaskStatusName}
+                                        onChange={(e) => setEditingTaskStatusName(e.target.value)}
+                                        className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded !text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                        placeholder="Durum adı"
+                                        style={{ paddingLeft: '5px' }}
+                                      />
+                                    </div>
+                                    <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
+                                      <button
+                                        onClick={handleSaveTaskStatus}
+                                        className="text-green-400 hover:text-green-300 text-[14px]"
+                                      >
+                                        Kaydet
+                                      </button>
+                                      <button
+                                        onClick={handleCancelEditTaskStatus}
+                                        className="text-gray-400 hover:text-gray-300 text-[14px]"
+                                      >
+                                        İptal
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center space-x-3">
+                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
+                                      <span className="!text-[18px]" style={{ paddingLeft: '5px' }}>{status.name || status.label}</span>
+                                    </div>
+                                    <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
+                                      <button
+                                        onClick={() => handleEditTaskStatus(status)}
+                                        className="text-blue-400 hover:text-blue-300 text-[14px]"
+                                      >
+                                        Düzenle
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteTaskStatus(status.id || status.key)}
+                                        className="text-red-400 hover:text-red-300 text-[14px]"
+                                      >
+                                        Sil
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             ))
                           ) : (
