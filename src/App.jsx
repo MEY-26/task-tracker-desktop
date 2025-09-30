@@ -73,7 +73,6 @@ function App() {
   const [newStatusColor, setNewStatusColor] = useState('#ef4444');
   const [customTaskTypes, setCustomTaskTypes] = useState([]);
   const [customTaskStatuses, setCustomTaskStatuses] = useState({});
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Edit mode states
   const [editingTaskTypeId, setEditingTaskTypeId] = useState(null);
@@ -3874,7 +3873,7 @@ function App() {
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {Array.isArray(task.assigned_users) && task.assigned_users.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {task.assigned_users.slice(0, 3).map((u, index) => (
+                          {task.assigned_users.slice(0, 3).map((u) => (
                             <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
                               {typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u)}
                             </span>
