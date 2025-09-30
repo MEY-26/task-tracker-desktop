@@ -3873,14 +3873,14 @@ function App() {
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {Array.isArray(task.assigned_users) && task.assigned_users.length > 0 ? (
                         <div className="flex flex-nowrap gap-1 overflow-hidden">
-                          {task.assigned_users.slice(0, 3).map((u) => (
-                            <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                          {task.assigned_users.slice(0, 2).map((u) => (
+                            <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]">
                               {typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u)}
                             </span>
                           ))}
-                          {task.assigned_users.length > 3 && (
-                            <span className="inline-block bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
-                              +{task.assigned_users.length - 3}
+                          {task.assigned_users.length > 2 && (
+                            <span className="inline-block bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs whitespace-nowrap">
+                              +{task.assigned_users.length - 2}
                             </span>
                           )}
                         </div>
