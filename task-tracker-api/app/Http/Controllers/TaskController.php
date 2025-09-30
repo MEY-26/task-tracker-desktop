@@ -542,12 +542,16 @@ class TaskController extends Controller
         // Collect human-readable change summaries
         $changeSummaries = [];
         $statusMap = [
-            'waiting' => 'Beklemede',
-            'in_progress' => 'Devam Ediyor',
-            'investigating' => 'İnceleniyor',
+            'waiting' => 'Bekliyor',
             'completed' => 'Tamamlandı',
             'cancelled' => 'İptal'
         ];
+        
+        // Custom durumları ekle
+        $customStatuses = \App\Models\TaskStatus::all();
+        foreach ($customStatuses as $status) {
+            $statusMap[$status->id] = $status->name;
+        }
         $priorityMap = [
             'low' => 'Düşük',
             'medium' => 'Orta',
@@ -555,14 +559,14 @@ class TaskController extends Controller
             'critical' => 'Kritik'
         ];
         $typeMap = [
-            'new_product' => 'Yeni Ürün',
-            'fixture' => 'Fikstür',
-            'apparatus' => 'Aparat',
-            'development' => 'Geliştirme',
-            'revision' => 'Revizyon',
-            'mold' => 'Kalıp',
-            'test_device' => 'Test Cihazı',
+            'development' => 'Geliştirme'
         ];
+        
+        // Custom türleri ekle
+        $customTypes = \App\Models\TaskType::all();
+        foreach ($customTypes as $type) {
+            $typeMap[$type->id] = $type->name;
+        }
 
         $formatDate = function ($v) {
             if (!$v) return '-';
