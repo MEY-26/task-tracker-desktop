@@ -195,26 +195,49 @@ task-tracker-desktop/
 │   ├── App.jsx              # Ana uygulama komponenti
 │   ├── main.jsx             # Uygulama giriş noktası
 │   ├── api.js               # API bağlantı ayarları
+│   ├── components/          # React bileşenleri
+│   │   ├── auth/            # Kimlik doğrulama bileşenleri
+│   │   ├── admin/           # Admin paneli bileşenleri
+│   │   └── account/         # Hesap yönetimi bileşenleri
+│   ├── hooks/               # Custom React hooks
+│   ├── utils/               # Yardımcı fonksiyonlar
 │   └── assets/              # Statik dosyalar
 ├── task-tracker-api/        # Laravel API backend
 │   ├── app/
 │   │   ├── Http/Controllers/
 │   │   │   ├── AuthController.php
 │   │   │   ├── TaskController.php
+│   │   │   ├── TaskTypeController.php
+│   │   │   ├── TaskStatusController.php
 │   │   │   ├── UserController.php
 │   │   │   ├── PasswordResetController.php
 │   │   │   └── NotificationController.php
 │   │   ├── Models/
 │   │   │   ├── Task.php
+│   │   │   ├── TaskType.php
+│   │   │   ├── TaskStatus.php
 │   │   │   ├── User.php
 │   │   │   ├── TaskHistory.php
 │   │   │   └── TaskAttachment.php
-│   │   └── Notifications/
-│   │       └── TaskUpdated.php
+│   │   ├── Notifications/
+│   │   │   ├── TaskUpdated.php
+│   │   │   └── PasswordResetRequested.php
+│   │   └── Mail/
+│   │       └── TaskNotificationMail.php
 │   ├── database/
 │   │   ├── database.sqlite  # SQLite veritabanı
 │   │   ├── migrations/      # Veritabanı şemaları
+│   │   │   ├── create_task_types_table.php
+│   │   │   ├── create_task_statuses_table.php
+│   │   │   ├── create_tasks_table.php
+│   │   │   ├── create_task_histories_table.php
+│   │   │   ├── create_notifications_table.php
+│   │   │   ├── create_task_attachments_table.php
+│   │   │   ├── create_weekly_goals_tables.php
+│   │   │   └── add_text_columns_to_tasks_table.php
 │   │   └── seeders/         # Başlangıç verileri
+│   │       ├── DatabaseSeeder.php
+│   │       └── TaskTypeSeeder.php
 │   ├── routes/
 │   │   ├── api.php          # API rotaları
 │   │   └── web.php          # Web rotaları (dosya indirme)
