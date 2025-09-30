@@ -3870,11 +3870,13 @@ function App() {
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {task.start_date ? formatDateOnly(task.start_date) : '-'}
                     </div>
-                    <div className="px-2 text-xs xs:text-sm text-gray-900">
+                    <div className="px-2 text-xs xs:text-sm text-gray-900 whitespace-nowrap overflow-hidden">
                       {Array.isArray(task.assigned_users) && task.assigned_users.length > 0 ? (
                         <div className="flex flex-nowrap gap-1 overflow-hidden">
                           {task.assigned_users.slice(0, 2).map((u) => (
-                            <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs whitespace-nowrap overflow-hidden text-ellipsis max-w-[80px]">
+                            <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
+                              
+                            >
                               {typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u)}
                             </span>
                           ))}
