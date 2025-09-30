@@ -4121,7 +4121,7 @@ function App() {
                         </div>
                       ) : (
                         <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
-                          {getStatusText(selectedTask.status)}
+                          {getStatusText(selectedTask.status, selectedTask)}
                         </div>
                       )}
                     </div>
