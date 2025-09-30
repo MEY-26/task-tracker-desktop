@@ -10,6 +10,8 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\WeeklyGoalController;
+use App\Http\Controllers\TaskTypeController;
+use App\Http\Controllers\TaskStatusController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -63,6 +65,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/weekly-goals/leaderboard', [WeeklyGoalController::class, 'leaderboard']);
     Route::get('/weekly-goals', [WeeklyGoalController::class, 'get']);
     Route::post('/weekly-goals', [WeeklyGoalController::class, 'save']);
+
+    // Task Types
+    Route::get('/task-types', [TaskTypeController::class, 'index']);
+    Route::post('/task-types', [TaskTypeController::class, 'store']);
+    Route::put('/task-types/{taskType}', [TaskTypeController::class, 'update']);
+    Route::delete('/task-types/{taskType}', [TaskTypeController::class, 'destroy']);
+
+    // Task Statuses
+    Route::get('/task-statuses', [TaskStatusController::class, 'index']);
+    Route::post('/task-statuses', [TaskStatusController::class, 'store']);
+    Route::put('/task-statuses/{taskStatus}', [TaskStatusController::class, 'update']);
+    Route::delete('/task-statuses/{taskStatus}', [TaskStatusController::class, 'destroy']);
 
     // admin
     Route::get('/password-reset-requests', [PasswordResetController::class, 'getResetRequests']);

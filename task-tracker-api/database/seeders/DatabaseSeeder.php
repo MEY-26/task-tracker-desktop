@@ -28,5 +28,8 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('1234'),
             'role' => 'admin',
         ]);
+
+        // Task types ve statuses için seeder çalıştır
+        $this->call(TaskTypeSeeder::class);
     }
 }
