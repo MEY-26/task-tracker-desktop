@@ -3875,7 +3875,7 @@ function App() {
                         <div className="flex flex-nowrap gap-1 overflow-hidden">
                           {task.assigned_users.slice(0, 2).map((u) => (
                             <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
-                              
+
                             >
                               {typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u)}
                             </span>

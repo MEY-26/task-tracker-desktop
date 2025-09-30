@@ -84,7 +84,7 @@ class TaskController extends Controller
         $validSystemTypes = ['development']; // System types as strings
         $customTaskTypes = \App\Models\TaskType::where('is_system', false)->pluck('id')->toArray();
         $allValidTypes = array_merge($validSystemTypes, $customTaskTypes);
-        
+
         Log::info('Task creation - task_type validation', [
             'task_type' => $taskType,
             'task_type_type' => gettype($taskType),
@@ -92,19 +92,19 @@ class TaskController extends Controller
             'custom_task_types' => $customTaskTypes,
             'all_valid_types' => $allValidTypes
         ]);
-        
+
         // Type coercion için hem string hem integer kontrolü yap
-        $isValidType = in_array($taskType, $allValidTypes) || 
-                      in_array((string)$taskType, $allValidTypes) || 
-                      in_array((int)$taskType, $allValidTypes);
-        
+        $isValidType = in_array($taskType, $allValidTypes) ||
+            in_array((string)$taskType, $allValidTypes) ||
+            in_array((int)$taskType, $allValidTypes);
+
         if (!$isValidType) {
             Log::warning('Invalid task_type validation failed', [
                 'task_type' => $taskType,
                 'task_type_type' => gettype($taskType),
                 'valid_types' => $allValidTypes
             ]);
-            
+
             return response()->json([
                 'message' => 'Geçersiz görev türü.',
                 'errors' => ['task_type' => ['Seçilen görev türü geçerli değil.']]
@@ -115,12 +115,12 @@ class TaskController extends Controller
         $validSystemStatuses = ['waiting', 'completed', 'cancelled'];
         $customStatuses = \App\Models\TaskStatus::pluck('id')->toArray();
         $allValidStatuses = array_merge($validSystemStatuses, $customStatuses);
-        
+
         // Type coercion için hem string hem integer kontrolü yap
-        $isValidStatus = in_array($status, $allValidStatuses) || 
-                        in_array((string)$status, $allValidStatuses) || 
-                        in_array((int)$status, $allValidStatuses);
-        
+        $isValidStatus = in_array($status, $allValidStatuses) ||
+            in_array((string)$status, $allValidStatuses) ||
+            in_array((int)$status, $allValidStatuses);
+
         if (!$isValidStatus) {
             return response()->json([
                 'message' => 'Geçersiz görev durumu.',
@@ -179,7 +179,7 @@ class TaskController extends Controller
         // Task type text ve color bilgilerini al
         $taskTypeText = 'Geliştirme'; // Default
         $taskTypeColor = '#f59e0b'; // Default
-        
+
         if ($taskType === 'development') {
             $taskTypeText = 'Geliştirme';
             $taskTypeColor = '#f59e0b';
@@ -191,11 +191,11 @@ class TaskController extends Controller
                 $taskTypeColor = $customTaskType->color;
             }
         }
-        
+
         // Status text ve color bilgilerini al
         $statusText = 'Bekliyor'; // Default
         $statusColor = '#6b7280'; // Default
-        
+
         if ($status === 'waiting') {
             $statusText = 'Bekliyor';
             $statusColor = '#6b7280';
@@ -383,12 +383,12 @@ class TaskController extends Controller
             $validSystemTypes = ['development']; // System types as strings
             $customTaskTypes = \App\Models\TaskType::where('is_system', false)->pluck('id')->toArray();
             $allValidTypes = array_merge($validSystemTypes, $customTaskTypes);
-            
+
             // Type coercion için hem string hem integer kontrolü yap
-            $isValid = in_array($taskType, $allValidTypes) || 
-                      in_array((string)$taskType, $allValidTypes) || 
-                      in_array((int)$taskType, $allValidTypes);
-            
+            $isValid = in_array($taskType, $allValidTypes) ||
+                in_array((string)$taskType, $allValidTypes) ||
+                in_array((int)$taskType, $allValidTypes);
+
             if (!$isValid) {
                 return response()->json([
                     'message' => 'Geçersiz görev türü.',
@@ -403,13 +403,13 @@ class TaskController extends Controller
             $validSystemStatuses = ['waiting', 'completed', 'cancelled'];
             $customStatuses = \App\Models\TaskStatus::pluck('id')->toArray();
             $allValidStatuses = array_merge($validSystemStatuses, $customStatuses);
-            
+
             // Convert all to strings for comparison
             $allValidStatusesAsStrings = array_map('strval', $allValidStatuses);
             $statusAsString = (string)$status;
-            
+
             $isValid = in_array($statusAsString, $allValidStatusesAsStrings);
-            
+
             if (!$isValid) {
                 Log::warning('Invalid status validation failed', [
                     'status' => $status,
@@ -417,7 +417,7 @@ class TaskController extends Controller
                     'valid_statuses' => $allValidStatuses,
                     'valid_statuses_as_strings' => $allValidStatusesAsStrings
                 ]);
-                
+
                 return response()->json([
                     'message' => 'Geçersiz görev durumu.',
                     'errors' => ['status' => ['Seçilen görev durumu geçerli değil.']]
@@ -546,7 +546,7 @@ class TaskController extends Controller
             'completed' => 'Tamamlandı',
             'cancelled' => 'İptal'
         ];
-        
+
         // Custom durumları ekle
         $customStatuses = \App\Models\TaskStatus::all();
         foreach ($customStatuses as $status) {
@@ -561,7 +561,7 @@ class TaskController extends Controller
         $typeMap = [
             'development' => 'Geliştirme'
         ];
-        
+
         // Custom türleri ekle
         $customTypes = \App\Models\TaskType::all();
         foreach ($customTypes as $type) {
