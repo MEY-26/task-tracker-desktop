@@ -7,11 +7,12 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 ### 📋 Görev Yönetimi
 - ✅ Görev oluşturma ve düzenleme
 - 📅 Tarih bazlı görev yönetimi (başlangıç/bitiş tarihleri)
-- 🏷️ Görev türü filtreleme (Yeni Ürün, Fikstür, Aparat, Geliştirme, Revizyon, Kalıp, Test Cihazı)
-- 📊 Görev durumu takibi (Bekliyor, Devam Ediyor, Araştırılıyor, Tamamlandı, İptal)
+- 🏷️ **Custom Görev Türleri**: Admin'ler özel görev türleri oluşturabilir ve yönetebilir
+- 📊 **Custom Görev Durumları**: Her görev türü için özel durumlar tanımlanabilir
 - ⭐ Öncelik seviyeleri (Düşük, Orta, Yüksek, Kritik)
 - 📝 Görev geçmişi ve yorum sistemi
 - 🔄 Gerçek zamanlı güncellemeler
+- 🎯 **Akıllı Durum Yönetimi**: Görev türü değiştiğinde durum otomatik reset
 
 ### 👥 Kullanıcı Yönetimi
 - 🎯 Rol tabanlı erişim kontrolü
@@ -341,7 +342,17 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.8.0 - Performans İyileştirmeleri ve Kod Optimizasyonu (Son Güncelleme)
+### v2.9.0 - Görev Türü ve Durum Yönetimi Sistemi (Son Güncelleme)
+- ✅ **Custom Görev Türleri**: Admin'ler özel görev türleri oluşturabilir ve yönetebilir
+- ✅ **Custom Görev Durumları**: Her görev türü için özel durumlar tanımlanabilir
+- ✅ **Gelişmiş Görev Oluşturma**: Görev türü seçimi ve otomatik durum yönetimi
+- ✅ **Görev Detayı İyileştirmeleri**: Görev türü değiştiğinde durum otomatik reset
+- ✅ **Atananlar Listesi Düzenlendi**: Daha düzenli badge görünümü
+- ✅ **Backend API Genişletildi**: TaskType ve TaskStatus controller'ları eklendi
+- ✅ **Veritabanı Şeması Güncellendi**: Yeni tablolar ve migration'lar eklendi
+- ✅ **Kod Temizliği**: Gereksiz import'lar ve kod blokları kaldırıldı
+
+### v2.8.0 - Performans İyileştirmeleri ve Kod Optimizasyonu
 - ✅ **Görev Filtreleme Optimizasyonu**: `filteredTasks` useMemo ile performans artırıldı
 - ✅ **Kod Organizasyonu**: Gereksiz yorumlar ve kullanılmayan component referansları temizlendi
 - ✅ **Filtreleme Mantığı İyileştirildi**: Aktif/tamamlanan tab'lar için daha verimli filtreleme

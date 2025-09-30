@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -1033,6 +1033,7 @@ function App() {
       };
 
 
+
       let response;
       if (newTask.attachments.length > 0) {
         setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
@@ -1306,17 +1307,15 @@ function App() {
         if (detailDraft) {
           if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
             updates.status = detailDraft.status || 'waiting';
-            updates.status_color = getStatusColor(detailDraft.status || 'waiting');
           }
           if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
             updates.priority = detailDraft.priority || 'medium';
           }
           if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
             updates.task_type = detailDraft.task_type || 'development';
-            updates.task_type_color = getTaskTypeColor(detailDraft.task_type || 'development');
           }
-          const currentResponsibleId = selectedTask.responsible?.id || '';
-          if ((detailDraft.responsible_id || '') !== currentResponsibleId) {
+          const currentResponsibleId = selectedTask.responsible?.id || null;
+          if ((detailDraft.responsible_id || null) !== currentResponsibleId) {
             updates.responsible_id = detailDraft.responsible_id || null;
           }
           const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
@@ -1409,9 +1408,9 @@ function App() {
   }
 
   function getTaskTypeText(taskType, task = null) {
-    // Eğer task nesnesi varsa, önce ondan kontrol et
-    if (task && task.task_type === taskType && task.getTaskTypeText) {
-      return task.getTaskTypeText;
+    // Eğer task nesnesi varsa ve task_type_text alanı varsa, onu kullan
+    if (task && task.task_type_text) {
+      return task.task_type_text;
     }
 
     // Tüm türleri al ve eşleştir
@@ -1424,7 +1423,7 @@ function App() {
 
   function getTaskTypeColor(taskType, task = null) {
     // Eğer task nesnesi varsa ve task_type_color alanı varsa, onu kullan
-    if (task && task.task_type === taskType && task.task_type_color) {
+    if (task && task.task_type_color) {
       return task.task_type_color;
     }
 
@@ -1436,8 +1435,13 @@ function App() {
     return foundType ? foundType.color : '#f59e0b';
   }
 
-  function getStatusText(status) {
-    // Tüm durumları al ve eşleştir - taskType parametresi olmadığı için genel aramaya yapalım
+  function getStatusText(status, task = null) {
+    // Eğer task nesnesi varsa ve status_text alanı varsa, onu kullan
+    if (task && task.status_text) {
+      return task.status_text;
+    }
+
+    // Sistem durumları
     const systemStatuses = [
       { value: 'waiting', label: 'Bekliyor' },
       { value: 'completed', label: 'Tamamlandı' },
@@ -1458,8 +1462,13 @@ function App() {
     return status || 'Bekliyor';
   }
 
-  function getStatusColor(status) {
-    // Benzer şekilde durum rengini al
+  function getStatusColor(status, task = null) {
+    // Eğer task nesnesi varsa ve status_color alanı varsa, onu kullan
+    if (task && task.status_color) {
+      return task.status_color;
+    }
+
+    // Sistem durumları
     const systemStatuses = [
       { value: 'waiting', color: '#6b7280' },
       { value: 'completed', color: '#10b981' },
@@ -1467,20 +1476,24 @@ function App() {
     ];
 
     const foundStatus = systemStatuses.find(s => s.value === status);
-    if (foundStatus) return foundStatus.color;
+    if (foundStatus) {
+      return foundStatus.color;
+    }
 
     // Özel durumları kontrol et
     for (const taskType in customTaskStatuses) {
       const customStatus = customTaskStatuses[taskType].find(s =>
         (s.id || s.key || s.value) === status
       );
-      if (customStatus) return customStatus.color;
+      if (customStatus) {
+        return customStatus.color;
+      }
     }
 
     return '#6b7280';
   }
 
-  const handleAddTaskType = () => {
+  const handleAddTaskType = async () => {
     if (!newTaskTypeName.trim()) {
       addNotification('Tür adı boş olamaz', 'error');
       return;
@@ -1502,56 +1515,88 @@ function App() {
       return;
     }
 
-    // Benzersiz ID oluştur
-    const typeId = `type_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    try {
+      const newType = await TaskTypes.create({
+        name: trimmedName,
+        color: newTaskTypeColor
+      });
 
-    const newType = {
-      id: typeId,
-      key: typeId, // Backward compatibility
-      name: trimmedName,
-      color: newTaskTypeColor,
-      isCustom: true,
-      isPermanent: false
-    };
+      setCustomTaskTypes(prev => [...prev, {
+        id: newType.id,
+        key: newType.id,
+        name: newType.name,
+        label: newType.name,
+        color: newType.color,
+        isCustom: true,
+        isPermanent: false
+      }]);
 
-    setCustomTaskTypes(prev => [...prev, newType]);
-    setNewTaskTypeName('');
-    setNewTaskTypeColor('#3b82f6');
-    setHasUnsavedChanges(true);
-    addNotification(`"${newType.name}" türü eklendi`, 'success');
-  }; const handleAddTaskStatus = () => {
+      setNewTaskTypeName('');
+      setNewTaskTypeColor('#3b82f6');
+      addNotification(`"${newType.name}" türü eklendi`, 'success');
+    } catch (error) {
+      console.error('Error creating task type:', error);
+      addNotification('Tür eklenemedi', 'error');
+    }
+  }; const handleAddTaskStatus = async () => {
     if (!newStatusName.trim()) {
       addNotification('Durum adı boş olamaz', 'error');
       return;
     }
 
-    // Benzersiz ID oluştur
-    const statusId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    try {
+      const newStatus = await TaskStatuses.create({
+        task_type_id: selectedTaskTypeForStatuses,
+        name: newStatusName.trim(),
+        color: newStatusColor
+      });
 
-    const newStatus = {
-      id: statusId,
-      key: statusId, // Backward compatibility
-      name: newStatusName.trim(),
-      color: newStatusColor,
-      isCustom: true
-    };
+      setCustomTaskStatuses(prev => ({
+        ...prev,
+        [selectedTaskTypeForStatuses]: [
+          ...(prev[selectedTaskTypeForStatuses] || []),
+          {
+            id: newStatus.id,
+            key: newStatus.id,
+            name: newStatus.name,
+            label: newStatus.name,
+            color: newStatus.color,
+            isCustom: true
+          }
+        ]
+      }));
 
-    setCustomTaskStatuses(prev => ({
-      ...prev,
-      [selectedTaskTypeForStatuses]: [
-        ...(prev[selectedTaskTypeForStatuses] || []),
-        newStatus
-      ]
-    }));
+      setNewStatusName('');
+      setNewStatusColor('#ef4444');
+      addNotification(`"${newStatus.name}" durumu eklendi`, 'success');
+    } catch (error) {
+      console.error('Error creating task status:', error);
+      addNotification('Durum eklenemedi', 'error');
+    }
+  }; const handleDeleteTaskType = async (typeId) => {
+    try {
+      await TaskTypes.delete(typeId);
 
-    setNewStatusName('');
-    setNewStatusColor('#ef4444');
-    setHasUnsavedChanges(true);
-    addNotification(`"${newStatus.name}" durumu eklendi`, 'success');
-  }; const handleDeleteTaskType = (typeId) => {
-    setCustomTaskTypes(prev => prev.filter(type => (type.id || type.key) !== typeId));
-    setHasUnsavedChanges(true);
-    addNotification('Tür silindi', 'success');
+      // Task type'ı custom types'dan kaldır
+      setCustomTaskTypes(prev => prev.filter(type => (type.id || type.key) !== typeId));
+
+      // O türe ait statuses'ları da customTaskStatuses'dan kaldır
+      setCustomTaskStatuses(prev => {
+        const updated = { ...prev };
+        delete updated[typeId];
+        return updated;
+      });
+
+      // Eğer silinen tür seçili tür ise, seçimi sıfırla
+      if (selectedTaskTypeForStatuses === typeId) {
+        setSelectedTaskTypeForStatuses('development'); // Default olarak development'a geç
+      }
+
+      addNotification('Tür silindi', 'success');
+    } catch (error) {
+      console.error('Error deleting task type:', error);
+      addNotification('Tür silinemedi', 'error');
+    }
   };
 
   const handleEditTaskType = (taskType) => {
@@ -1560,7 +1605,7 @@ function App() {
     setEditingTaskTypeColor(taskType.color);
   };
 
-  const handleSaveTaskType = () => {
+  const handleSaveTaskType = async () => {
     if (!editingTaskTypeName.trim()) {
       addNotification('Tür adı boş olamaz', 'error');
       return;
@@ -1584,27 +1629,28 @@ function App() {
       return;
     }
 
-    const updatedTypes = customTaskTypes.map(type =>
-      (type.id || type.key) === editingTaskTypeId
-        ? { ...type, name: trimmedName, label: trimmedName, color: editingTaskTypeColor }
-        : type
-    );
+    try {
+      await TaskTypes.update(editingTaskTypeId, {
+        name: trimmedName,
+        color: editingTaskTypeColor
+      });
 
-    setCustomTaskTypes(updatedTypes);
+      const updatedTypes = customTaskTypes.map(type =>
+        (type.id || type.key) === editingTaskTypeId
+          ? { ...type, name: trimmedName, label: trimmedName, color: editingTaskTypeColor }
+          : type
+      );
 
-    // Doğrudan localStorage'a kaydet
-    const taskSettingsData = {
-      customTaskTypes: updatedTypes,
-      customTaskStatuses,
-      lastUpdated: new Date().toISOString()
-    };
-    localStorage.setItem('taskSettings', JSON.stringify(taskSettingsData));
+      setCustomTaskTypes(updatedTypes);
 
-    setEditingTaskTypeId(null);
-    setEditingTaskTypeName('');
-    setEditingTaskTypeColor('');
-    setHasUnsavedChanges(false);
-    addNotification('Tür güncellendi', 'success');
+      setEditingTaskTypeId(null);
+      setEditingTaskTypeName('');
+      setEditingTaskTypeColor('');
+      addNotification('Tür güncellendi', 'success');
+    } catch (error) {
+      console.error('Error updating task type:', error);
+      addNotification('Tür güncellenemedi', 'error');
+    }
   };
 
   const handleCancelEditTaskType = () => {
@@ -1613,13 +1659,18 @@ function App() {
     setEditingTaskTypeColor('');
   };
 
-  const handleDeleteTaskStatus = (statusId) => {
-    setCustomTaskStatuses(prev => ({
-      ...prev,
-      [selectedTaskTypeForStatuses]: prev[selectedTaskTypeForStatuses]?.filter(status => (status.id || status.key) !== statusId) || []
-    }));
-    setHasUnsavedChanges(true);
-    addNotification('Durum silindi', 'success');
+  const handleDeleteTaskStatus = async (statusId) => {
+    try {
+      await TaskStatuses.delete(statusId);
+      setCustomTaskStatuses(prev => ({
+        ...prev,
+        [selectedTaskTypeForStatuses]: prev[selectedTaskTypeForStatuses]?.filter(status => (status.id || status.key) !== statusId) || []
+      }));
+      addNotification('Durum silindi', 'success');
+    } catch (error) {
+      console.error('Error deleting task status:', error);
+      addNotification('Durum silinemedi', 'error');
+    }
   };
 
   const handleEditTaskStatus = (status) => {
@@ -1628,26 +1679,35 @@ function App() {
     setEditingTaskStatusColor(status.color);
   };
 
-  const handleSaveTaskStatus = () => {
+  const handleSaveTaskStatus = async () => {
     if (!editingTaskStatusName.trim()) {
       addNotification('Durum adı boş olamaz', 'error');
       return;
     }
 
-    setCustomTaskStatuses(prev => ({
-      ...prev,
-      [selectedTaskTypeForStatuses]: prev[selectedTaskTypeForStatuses]?.map(status =>
-        (status.id || status.key) === editingTaskStatusId
-          ? { ...status, name: editingTaskStatusName.trim(), label: editingTaskStatusName.trim(), color: editingTaskStatusColor }
-          : status
-      ) || []
-    }));
+    try {
+      await TaskStatuses.update(editingTaskStatusId, {
+        name: editingTaskStatusName.trim(),
+        color: editingTaskStatusColor
+      });
 
-    setEditingTaskStatusId(null);
-    setEditingTaskStatusName('');
-    setEditingTaskStatusColor('');
-    setHasUnsavedChanges(true);
-    addNotification('Durum güncellendi', 'success');
+      setCustomTaskStatuses(prev => ({
+        ...prev,
+        [selectedTaskTypeForStatuses]: prev[selectedTaskTypeForStatuses]?.map(status =>
+          (status.id || status.key) === editingTaskStatusId
+            ? { ...status, name: editingTaskStatusName.trim(), label: editingTaskStatusName.trim(), color: editingTaskStatusColor }
+            : status
+        ) || []
+      }));
+
+      setEditingTaskStatusId(null);
+      setEditingTaskStatusName('');
+      setEditingTaskStatusColor('');
+      addNotification('Durum güncellendi', 'success');
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      addNotification('Durum güncellenemedi', 'error');
+    }
   };
 
   const handleCancelEditTaskStatus = () => {
@@ -1695,7 +1755,7 @@ function App() {
     // Sadece özel durumlar (türe göre) - ID bazlı sistem
     const customStatuses = (customTaskStatuses[taskType] || []).map((status, index) => ({
       id: status.id || `custom_status_${index}`,
-      value: status.id || status.key || status.value || `custom_status_${index}`,
+      value: String(status.id || status.key || status.value || `custom_status_${index}`),
       label: status.name || status.label,
       color: status.color || '#6b7280',
       isSystem: false
@@ -1713,31 +1773,60 @@ function App() {
   };
 
 
-  const loadTaskSettings = () => {
+  const loadTaskSettings = async () => {
     try {
-      const savedSettings = localStorage.getItem('taskSettings');
-      if (savedSettings) {
-        const { customTaskTypes: savedTypes, customTaskStatuses: savedStatuses } = JSON.parse(savedSettings);
-        setCustomTaskTypes(savedTypes || []);
-        setCustomTaskStatuses(savedStatuses || {});
-      }
+      const [taskTypes, taskStatuses] = await Promise.all([
+        TaskTypes.list(),
+        TaskStatuses.list()
+      ]);
+
+      // Task types'ı formatla
+      const customTypes = taskTypes
+        .filter(type => !type.is_system)
+        .map(type => ({
+          id: type.id,
+          key: type.id,
+          name: type.name,
+          label: type.name,
+          color: type.color,
+          isCustom: true,
+          isPermanent: type.is_permanent
+        }));
+      setCustomTaskTypes(customTypes);
+
+      // Task statuses'ı formatla
+      const statusesByType = {};
+      taskStatuses.forEach(status => {
+        if (!statusesByType[status.task_type_id]) {
+          statusesByType[status.task_type_id] = [];
+        }
+        statusesByType[status.task_type_id].push({
+          id: status.id,
+          key: status.id,
+          name: status.name,
+          label: status.name,
+          color: status.color,
+          isCustom: !status.is_system
+        });
+      });
+      setCustomTaskStatuses(statusesByType);
     } catch (error) {
       console.error('Error loading task settings:', error);
+      // Fallback to localStorage if API fails
+      try {
+        const savedSettings = localStorage.getItem('taskSettings');
+        if (savedSettings) {
+          const { customTaskTypes: savedTypes, customTaskStatuses: savedStatuses } = JSON.parse(savedSettings);
+          setCustomTaskTypes(savedTypes || []);
+          setCustomTaskStatuses(savedStatuses || {});
+        }
+      } catch (localError) {
+        console.error('Error loading from localStorage:', localError);
+      }
     }
   };
 
-  // Otomatik kaydetme - hasUnsavedChanges değiştiğinde
-  useEffect(() => {
-    if (hasUnsavedChanges) {
-      const taskSettingsData = {
-        customTaskTypes,
-        customTaskStatuses,
-        lastUpdated: new Date().toISOString()
-      };
-      localStorage.setItem('taskSettings', JSON.stringify(taskSettingsData));
-      setHasUnsavedChanges(false);
-    }
-  }, [hasUnsavedChanges]);
+  // localStorage otomatik kaydetme kaldırıldı - artık API kullanıyoruz
 
   function formatDate(dateLike) {
     if (!dateLike) return '-';
@@ -1814,9 +1903,56 @@ function App() {
   }
 
   function renderHistoryValue(field, value) {
-    if (field === 'status') return getStatusText(value);
+    if (field === 'status') {
+      // Status için özel kontrol - custom statuses'ları doğru bul
+      const systemStatuses = [
+        { value: 'waiting', label: 'Bekliyor' },
+        { value: 'completed', label: 'Tamamlandı' },
+        { value: 'cancelled', label: 'İptal' }
+      ];
+
+      const foundStatus = systemStatuses.find(s => s.value === value);
+      if (foundStatus) {
+        return foundStatus.label;
+      }
+
+      // Özel durumları kontrol et - tüm task types'larda ara
+      for (const taskType in customTaskStatuses) {
+        const customStatus = customTaskStatuses[taskType].find(s =>
+          (s.id || s.key || s.value) == value || s.id == value || s.key == value
+        );
+        if (customStatus) {
+          return customStatus.name || customStatus.label;
+        }
+      }
+
+      // Eğer hala bulunamadıysa, value'yu string olarak döndür
+      return value || 'Bekliyor';
+    }
     if (field === 'priority') return getPriorityText(value);
-    if (field === 'task_type') return getTaskTypeText(value);
+    if (field === 'task_type') {
+      // Task type için özel kontrol - custom types'ları doğru bul
+      const systemTypes = [
+        { value: 'development', label: 'Geliştirme' }
+      ];
+
+      const foundType = systemTypes.find(t => t.value === value);
+      if (foundType) {
+        return foundType.label;
+      }
+
+      // Özel türleri kontrol et - daha kapsamlı arama
+      const allTypes = getAllTaskTypes();
+      const customType = allTypes.find(t =>
+        (t.id || t.key || t.value) == value || t.id == value || t.key == value
+      );
+      if (customType) {
+        return customType.label || customType.name;
+      }
+
+      // Eğer hala bulunamadıysa, value'yu string olarak döndür
+      return value || 'Geliştirme';
+    }
     if (field === 'comment') return value ?? '';
     if (field === 'responsible_id' || field === 'created_by') return resolveUserName(value);
     if (field === 'start_date' || field === 'due_date' || field === 'end_date') return formatDateOnly(value);
@@ -2434,7 +2570,7 @@ function App() {
   if (!user && !loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4 z-[999800]">
-        <div className="bg-black/20 backdrop-blur-sm rounded-2xl border-gray-800/50 p-8 shadow-2xl w-full max-w-md" style={{ minWidth: '400px' }}>
+        <div className="bg-black/20 backdrop-blur-sm rounded-2xl border-gray-800/50 p-8 shadow-2xl w-full max-w-md" style={{ minWidth: '400px', maxWidth: '400px' }}>
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">
               <img src={logo} alt="Logo" className="w-16 h-16" />
@@ -2474,9 +2610,10 @@ function App() {
                 type="email"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 text-gray-900 focus:outline-none focus:ring-0 text-base text-[32px]"
+                className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 text-gray-900 focus:outline-none focus:ring-0 text-base text-[24px]"
                 placeholder="Mail Adresinizi Giriniz"
                 required
+                style={{ height: '40px' }}
               />
             </div>
             <br />
@@ -2490,13 +2627,14 @@ function App() {
                     type="password"
                     value={loginForm.password}
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 pr-12 text-gray-900 focus:outline-none focus:ring-0 text-base text-[32px]"
+                    className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 pr-12 text-gray-900 focus:outline-none focus:ring-0 text-base text-[24px]"
                     placeholder="Şifrenizi Giriniz"
                     required
                     autoComplete="current-password"
                     autoCorrect="off"
                     autoCapitalize="off"
                     spellCheck="false"
+                    style={{ height: '40px' }}
                   />
                 </div>
                 <br />
@@ -2531,7 +2669,6 @@ function App() {
             </button>
           </div>
         </div>
-
       </div>
     );
   }
@@ -2626,22 +2763,7 @@ function App() {
                       </span>
                     </button>
                   )}
-                  {user?.role === 'admin' && (
-                    <button
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        setShowWeeklyOverview(true);
-                        loadWeeklyOverview(null);
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                      style={{ padding: '10px' }}
-                    >
-                      <span className="flex items-center gap-2 whitespace-nowrap">
-                        <span>🎯</span>
-                        <span>Haftalık Hedef</span>
-                      </span>
-                    </button>
-                  )}
+
                   {user?.role === 'admin' && (
                     <button
                       onClick={() => {
@@ -2846,35 +2968,8 @@ function App() {
                 </div>
                 <br />
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Tarihler</label>
-                  <div className="flex flex-row gap-2 sm:gap-4">
-                    <div className="flex-1">
-                      <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
-                      <input
-                        type="date"
-                        value={newTask.start_date}
-                        onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
-                      />
-                    </div>
-                    <span className="w-[20px]"></span>
-                    <div className="flex-1">
-                      <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
-                      <input
-                        type="date"
-                        value={newTask.due_date}
-                        onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <br />
-                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Atananlar</label>
-                  <div className="w-full rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Atananlar</label>
+                  <div className="rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
                     {newTask.assigned_users.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
                         {newTask.assigned_users.map((userId) => {
@@ -2969,6 +3064,34 @@ function App() {
                     </div>
                   </div>
                 </div>
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Tarihler</label>
+                  <div className="flex flex-row gap-2 sm:gap-4">
+                    <div className="flex-1">
+                      <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
+                      <input
+                        type="date"
+                        value={newTask.start_date}
+                        onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ minHeight: '48px' }}
+                      />
+                    </div>
+                    <span className="w-[20px]"></span>
+                    <div className="flex-1">
+                      <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
+                      <input
+                        type="date"
+                        value={newTask.due_date}
+                        onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ minHeight: '48px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <br />
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                   <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Dosyalar</label>
@@ -3437,7 +3560,7 @@ function App() {
           <div className="flex justify-center">
             <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
               <div className="space-y-4" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
-                <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 overflow-x-auto">
+                <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ paddingBottom: '10px' }}>
                   <button
                     onClick={() => {
                       setShowWeeklyOverview(false);
@@ -3563,6 +3686,22 @@ function App() {
 
 
                 <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setShowWeeklyOverview(true);
+                        loadWeeklyOverview(null);
+                      }}
+                      className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                      style={{ marginRight: '5px' }}
+                    >
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <span>🎯</span>
+                        <span>Haftalık Hedef</span>
+                      </span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setActiveTab('active')}
                     className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
@@ -3592,7 +3731,6 @@ function App() {
                   >
                     İptal ({taskCounts.deleted})
                   </button>
-
                   <div className="relative" style={{ marginLeft: '5px' }}>
                     <select
                       value={selectedTaskType}
@@ -3613,7 +3751,6 @@ function App() {
                       </svg>
                     </div>
                   </div>
-
                   <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
                     <input
                       type="text"
@@ -3734,10 +3871,23 @@ function App() {
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {task.start_date ? formatDateOnly(task.start_date) : '-'}
                     </div>
-                    <div className="px-2 text-xs xs:text-sm text-gray-900 truncate">
-                      {Array.isArray(task.assigned_users) && task.assigned_users.length > 0
-                        ? task.assigned_users.map(u => (typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u))).join(', ')
-                        : '-'}
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
+                      {Array.isArray(task.assigned_users) && task.assigned_users.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {task.assigned_users.slice(0, 3).map((u, index) => (
+                            <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                              {typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u)}
+                            </span>
+                          ))}
+                          {task.assigned_users.length > 3 && (
+                            <span className="inline-block bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+                              +{task.assigned_users.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
                     </div>
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
@@ -3751,13 +3901,13 @@ function App() {
                           <div
                             className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
                             style={{
-                              backgroundColor: getStatusColor(task.status),
+                              backgroundColor: getStatusColor(task.status, task),
                               border: '3px solid rgba(255, 255, 255, 0.3)',
                               boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
                               width: '24px',
                               height: '24px'
                             }}
-                            title={getStatusText(task.status)}
+                            title={getStatusText(task.status, task)}
                           ></div>
                           <div
                             className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
@@ -3771,7 +3921,7 @@ function App() {
                             }}
                           >
                             <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
-                            <div className="text-justify">Durum: {getStatusText(task.status)}</div>
+                            <div className="text-justify">Durum: {getStatusText(task.status, task)}</div>
                             <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
                             <div
                               className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
@@ -3876,7 +4026,14 @@ function App() {
                       {user?.role === 'admin' ? (
                         <select
                           value={detailDraft?.task_type || 'development'}
-                          onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), task_type: e.target.value }))}
+                          onChange={(e) => {
+                            const newTaskType = e.target.value;
+                            setDetailDraft(prev => ({
+                              ...(prev || {}),
+                              task_type: newTaskType,
+                              status: 'waiting' // Görev türü değiştiğinde durumu Bekliyor'a reset et
+                            }));
+                          }}
                           className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ height: '40px' }}
                         >
@@ -3906,7 +4063,8 @@ function App() {
                               type="button"
                               onClick={() => {
                                 const currentStatus = detailDraft?.status || '';
-                                const customStatuses = getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development');
+                                const taskType = detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development';
+                                const customStatuses = getAllTaskStatuses(taskType);
                                 const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
                                 if (currentIndex > 0) {
                                   const prevStatus = customStatuses[currentIndex - 1];
@@ -3915,21 +4073,21 @@ function App() {
                               }}
                               className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
                               title="Önceki özel durum"
-                              disabled={getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').length === 0}
+                              disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
                             >
                               ←
                             </button>
-                            
+
                             {/* Durum Select - Sadece Özel Durumlar */}
-                            {getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').length > 0 ? (
+                            {getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length > 0 ? (
                               <select
                                 value={detailDraft?.status || ''}
                                 onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), status: e.target.value }))}
                                 className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 style={{ height: '40px' }}
                               >
-                                <option value="">Özel durum seçin...</option>
-                                {getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').map(status => (
+                                <option value="">Durum seçin...</option>
+                                {getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').map(status => (
                                   <option key={status.value} value={status.value}>
                                     {status.label}
                                   </option>
@@ -3937,16 +4095,17 @@ function App() {
                               </select>
                             ) : (
                               <div className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-gray-100 text-gray-500 flex items-center" style={{ height: '40px' }}>
-                                Özel durum yok
+                                Durum yok
                               </div>
                             )}
-                            
+
                             {/* Sonraki Durum Butonu */}
                             <button
                               type="button"
                               onClick={() => {
                                 const currentStatus = detailDraft?.status || '';
-                                const customStatuses = getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development');
+                                const taskType = detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development';
+                                const customStatuses = getAllTaskStatuses(taskType);
                                 const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
                                 if (currentIndex < customStatuses.length - 1) {
                                   const nextStatus = customStatuses[currentIndex + 1];
@@ -3955,7 +4114,7 @@ function App() {
                               }}
                               className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
                               title="Sonraki özel durum"
-                              disabled={getAllTaskStatuses(selectedTask.task_type || selectedTask.type || 'development').length === 0}
+                              disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
                             >
                               →
                             </button>
@@ -4139,8 +4298,8 @@ function App() {
                                   const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
                                   const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
                                   return (
-                                    <span key={id} className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm max-w-[240px]">
-                                      <span className="truncate">{name}</span>
+                                    <span key={id} className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm max-w-[240px]" style={{ paddingRight: '10px' }}>
+                                      <span className="truncate">{name} | </span>
                                     </span>
                                   );
                                 })}
@@ -5321,7 +5480,6 @@ function App() {
 
                       {/* Sistem Durumları (Sabit) */}
                       <div className="mb-4">
-                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Sistem Durumları</h4>
                         <div className="space-y-2">
                           {/* Waiting - Default */}
                           <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
@@ -5363,10 +5521,8 @@ function App() {
                           </div>
                         </div>
                       </div>
-
                       {/* Özel Durumlar (Dinamik) */}
                       <div>
-                        <h4 className="text-[16px] font-medium text-gray-300 mb-2">Özel Durumlar</h4>
                         <div className="space-y-2">
                           {customTaskStatuses[selectedTaskTypeForStatuses]?.length > 0 ? (
                             customTaskStatuses[selectedTaskTypeForStatuses].map(status => (
@@ -5431,10 +5587,10 @@ function App() {
                               </div>
                             ))
                           ) : (
-                            <div className="text-gray-400 text-center py-4 border-2 border-dashed border-gray-600 rounded-lg">
+                            <div className="text-gray-400 text-center text-[18px] py-4 border-2 border-dashed border-gray-600 rounded-lg">
                               Bu görev türü için henüz özel durum tanımlanmamış.
                               <br />
-                              <span className="text-[14px]">Yukarıdan yeni durum ekleyebilirsiniz.</span>
+                              Yukarıdan yeni durum ekleyebilirsiniz.
                             </div>
                           )}
                         </div>

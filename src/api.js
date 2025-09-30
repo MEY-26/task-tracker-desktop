@@ -581,4 +581,89 @@ export const Team = {
   }
 };
 
+export const TaskTypes = {
+  list: async () => {
+    try {
+      const response = await api.get('/task-types');
+      return response.data;
+    } catch (error) {
+      console.error('Task types fetch error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  create: async (taskTypeData) => {
+    try {
+      const response = await api.post('/task-types', taskTypeData);
+      return response.data;
+    } catch (error) {
+      console.error('Task type create error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  update: async (taskTypeId, taskTypeData) => {
+    try {
+      const response = await api.put(`/task-types/${taskTypeId}`, taskTypeData);
+      return response.data;
+    } catch (error) {
+      console.error('Task type update error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  delete: async (taskTypeId) => {
+    try {
+      const response = await api.delete(`/task-types/${taskTypeId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Task type delete error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
+export const TaskStatuses = {
+  list: async (taskTypeId = null) => {
+    try {
+      const params = taskTypeId ? { task_type_id: taskTypeId } : {};
+      const response = await api.get('/task-statuses', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Task statuses fetch error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  create: async (taskStatusData) => {
+    try {
+      const response = await api.post('/task-statuses', taskStatusData);
+      return response.data;
+    } catch (error) {
+      console.error('Task status create error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  update: async (taskStatusId, taskStatusData) => {
+    try {
+      const response = await api.put(`/task-statuses/${taskStatusId}`, taskStatusData);
+      return response.data;
+    } catch (error) {
+      console.error('Task status update error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  delete: async (taskStatusId) => {
+    try {
+      const response = await api.delete(`/task-statuses/${taskStatusId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Task status delete error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
 export default api;
