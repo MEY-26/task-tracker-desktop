@@ -5295,11 +5295,6 @@ function App() {
               <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                   <div className="justify-self-start">
-                    {hasUnsavedChanges && (
-                      <div className="text-yellow-400 text-[12px]">
-                        Değişiklikler otomatik kaydediliyor...
-                      </div>
-                    )}
                   </div>
                   <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Ayarları</h2>
                   <div className="justify-self-end">
