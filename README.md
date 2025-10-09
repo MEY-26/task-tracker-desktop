@@ -384,6 +384,16 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 - ✅ **Laravel Controller'ları Eklendi**: WeeklyGoalController ve PasswordResetRequested notification
 - ✅ **Gitignore Düzeltildi**: Laravel app klasörü artık GitHub'da mevcut
 
+### v2.8.0 - Kalıcı Dosya İndirme Sistemi
+- ✅ **Zaman Sınırı Kaldırıldı**: Dosyalar artık süresiz erişilebilir
+- ✅ **Token Tabanlı Güvenlik**: MD5 hash ile korumalı kalıcı indirme linkleri
+- ✅ **Signed URL Sistemi Kaldırıldı**: Expires parametresi ve signature hatalarının çözümü
+- ✅ **Cache Friendly URLs**: Bookmark'a kaydedilebilir, paylaşılabilir dosya linkleri
+- ✅ **Geliştirilmiş Hata Yönetimi**: Dosya bulunamadı ve geçersiz token durumları için detaylı mesajlar
+- ✅ **Fallback Sistem**: download_url → storage URL yedekleme mekanizması
+- ✅ **Backend Optimizasyonu**: showAttachment metodu kaldırıldı, tek endpoint sistemi
+- ✅ **Güvenlik Artırımı**: Token kontrolü ile yetkisiz erişim engellenmiş
+
 ### v2.7.3 - Dosya İndirme ve UI İyileştirmeleri
 - ✅ **Dosya İndirme Sorunu Çözüldü**: Dosyalar artık orijinal isimleriyle ve uzantılarıyla iniyor
 - ✅ **Backend İyileştirmesi**: Attachment endpoint'i güncellendi, proper download header'ları eklendi
