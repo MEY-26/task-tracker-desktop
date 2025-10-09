@@ -365,7 +365,17 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.9.0 - Görev Türü ve Durum Yönetimi Sistemi (Son Güncelleme)
+### v2.9.1 - Kalıcı Dosya İndirme Sistemi (Son Güncelleme)
+- ✅ **Zaman Sınırı Kaldırıldı**: Dosyalar artık süresiz erişilebilir
+- ✅ **Token Tabanlı Güvenlik**: MD5 hash ile korumalı kalıcı indirme linkleri
+- ✅ **Signed URL Sistemi Kaldırıldı**: Expires parametresi ve signature hatalarının çözümü
+- ✅ **Cache Friendly URLs**: Bookmark'a kaydedilebilir, paylaşılabilir dosya linkleri
+- ✅ **Geliştirilmiş Hata Yönetimi**: Dosya bulunamadı ve geçersiz token durumları için detaylı mesajlar
+- ✅ **Fallback Sistem**: download_url → storage URL yedekleme mekanizması
+- ✅ **Backend Optimizasyonu**: showAttachment metodu kaldırıldı, tek endpoint sistemi
+- ✅ **Güvenlik Artırımı**: Token kontrolü ile yetkisiz erişim engellenmiş
+
+### v2.9.0 - Görev Türü ve Durum Yönetimi Sistemi
 - ✅ **Custom Görev Türleri**: Admin'ler özel görev türleri oluşturabilir ve yönetebilir
 - ✅ **Custom Görev Durumları**: Her görev türü için özel durumlar tanımlanabilir
 - ✅ **Gelişmiş Görev Oluşturma**: Görev türü seçimi ve otomatik durum yönetimi
@@ -383,16 +393,6 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 - ✅ **CI/CD Hataları Çözüldü**: GitHub Actions pipeline'ı başarılı çalışıyor
 - ✅ **Laravel Controller'ları Eklendi**: WeeklyGoalController ve PasswordResetRequested notification
 - ✅ **Gitignore Düzeltildi**: Laravel app klasörü artık GitHub'da mevcut
-
-### v2.8.0 - Kalıcı Dosya İndirme Sistemi
-- ✅ **Zaman Sınırı Kaldırıldı**: Dosyalar artık süresiz erişilebilir
-- ✅ **Token Tabanlı Güvenlik**: MD5 hash ile korumalı kalıcı indirme linkleri
-- ✅ **Signed URL Sistemi Kaldırıldı**: Expires parametresi ve signature hatalarının çözümü
-- ✅ **Cache Friendly URLs**: Bookmark'a kaydedilebilir, paylaşılabilir dosya linkleri
-- ✅ **Geliştirilmiş Hata Yönetimi**: Dosya bulunamadı ve geçersiz token durumları için detaylı mesajlar
-- ✅ **Fallback Sistem**: download_url → storage URL yedekleme mekanizması
-- ✅ **Backend Optimizasyonu**: showAttachment metodu kaldırıldı, tek endpoint sistemi
-- ✅ **Güvenlik Artırımı**: Token kontrolü ile yetkisiz erişim engellenmiş
 
 ### v2.7.3 - Dosya İndirme ve UI İyileştirmeleri
 - ✅ **Dosya İndirme Sorunu Çözüldü**: Dosyalar artık orijinal isimleriyle ve uzantılarıyla iniyor
