@@ -4386,10 +4386,12 @@ function App() {
                                       <div className="flex-1 min-w-0">
                                         <a
                                           href={(() => {
-                                            if (a.signed_url) {
-                                              const url = a.signed_url;
-                                              return url.startsWith('http') ? url : `http://localhost:8000${url.startsWith('/') ? '' : '/'}${url}`;
+                                            // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
+                                            if (a.download_url) {
+                                              const url = a.download_url;
+                                              return url.startsWith('http') ? url : `${apiOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
                                             }
+                                            // Fallback: direct storage URL (eğer public storage varsa)
                                             if (a.url) return a.url;
                                             if (a.path) return `${apiOrigin}/storage/${a.path}`;
                                             return '#';
@@ -4452,10 +4454,12 @@ function App() {
                                   <div key={a.id} className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
                                     <a
                                       href={(() => {
-                                        if (a.signed_url) {
-                                          const url = a.signed_url;
-                                          return url.startsWith('http') ? url : `http://localhost:8000${url.startsWith('/') ? '' : '/'}${url}`;
+                                        // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
+                                        if (a.download_url) {
+                                          const url = a.download_url;
+                                          return url.startsWith('http') ? url : `${apiOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
                                         }
+                                        // Fallback: direct storage URL (eğer public storage varsa)
                                         if (a.url) return a.url;
                                         if (a.path) return `${apiOrigin}/storage/${a.path}`;
                                         return '#';
