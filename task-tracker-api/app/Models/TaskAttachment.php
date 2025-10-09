@@ -12,7 +12,7 @@ class TaskAttachment extends Model
         'task_id',
     ];
 
-    protected $appends = ['url', 'signed_url'];
+    protected $appends = ['url', 'download_url'];
 
     public function getUrlAttribute()
     {
@@ -20,10 +20,12 @@ class TaskAttachment extends Model
         return asset('storage/' . ltrim($this->path, '/'));
     }
 
-    public function getSignedUrlAttribute()
+    public function getDownloadUrlAttribute()
     {
-        // 1 saat geçerli imzalı link
-        return \Illuminate\Support\Facades\URL::signedRoute('attachments.show', ['attachment' => $this->id], now()->addHour());
+        // Kalıcı token tabanlı indirme URL'si - ZAMAN SINIRI YOK!
+        // Dosya silinmediği sürece süresiz erişim
+        $token = md5($this->id . $this->created_at . config('app.key'));
+        return route('attachments.download', ['attachment' => $this->id, 'token' => $token]);
     }
 
     public function task()

@@ -891,18 +891,29 @@ class TaskController extends Controller
         return response()->json(['message' => $message]);
     }
 
-    public function showAttachment(TaskAttachment $attachment)
+    public function downloadAttachment(TaskAttachment $attachment, $token)
     {
+        // Kalıcı token kontrolü - dosya ve görev silinmediği sürece geçerli
+        $expectedToken = md5($attachment->id . $attachment->created_at . config('app.key'));
+        if ($token !== $expectedToken) {
+            abort(403, 'Geçersiz veya süresi dolmuş dosya linki');
+        }
+
+        // Dosyanın fiziksel varlığını kontrol et
         if (!Storage::disk('public')->exists($attachment->path)) {
-            abort(404);
+            abort(404, 'Dosya sunucuda bulunamadı');
         }
 
         $filePath = Storage::disk('public')->path($attachment->path);
         $originalName = $attachment->original_name;
 
+        // Dosyayı güvenli şekilde indir
         return response()->file($filePath, [
-            'Content-Disposition' => 'attachment; filename="' . $originalName . '"',
-            'Content-Type' => Storage::mimeType($attachment->path),
+            'Content-Disposition' => 'attachment; filename="' . addslashes($originalName) . '"',
+            'Content-Type' => Storage::mimeType($attachment->path) ?: 'application/octet-stream',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0'
         ]);
     }
 

@@ -3,9 +3,11 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TaskController;
 
-Route::get('/attachments/{attachment}', [TaskController::class, 'showAttachment'])
-    ->name('attachments.show')
-    ->middleware('signed');
+// Kalıcı token tabanlı dosya indirme - ZAMAN SINIRI YOK!
+// Dosya ve görev silinmediği sürece bu link süresiz çalışır
+Route::get('/attachments/{attachment}/download/{token}', [TaskController::class, 'downloadAttachment'])
+    ->name('attachments.download')
+    ->where('token', '[a-zA-Z0-9]+');
 
 // Error page route
 Route::get('/', function () {
