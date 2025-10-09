@@ -5062,15 +5062,16 @@ function App() {
                       <select
                         value={bulkLeaderId}
                         onChange={(e) => setBulkLeaderId(e.target.value)}
-                        style={{ paddingLeft: '5px', marginRight: '30px' }}
-                        className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !w-[50%]"
+                        style={{ paddingLeft: '5px', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !max-w-[250px] !w-[250px] truncate"
+                        title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçin'}
                       >
                         <option value="">Lider Seçin</option>
                         <option value="remove">Lideri Kaldır</option>
                         {Array.isArray(users) && users
                           .filter(u => u.role === 'team_leader' || u.role === 'admin')
                           .map(leader => (
-                            <option key={`bulk-${leader.id}`} value={leader.id}>
+                            <option key={`bulk-${leader.id}`} value={leader.id} title={`${leader.name} (${getRoleText(leader.role)})`}>
                               {leader.name} ({getRoleText(leader.role)})
                             </option>
                           ))}
@@ -5177,15 +5178,15 @@ function App() {
                                       }`}
                                     style={{ scale: '3', marginLeft: '15px', marginRight: '20px' }}
                                   />
-                                  <div>
-                                    <div className="text-base font-medium truncate text-white">{u.name}</div>
-                                    <div className="text-xs text-gray-400 truncate mt-1">{u.email}</div>
+                                  <div className="flex-1 min-w-0 max-w-[300px]">
+                                    <div className="text-base font-medium truncate text-white" title={u.name}>{u.name}</div>
+                                    <div className="text-xs text-gray-400 truncate mt-1" title={u.email}>{u.email}</div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
                                   {(u.role === 'team_member') && (
                                     <select
-                                      className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[200px] !w-[200px] truncate"
                                       value={u.leader_id || ''}
                                       onChange={async (e) => {
                                         const val = e.target.value ? parseInt(e.target.value) : null;
@@ -5198,11 +5199,12 @@ function App() {
                                           addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
                                         }
                                       }}
-                                      style={{ padding: '5px' }}
+                                      style={{ padding: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                      title={u.leader_id ? users.find(x => x.id === u.leader_id)?.name + ' (' + getRoleText(users.find(x => x.id === u.leader_id)?.role) + ')' : 'Lider Yok'}
                                     >
                                       <option value="">Lider Yok</option>
                                       {Array.isArray(users) && users.filter(x => x.role === 'team_leader' || x.role === 'admin').map(l => (
-                                        <option key={`ldr-${l.id}`} value={l.id}>{l.name} ({getRoleText(l.role)})</option>
+                                        <option key={`ldr-${l.id}`} value={l.id} title={`${l.name} (${getRoleText(l.role)})`}>{l.name} ({getRoleText(l.role)})</option>
                                       ))}
                                     </select>
                                   )}
@@ -5229,10 +5231,11 @@ function App() {
                                   </button>
                                   <div className="flex items-center gap-2">
                                     <select
-                                      className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[120px] !w-[120px]"
                                       value={u.role}
                                       onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
-                                      style={{ padding: '5px', marginLeft: '10px' }}
+                                      style={{ padding: '5px', marginLeft: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                      title={getRoleText(u.role)}
                                     >
                                       <option value="admin">Yönetici</option>
                                       <option value="team_leader">Takım Lideri</option>
