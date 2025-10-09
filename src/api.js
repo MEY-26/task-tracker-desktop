@@ -65,14 +65,18 @@ api.interceptors.response.use(
                         error.response?.data?.error === 'Unauthenticated.');
     
     if (isAuthError) {
+      const hadToken = !!localStorage.getItem('jwt') && localStorage.getItem('jwt') !== 'null' && localStorage.getItem('jwt') !== 'undefined';
       localStorage.removeItem('jwt');
       console.error('Token geçersiz veya süresi dolmuş, oturum sonlandırıldı');
-      
-      // Sadece kritik sayfalarda reload yap, notification gibi arka plan isteklerinde yapma
-      if (window.location.pathname !== '/login' && 
-          !error.config?.url?.includes('/notifications') &&
-          !error.config?.url?.includes('/history') &&
-          !error.config?.url?.includes('/task-views')) {
+
+      // Login ekranında veya token yokken asla reload yapma
+      const isLoginPage = window.location.pathname === '/login' || !hadToken;
+
+      // Arka plan/ayarsal uç noktalar için de reload yapma
+      const url = error.config?.url || '';
+      const isBackgroundEndpoint = url.includes('/notifications') || url.includes('/history') || url.includes('/task-views') || url.includes('/task-types') || url.includes('/task-statuses');
+
+      if (!isLoginPage && !isBackgroundEndpoint) {
         console.warn('Critical auth error, reloading page');
         window.location.reload();
       }

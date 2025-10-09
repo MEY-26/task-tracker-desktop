@@ -833,10 +833,12 @@ function App() {
     }
   }
 
-  // Load saved task settings on component mount
+  // Load task settings only after authentication
   useEffect(() => {
-    loadTaskSettings();
-  }, []);
+    if (user?.id) {
+      loadTaskSettings();
+    }
+  }, [user?.id]);
 
   // Ensure users refresh when the panel is opened (avoids stale state race)
   useEffect(() => {
