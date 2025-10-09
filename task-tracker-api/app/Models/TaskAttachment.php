@@ -28,6 +28,12 @@ class TaskAttachment extends Model
         return route('attachments.download', ['attachment' => $this->id, 'token' => $token]);
     }
 
+    // SIGNED URL'yi devre dışı bırak - artık kullanmıyoruz
+    public function getSignedUrlAttribute()
+    {
+        return null; // Signed URL'yi tamamen devre dışı bırak
+    }
+
     public function task()
     {
         return $this->belongsTo(Task::class);

@@ -917,6 +917,25 @@ class TaskController extends Controller
         ]);
     }
 
+    // DEBUG: Test attachment URLs
+    public function debugAttachment($id)
+    {
+        $attachment = TaskAttachment::find($id);
+        if (!$attachment) {
+            return response()->json(['error' => 'Attachment not found'], 404);
+        }
+        
+        return response()->json([
+            'id' => $attachment->id,
+            'original_name' => $attachment->original_name,
+            'path' => $attachment->path,
+            'url' => $attachment->url,
+            'download_url' => $attachment->download_url,
+            'created_at' => $attachment->created_at,
+            'full_attributes' => $attachment->toArray(),
+        ]);
+    }
+
     public function respond(Request $request, Task $task)
     {
         $user = $request->user();
