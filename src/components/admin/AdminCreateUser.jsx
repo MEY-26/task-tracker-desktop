@@ -10,7 +10,9 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
     role: 'team_member',
   });
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
     if (!form.name.trim() || !form.email.trim() || !form.password || !form.password_confirmation) {
       pushToast?.('Lütfen tüm alanları doldurun', 'error');
       return;
@@ -42,7 +44,7 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
   return (
     <div className="space-y-6">
       <div className="border-b border-white/10 pb-4" style={{ paddingBottom: '30px' }}>
-        <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <input
             className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
             placeholder="İsim"
@@ -53,6 +55,8 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
 
           <input
             type="email"
+            name="username"
+            autoComplete="username"
             className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
             placeholder="E-posta"
             value={form.email}
@@ -70,6 +74,8 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck="false"
+            data-lpignore="true"
+            name="password"
             style={{ marginBottom: '10px' }}
           />
 
@@ -83,6 +89,8 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck="false"
+            data-lpignore="true"
+            name="password-confirm"
             style={{ marginBottom: '10px' }}
           />
 
@@ -99,14 +107,13 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
           </select>
 
           <button
-            type="button"
-            onClick={handleSubmit}
+            type="submit"
             className="w-[101%] rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]"
             style={{ marginBottom: '10px' }}
           >
             Kullanıcı Ekle
           </button>
-        </div>
+        </form>
       </div>
 
       <div className="border-white/10 pb-4">

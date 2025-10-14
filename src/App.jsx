@@ -103,6 +103,7 @@ function App() {
   const notifPanelRef = useRef(null);
   const [notifPos, setNotifPos] = useState({ top: 64, right: 16 });
   const badgeCount = Array.isArray(notifications) ? notifications.filter(n => !n.isFrontendNotification && !n.read_at).length : 0;
+  const prevWeeklyDataRef = useRef({ items: null, leaveMinutes: null });
   const [historyDeleteMode, setHistoryDeleteMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -115,6 +116,7 @@ function App() {
   const [attachmentsExpanded, setAttachmentsExpanded] = useState(false);
   const [detailDraft, setDetailDraft] = useState(null);
   const assigneeDetailInputRef = useRef(null);
+  const [weeklySaveState, setWeeklySaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
 
   function getMonday(date = new Date()) {
     const d = new Date(date);
@@ -362,10 +364,17 @@ function App() {
 
   async function saveWeeklyGoals() {
     try {
-      if (combinedLocks.targets_locked && user?.role !== 'observer' && user?.role !== 'admin') {
-        addNotification('Hedefler şu an kilitli. Bu zaman aralığında hedefler değiştirilemez.', 'error');
+      // Observer hiçbir zaman kayıt yapamaz
+      if (user?.role === 'observer') {
+        addNotification('Bu işlem için yetkiniz yok.', 'error');
         return;
       }
+      
+      // Hedefler kilitliyse sadece admin tam yetkilendirilir; diğerleri gerçekleşme kaydedebilir
+      // (Hedef alanları zaten UI'da disabled, backend de kontrol ediyor)
+      
+      setWeeklySaveState('saving');
+      
       const leaveMinutesForSave = weeklyLeaveMinutes;
       const availableMinutes = Number.isFinite(weeklyLive?.availableMinutes)
         ? Number(weeklyLive.availableMinutes)
@@ -415,10 +424,22 @@ function App() {
       } else {
         setWeeklyLeaveMinutesInput('0');
       }
+      
+      // Ref'i güncelle ki yeni data ile eski data karşılaştırması yapılmasın
+      const newLeaveMinutes = savedLeave && Number.isFinite(savedLeave) && savedLeave > 0 
+        ? String(Math.max(0, Math.round(savedLeave))) 
+        : '0';
+      prevWeeklyDataRef.current = {
+        items: JSON.stringify(res.items || []),
+        leaveMinutes: newLeaveMinutes
+      };
+      
       addNotification('Haftalık hedefler kaydedildi', 'success');
+      setWeeklySaveState('saved');
     } catch (err) {
       console.error('Weekly goals save error:', err);
       addNotification(err.response?.data?.message || 'Kaydedilemedi', 'error');
+      setWeeklySaveState('idle');
     }
   }
 
@@ -617,6 +638,45 @@ function App() {
       return () => { document.body.style.overflow = prev; };
     }
   }, [showDetailModal]);
+
+  // Reset weekly save state when data changes or modal reopens
+  useEffect(() => {
+    // Modal açıldığında state'i sıfırla
+    if (showWeeklyGoals && weeklySaveState !== 'idle') {
+      setWeeklySaveState('idle');
+    }
+  }, [showWeeklyGoals]);
+
+  // Data değiştiğinde state'i sıfırla (yalnızca saved durumundaysa)
+  useEffect(() => {
+    const currentItemsStr = JSON.stringify(weeklyGoals.items);
+    const currentLeaveMinutes = weeklyLeaveMinutesInput;
+    
+    // İlk render'da önceki değerleri kaydet
+    if (prevWeeklyDataRef.current.items === null) {
+      prevWeeklyDataRef.current = {
+        items: currentItemsStr,
+        leaveMinutes: currentLeaveMinutes
+      };
+      return;
+    }
+    
+    // Değişiklik var mı kontrol et
+    const hasChanged = 
+      prevWeeklyDataRef.current.items !== currentItemsStr ||
+      prevWeeklyDataRef.current.leaveMinutes !== currentLeaveMinutes;
+    
+    // Değişiklik varsa ve saved durumundaysa idle'a dön
+    if (hasChanged && weeklySaveState === 'saved') {
+      setWeeklySaveState('idle');
+    }
+    
+    // Önceki değerleri güncelle
+    prevWeeklyDataRef.current = {
+      items: currentItemsStr,
+      leaveMinutes: currentLeaveMinutes
+    };
+  }, [weeklyGoals.items, weeklyLeaveMinutesInput, weeklySaveState]);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -2222,13 +2282,28 @@ function App() {
   function PasswordChangeInline({ onDone }) {
     const [form, setForm] = useState({ current: '', next: '', again: '' });
     const can = form.current && form.next && form.again && form.next === form.again;
+    
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!can) return;
+      try { 
+        await changePassword(form.current, form.next); 
+        onDone?.(); 
+        setForm({ current: '', next: '', again: '' }); 
+      } catch (err) { 
+        console.error('Password change error:', err); 
+        addNotification('Şifre güncellenemedi', 'error'); 
+      }
+    };
+    
     return (
-      <div className="space-y-3">
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" />
-        <button disabled={!can} className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginTop: '10px', marginLeft: '5px', marginBottom: '10px' }} onClick={async () => { try { await changePassword(form.current, form.next); onDone?.(); setForm({ current: '', next: '', again: '' }); } catch (err) { console.error('Password change error:', err); addNotification('Şifre güncellenemedi', 'error'); } }}>Güncelle</button>
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input type="text" name="username" autoComplete="username" style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }} tabIndex="-1" aria-hidden="true" />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} autoComplete="current-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="current-password" />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="new-password" />
+        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="confirm-password" />
+        <button type="submit" disabled={!can} className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginTop: '10px', marginLeft: '5px', marginBottom: '10px' }}>Güncelle</button>
+      </form>
     );
   }
 
@@ -2237,34 +2312,53 @@ function App() {
     const [loading, setLoading] = useState(false);
     const can = form.current && form.next && form.again && form.next === form.again;
 
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!can || loading) return;
+      try {
+        setLoading(true);
+        await changePassword(form.current, form.next);
+        onDone?.();
+        setForm({ current: '', next: '', again: '' });
+        addNotification('Şifre başarıyla güncellendi', 'success');
+      } catch (err) {
+        console.error('Password change error:', err);
+        addNotification(err.response?.data?.message || 'Şifre güncellenemedi', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     return (
-      <div className="space-y-10" style={{ padding: '18px', paddingBottom: '32px' }}>
+      <form onSubmit={handleSubmit} className="space-y-10" style={{ padding: '18px', paddingBottom: '32px' }}>
+        {/* Hidden username field for accessibility */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }}
+          tabIndex="-1"
+          aria-hidden="true"
+        />
         <div className="space-y-6">
-          {/* Gizli input alanları otomatik doldurmayı engellemek için */}
-          <input type="text" style={{ display: 'none' }} autoComplete="username" />
-          <input type="password" style={{ display: 'none' }} autoComplete="current-password" />
           <input
             type="password"
             className="w-full border border-white/20 bg-white/10 text-white !text-[24px] sm:!text-[16px] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
             placeholder="Mevcut şifrenizi girin"
             value={form.current}
             onChange={e => setForm({ ...form, current: e.target.value })}
-            autoComplete="new-password"
+            autoComplete="current-password"
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck="false"
             data-lpignore="true"
-            data-form-type="other"
-            name="current-password-hidden"
-            id="current-password-hidden"
+            data-form-type="password"
+            name="current-password"
             style={{ height: '40px' }}
           />
         </div>
 
         <div className="space-y-6">
-          {/* Gizli input alanları otomatik doldurmayı engellemek için */}
-          <input type="text" style={{ display: 'none' }} autoComplete="username" />
-          <input type="password" style={{ display: 'none' }} autoComplete="new-password" />
           <input
             type="password"
             className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
@@ -2276,17 +2370,13 @@ function App() {
             autoCapitalize="off"
             spellCheck="false"
             data-lpignore="true"
-            data-form-type="other"
-            name="new-password-hidden"
-            id="new-password-hidden"
+            data-form-type="password"
+            name="new-password"
             style={{ height: '40px' }}
           />
         </div>
 
         <div className="space-y-6">
-          {/* Gizli input alanları otomatik doldurmayı engellemek için */}
-          <input type="text" style={{ display: 'none' }} autoComplete="username" />
-          <input type="password" style={{ display: 'none' }} autoComplete="new-password" />
           <input
             type="password"
             className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
@@ -2298,37 +2388,23 @@ function App() {
             autoCapitalize="off"
             spellCheck="false"
             data-lpignore="true"
-            data-form-type="other"
-            name="confirm-password-hidden"
-            id="confirm-password-hidden"
+            data-form-type="password"
+            name="confirm-password"
             style={{ height: '40px' }}
           />
         </div>
 
         <div className="pt-8" style={{ paddingTop: '10px' }}>
           <button
+            type="submit"
             disabled={!can || loading}
             className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-blue-400 disabled:to-blue-400 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl px-8 py-4"
-            onClick={async () => {
-              try {
-                setLoading(true);
-                await changePassword(form.current, form.next);
-                onDone?.();
-                setForm({ current: '', next: '', again: '' });
-                addNotification('Şifre başarıyla güncellendi', 'success');
-              } catch (err) {
-                console.error('Password change error:', err);
-                addNotification(err.response?.data?.message || 'Şifre güncellenemedi', 'error');
-              } finally {
-                setLoading(false);
-              }
-            }}
             style={{ height: '48px' }}
           >
             {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
           </button>
         </div>
-      </div>
+      </form>
     );
   }
 
@@ -3452,8 +3528,20 @@ function App() {
                 <div className="flex items-center gap-3 w-[98%]" style={{ paddingTop: '10px', paddingLeft: '15px', paddingBottom: '10px' }}>
                   <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                   <span className="w-[10px]"></span>
-                  {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
-                    <button className="flex-1 rounded px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0)} onClick={saveWeeklyGoals}>Kaydet</button>
+                  {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_lead') && (
+                    <button 
+                      className={`flex-1 rounded px-4 py-2 transition-colors ${
+                        weeklySaveState === 'saving' 
+                          ? 'bg-blue-500 cursor-wait' 
+                          : weeklySaveState === 'saved'
+                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                          : 'bg-green-600 hover:bg-green-700'
+                      } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                      disabled={weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) || weeklySaveState === 'saving'} 
+                      onClick={saveWeeklyGoals}
+                    >
+                      {weeklySaveState === 'saving' ? 'Kaydediliyor...' : weeklySaveState === 'saved' ? 'Kaydedildi ✓' : 'Kaydet'}
+                    </button>
                   )}
                 </div>
               </div>
