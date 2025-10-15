@@ -120,48 +120,106 @@ class WeeklyGoalController extends Controller
         $unplanned = $collection->where('is_unplanned', true);
 
         $leaveMinutes = $this->normalizeLeaveMinutes($leaveMinutes);
-        $capacity = $this->weekCapacity($leaveMinutes);
+        $availableMinutes = $this->weekCapacity($leaveMinutes);
 
+        // Toplam hedef ve ağırlık
         $totalTarget = (int)$planned->sum(function ($it) {
-            return max(0, (int)$it->target_minutes);
+            return max(0, (int)($it->target_minutes ?? 0));
         });
 
-        $totalWeight = $capacity > 0
-            ? (float)$planned->sum(function ($it) use ($capacity) {
-                $t = max(0, (int)$it->target_minutes);
-                return ($t / $capacity) * 100;
-            })
+        $totalWeightRaw = $availableMinutes > 0
+            ? (($totalTarget / $availableMinutes) * 100.0)
             : 0.0;
+        $totalWeight = min(100.0, $totalWeightRaw);
 
-        $score = 0.0;
-        foreach ($planned as $it) {
-            $t = max(0, (int)$it->target_minutes);
-            $a = max(0, (int)$it->actual_minutes);
-            if ($t <= 0 || $capacity <= 0) {
-                continue;
+        // Plandışı dakika toplamı
+        $unplannedMinutes = (int)$unplanned->sum(function ($it) {
+            return max(0, (int)($it->actual_minutes ?? 0));
+        });
+
+        // Planlı gerçekleşen toplam
+        $plannedActual = (int)$planned->sum(function ($it) {
+            return max(0, (int)($it->actual_minutes ?? 0));
+        });
+
+        // Toplam eksik süre (sadece tamamlanmamış ve a < t olanlar)
+        $totalShortfall = (int)$planned->sum(function ($it) {
+            $t = max(0, (int)($it->target_minutes ?? 0));
+            $a = max(0, (int)($it->actual_minutes ?? 0));
+            $isCompleted = (bool)($it->is_completed ?? false);
+            if (!$isCompleted && $a < $t) {
+                return $t - $a;
             }
-            $w = ($t / $capacity) * 100;
-            if ($w <= 0) {
-                continue;
+            return 0;
+        });
+
+        // Plandışı affı: eksikleri kapatmak için kullanılabilir, fazlası bonus olur
+        $unplannedForgiveness = min($unplannedMinutes, $totalShortfall);
+
+        // Planlı skor hesaplama
+        $plannedScore = 0.0;
+        if ($availableMinutes > 0) {
+            foreach ($planned as $it) {
+                $t = max(0, (int)($it->target_minutes ?? 0));
+                if ($t <= 0) {
+                    continue;
+                }
+                $a = max(0, (int)($it->actual_minutes ?? 0));
+                $w = ($t / $availableMinutes) * 100.0;
+                $isCompleted = (bool)($it->is_completed ?? false);
+
+                $effectiveActual = $a;
+                if ($isCompleted) {
+                    // İş bitmiş, ne harcanmışsa o geçerli
+                    $effectiveActual = $a;
+                } else {
+                    if ($a > $t) {
+                        // Ceza: (a - t) + 0.1*t
+                        $pen = ($a - $t) + (0.1 * $t);
+                        $effectiveActual = $t + $pen;
+                    } elseif ($a === $t) {
+                        // Ceza: 0.1*t
+                        $effectiveActual = $t + (0.1 * $t);
+                    } else { // a < t
+                        $shortage = max(0, $t - $a);
+                        $forgivenessRatio = 0.0;
+                        if ($shortage > 0 && $totalShortfall > 0 && $unplannedForgiveness > 0) {
+                            $thisShare = $shortage / $totalShortfall;
+                            $forgiveness = $unplannedForgiveness * $thisShare;
+                            $forgivenessRatio = min(1.0, $forgiveness / $shortage);
+                        }
+                        // Tolerans: affın tam olduğu durumda ceza yok
+                        $EPS = 1e-6;
+                        $fullyForgiven = ($shortage <= $EPS) || (1 - $forgivenessRatio <= $EPS);
+                        if ($fullyForgiven) {
+                            $effectiveActual = $t;
+                        } else {
+                            $remainingShort = $shortage * (1 - $forgivenessRatio);
+                            $pen = $remainingShort + (0.1 * $t);
+                            $effectiveActual = $t + $pen;
+                        }
+                    }
+                }
+
+                $efficiency = $effectiveActual > 0 ? ($t / $effectiveActual) : 0.0;
+                $plannedScore += $w * $efficiency;
             }
-            $factor = $a > 0 ? ($t / $a) : 0.0;
-            $score += $w * $factor;
         }
 
-        $unplannedMinutes = (int)$unplanned->sum(function ($it) {
-            return max(0, (int)$it->actual_minutes);
-        });
-        $bonus = $capacity > 0 ? ($unplannedMinutes / $capacity) * 100.0 : 0.0;
-        $final = min(120.0, $score + $bonus);
+        // Plandışı skor: affedilenden kalan kısım bonus
+        $remainingUnplanned = max(0, $unplannedMinutes - $unplannedForgiveness);
+        $unplannedBonus = $availableMinutes > 0 ? (($remainingUnplanned / $availableMinutes) * 100.0) : 0.0;
+
+        $final = $plannedScore + $unplannedBonus;
 
         return [
             'total_target_minutes' => $totalTarget,
             'total_weight_percent' => round($totalWeight, 2),
             'unplanned_minutes' => $unplannedMinutes,
-            'planned_score' => round($score, 2),
-            'unplanned_bonus' => round($bonus, 2),
+            'planned_score' => round($plannedScore, 2),
+            'unplanned_bonus' => round($unplannedBonus, 2),
             'final_score' => round($final, 2),
-            'available_minutes' => $capacity,
+            'available_minutes' => $availableMinutes,
             'leave_minutes' => $leaveMinutes,
         ];
     }
@@ -223,7 +281,8 @@ class WeeklyGoalController extends Controller
                     'wgi.target_minutes',
                     'wgi.actual_minutes',
                     'wgi.weight_percent',
-                    'wgi.is_unplanned'
+                    'wgi.is_unplanned',
+                    'wgi.is_completed'
                 )
                 ->where('wg.week_start', $weekStart)
                 ->whereIn('wg.user_id', $userIds)
@@ -243,6 +302,7 @@ class WeeklyGoalController extends Controller
                                 'actual_minutes' => (int)($row->actual_minutes ?? 0),
                                 'weight_percent' => (float)($row->weight_percent ?? 0),
                                 'is_unplanned' => (bool)($row->is_unplanned ?? false),
+                                'is_completed' => (bool)($row->is_completed ?? false),
                             ];
                         })
                         ->values();
@@ -368,6 +428,8 @@ class WeeklyGoalController extends Controller
 
         DB::beginTransaction();
         try {
+            $submittedIds = []; // Gönderilen item ID'lerini takip et
+            
             foreach ($items as $it) {
                 $isUnplanned = (bool)($it['is_unplanned'] ?? false);
                 $data = [
@@ -377,6 +439,7 @@ class WeeklyGoalController extends Controller
                     'description' => $it['description'] ?? null,
                     'updated_at' => now(),
                     'is_unplanned' => $isUnplanned,
+                    'is_completed' => (bool)($it['is_completed'] ?? false),
                 ];
 
                 // Admin kullanıcılar kilitleme kurallarını bypass edebilir
@@ -397,10 +460,25 @@ class WeeklyGoalController extends Controller
                         ->where('id', (int)$it['id'])
                         ->where('weekly_goal_id', $goal->id)
                         ->update($data);
+                    $submittedIds[] = (int)$it['id'];
                 } else {
                     $data['created_at'] = now();
-                    DB::table('weekly_goal_items')->insert($data);
+                    $insertedId = DB::table('weekly_goal_items')->insertGetId($data);
+                    $submittedIds[] = $insertedId;
                 }
+            }
+            
+            // Gönderilmeyen (silinen) items'ları veritabanından kaldır
+            if (!empty($submittedIds)) {
+                DB::table('weekly_goal_items')
+                    ->where('weekly_goal_id', $goal->id)
+                    ->whereNotIn('id', $submittedIds)
+                    ->delete();
+            } else {
+                // Hiç item gönderilmemişse hepsini sil
+                DB::table('weekly_goal_items')
+                    ->where('weekly_goal_id', $goal->id)
+                    ->delete();
             }
 
             if ($canEditTargets) {
