@@ -173,14 +173,34 @@ npm run build
 ### Ağ Erişimi
 - `scripts\setup.bat` - Windows için kurulum ve başlatma
 - `scripts\setup.sh` - Linux/Mac için kurulum ve başlatma
-- `npm run start:network` - NPM ile ağ erişimi
+- `npm run start:network` - NPM ile ağ erişimi (eşzamanlı API ve Frontend başlatma)
+- `npm run start:network:restart` - API otomatik yeniden başlatma ile ağ erişimi
+- `npm run start:network:watch` - Nodemon ile API dosya değişikliklerini izleme ve otomatik yeniden başlatma
+
+### API Yönetimi
+- `npm run api:serve` - Laravel API'yi başlat (host=0.0.0.0, port=8000)
+- `npm run api:serve:watch` - Nodemon ile API'yi izle ve otomatik yeniden başlat (dosya değişikliklerinde)
+- `npm run api:serve:restart` - API crash durumunda otomatik yeniden başlatma
+
+### Geliştirme
+- `npm run dev` - Electron geliştirme modu (localhost)
+- `npm run dev:network` - Electron geliştirme modu (network erişimi)
+- `npm run dev:web` - Sadece Vite dev server (Electron olmadan)
 
 ### Kurulum
 - `npm run setup` - Tüm bağımlılıkları yükle
 - `npm run setup:dev` - Geliştirme ortamı kurulumu
 
+### Build ve Dağıtım
+- `npm run build:ui` - Frontend build
+- `npm run build` - Electron uygulamasını paketler
+- `npm run build:win` - Windows için build
+- `npm run build:mac` - macOS için build
+- `npm run build:linux` - Linux için build
+
 ### Test ve Kalite Kontrol
 - `npm run lint` - ESLint ile kod kalitesi kontrolü
+- `npm run lint:fix` - ESLint hataları otomatik düzelt
 - `npm run build:ui` - Frontend build testi
 - `cd task-tracker-api && php artisan test` - Backend testleri
 
@@ -234,6 +254,7 @@ task-tracker-desktop/
 │   │   │   ├── create_notifications_table.php
 │   │   │   ├── create_task_attachments_table.php
 │   │   │   ├── create_weekly_goals_tables.php
+│   │   │   ├── add_is_completed_to_weekly_goal_items_table.php
 │   │   │   └── add_text_columns_to_tasks_table.php
 │   │   └── seeders/         # Başlangıç verileri
 │   │       ├── DatabaseSeeder.php
@@ -242,11 +263,14 @@ task-tracker-desktop/
 │   │   ├── api.php          # API rotaları
 │   │   └── web.php          # Web rotaları (dosya indirme)
 │   └── .env                 # Ortam değişkenleri
-├── scripts/                 # Kurulum scriptleri
+├── scripts/                 # Kurulum ve yönetim scriptleri
 │   ├── backup-sqlite.ps1    # Veritabanı yedekleme
 │   ├── restore-sqlite.ps1   # Veritabanı geri yükleme
 │   ├── setup.bat           # Windows kurulum
-│   └── setup.sh            # Linux/Mac kurulum
+│   ├── setup.sh            # Linux/Mac kurulum
+│   ├── start-api.bat       # Windows için API otomatik yeniden başlatma
+│   ├── start-api.sh        # Linux/Mac için API otomatik yeniden başlatma
+│   └── start-api.cjs       # Node.js ile API otomatik yeniden başlatma
 ├── .github/workflows/       # CI/CD pipeline
 │   └── ci.yml              # GitHub Actions
 ├── public/                  # Statik web dosyaları
