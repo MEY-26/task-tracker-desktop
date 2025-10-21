@@ -27,7 +27,11 @@
     "dev:network": "concurrently -k \"cross-env NODE_ENV=development vite --host 0.0.0.0 --port 5173\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:web": "vite --host 0.0.0.0 --port 5173",
     "api:serve": "cd task-tracker-api && php artisan serve --host=0.0.0.0 --port=8000",
+    "api:serve:watch": "cd task-tracker-api && nodemon --watch . --ext php --exec \"php artisan serve --host=0.0.0.0 --port=8000\"",
+    "api:serve:restart": "node scripts/start-api.cjs",
     "start:network": "concurrently -k \"npm run api:serve\" \"npm run dev:web\"",
+    "start:network:restart": "concurrently -k \"npm run api:serve:restart\" \"npm run dev:web\"",
+    "start:network:watch": "concurrently -k \"npm run api:serve:watch\" \"npm run dev:web\"",
     "build:ui": "vite build",
     "build": "npm run build:ui && electron-builder",
     "build:win": "npm run build:ui && electron-builder --win",
@@ -66,7 +70,8 @@
     "sharp": "^0.34.3",
     "tailwindcss": "^4.1.12",
     "vite": "^7.1.2",
-    "wait-on": "^8.0.4"
+    "wait-on": "^8.0.4",
+    "nodemon": "^3.0.2"
   },
   "build": {
     "appId": "com.example.tasktracker",

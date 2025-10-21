@@ -241,7 +241,7 @@ function App() {
   // Performans harfi ve rengi hesaplama
   function getPerformanceGrade(score) {
     if (score >= 111) return { grade: 'A', color: '#00c800', description: 'Olağan Üstü Performans' };
-    if (score >= 101) return { grade: 'B', color: '#329600', description: 'Beklentilerin Üzerinde' };
+    if (score >= 101) return { grade: 'B', color: '#3dac05ff', description: 'Beklentilerin Üzerinde' };
     if (score >= 80) return { grade: 'C', color: '#649600', description: 'Beklenilen Performans' };
     if (score >= 55) return { grade: 'D', color: '#fa6400', description: 'Beklentileri Karşılamayan' };
     return { grade: 'E', color: '#fa3200', description: 'Düşük Performans' };
@@ -261,31 +261,98 @@ function App() {
     const totalWeight = Math.min(100, Number(totalWeightRaw.toFixed(1)));
     const unplannedMinutes = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
 
+    // Planlı görevlerin gerçekleşen süresi
+    const plannedActual = planned.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
+
+    // Tüm gerçekleşen sürelerin toplamı (hem planlı hem plandışı)
+    const totalActual = items.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
+
+    // Planlı görevlerdeki toplam eksik süreyi hesapla (plandışı affı için)
+    const totalShortfall = planned.reduce((acc, it) => {
+      const t = Math.max(0, Number(it?.target_minutes || 0));
+      const a = Math.max(0, Number(it?.actual_minutes || 0));
+      const isCompleted = it.is_completed === true;
+      if (!isCompleted && a < t) {
+        return acc + (t - a);
+      }
+      return acc;
+    }, 0);
+
+    // Plandışı görevler eksiklikleri affeder (ama fazla kullanımı affetmez)
+    const unplannedForgiveness = Math.min(unplannedMinutes, totalShortfall);
+
+    // Planlı Skor: Her görev için ayrı hesaplama
     let plannedScore = 0;
     if (availableMinutes > 0) {
       for (const it of planned) {
         const t = Math.max(0, Number(it?.target_minutes || 0));
         const a = Math.max(0, Number(it?.actual_minutes || 0));
-        if (t > 0 && a > 0) {
-          const w = (t / availableMinutes) * 100;
-          const eff = t / a; // sınır yok, finale clamp var
-          plannedScore += w * eff;
+        if (t > 0) {
+          const w = (t / availableMinutes) * 100; // Bu görevin ağırlığı
+          const isCompleted = it.is_completed === true;
+
+          let effectiveActual = a;
+
+          if (isCompleted) {
+            effectiveActual = a; // İş bitmiş, ne harcanmışsa o geçerli            
+          } else {
+            // İş bitmediyse
+            if (a > t) {
+              // Senaryo 4: ceza = (a - t) + 0.1*t  => efektif payda = t + ceza
+              const pen = (a - t) + (0.1 * t);
+              effectiveActual = t + pen;
+            } else if (a === t) {
+              // Senaryo 3: ceza = 0.1*t
+              effectiveActual = t + (0.1 * t);
+            } else {
+              const shortage = Math.max(0, t - a);
+              let forgivenessRatio = 0;
+              if (shortage > 0 && totalShortfall > 0 && unplannedForgiveness > 0) {
+                const thisShare = shortage / totalShortfall;
+                const forgiveness = unplannedForgiveness * thisShare;
+                forgivenessRatio = Math.min(1, forgiveness / shortage);
+              }
+              // TOLERANS: affın tam olduğu durum
+              const EPS = 1e-6;
+              const fullyForgiven = (shortage <= EPS) || (1 - forgivenessRatio <= EPS);
+              if (fullyForgiven) {
+                // Eksik süre plandışıyla tamamen kapandı → CEZA YOK
+                effectiveActual = t;
+              } else {
+                // Kısmi af: kalan eksik + hedefin %10’u ceza
+                const remainingShort = shortage * (1 - forgivenessRatio);
+                const pen = remainingShort + (0.1 * t);
+                effectiveActual = t + pen;
+              }
+
+            }
+          }
+          const efficiency = t / effectiveActual;
+          plannedScore += w * efficiency;
         }
       }
     }
-    const unplannedBonus = availableMinutes > 0 ? (unplannedMinutes / availableMinutes) * 100 : 0;
-    const finalScore = Math.min(120, plannedScore + unplannedBonus);
+
+    // Plandışı Skor: Eksiklikleri affettikten sonra kalan bonus olur
+    const remainingUnplanned = Math.max(0, unplannedMinutes - unplannedForgiveness);
+    const unplannedBonus = availableMinutes > 0 ? (remainingUnplanned / availableMinutes) * 100 : 0;
+
+    // Toplam performans
+    const finalScore = plannedScore + unplannedBonus;
 
     return {
       totalTarget,
       totalWeight,
       unplannedMinutes,
+      plannedActual,
+      totalActual,
       plannedScore: Number(plannedScore.toFixed(2)),
       unplannedBonus: Number(unplannedBonus.toFixed(2)),
       finalScore: Number(finalScore.toFixed(2)),
       leaveMinutes,
       availableMinutes,
       overCapacity: totalTarget > availableMinutes,
+      overActualCapacity: totalActual > availableMinutes,
     };
   }, [weeklyGoals.items, weeklyLeaveMinutes]);
 
@@ -328,7 +395,15 @@ function App() {
       const params = { week_start: ws };
       if (uid) params.user_id = uid;
       const res = await WeeklyGoals.get(params);
-      setWeeklyGoals({ goal: res.goal, items: Array.isArray(res.items) ? res.items : [], locks: res.locks || {}, summary: res.summary || null });
+
+      // Backend'den gelen items'ı parse et (is_completed ve is_unplanned boolean'a çevir)
+      const parsedItems = Array.isArray(res.items) ? res.items.map(item => ({
+        ...item,
+        is_completed: Boolean(item.is_completed), // 0/1 veya false/true → boolean
+        is_unplanned: Boolean(item.is_unplanned),
+      })) : [];
+
+      setWeeklyGoals({ goal: res.goal, items: parsedItems, locks: res.locks || {}, summary: res.summary || null });
       const leaveFromServer = Number(res.goal?.leave_minutes ?? 0);
       if (Number.isFinite(leaveFromServer) && leaveFromServer > 0) {
         setWeeklyLeaveMinutesInput(String(Math.max(0, Math.round(leaveFromServer))));
@@ -369,12 +444,12 @@ function App() {
         addNotification('Bu işlem için yetkiniz yok.', 'error');
         return;
       }
-      
+
       // Hedefler kilitliyse sadece admin tam yetkilendirilir; diğerleri gerçekleşme kaydedebilir
       // (Hedef alanları zaten UI'da disabled, backend de kontrol ediyor)
-      
+
       setWeeklySaveState('saving');
-      
+
       const leaveMinutesForSave = weeklyLeaveMinutes;
       const availableMinutes = Number.isFinite(weeklyLive?.availableMinutes)
         ? Number(weeklyLive.availableMinutes)
@@ -382,15 +457,54 @@ function App() {
 
       if ((weeklyLive?.totalTarget || 0) > availableMinutes) {
         addNotification('Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.', 'error');
+        setWeeklySaveState('idle');
         return;
       }
       if (availableMinutes === 0 && (weeklyLive?.totalTarget || 0) > 0) {
         addNotification('İzin sonrası kullanılabilir süre 0 dakika, planlı hedef ekleyemezsiniz.', 'error');
+        setWeeklySaveState('idle');
         return;
       }
+
+      // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
+      const totalActual = weeklyLive?.totalActual || 0;
+
+      if (totalActual > availableMinutes) {
+        const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
+        addNotification(errorMsg, 'error');
+        setWeeklySaveState('idle');
+        return;
+      }
+
       // Auto compute weights from target minutes (planned only)
       const planned = (weeklyGoals.items || []).filter(x => !x.is_unplanned);
       const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
+
+      // Zorunlu alan kontrolü: Başlık, Aksiyon Planı ve Hedef(dk) dolu olmalı
+      // Not: Plandışı görevler için hedef süresi opsiyonel
+      const invalidItems = (weeklyGoals.items || []).filter(x => {
+        const hasTitle = x.title && x.title.trim() !== '';
+        const hasActionPlan = x.action_plan && x.action_plan.trim() !== '';
+        const hasTarget = x.target_minutes && Number(x.target_minutes) > 0;
+
+        // Plandışı görevler için sadece başlık ve aksiyon planı zorunlu
+        if (x.is_unplanned) {
+          return !hasTitle || !hasActionPlan;
+        }
+
+        // Planlı görevler için başlık, aksiyon planı ve hedef zorunlu
+        return !hasTitle || !hasActionPlan || !hasTarget;
+      });
+
+      if (invalidItems.length > 0) {
+        const msg = invalidItems.some(x => x.is_unplanned)
+          ? 'Lütfen tüm görevlere Başlık ve Aksiyon Planı girin.'
+          : 'Lütfen tüm görevlere Başlık, Aksiyon Planı ve Hedef süresini girin.';
+        addNotification(msg, 'error');
+        setWeeklySaveState('idle');
+        return;
+      }
+
       const items = (weeklyGoals.items || []).map((x) => {
         const isUnplanned = !!x.is_unplanned;
         let weight = Number(x.weight_percent || 0);
@@ -407,6 +521,7 @@ function App() {
           weight_percent: Number(weight.toFixed(2)),
           actual_minutes: Number(x.actual_minutes || 0),
           is_unplanned: isUnplanned,
+          is_completed: !!x.is_completed, // Yeni alan: iş bitti mi?
         };
       });
 
@@ -417,23 +532,37 @@ function App() {
         ...(weeklyUserId ? { user_id: weeklyUserId } : {}),
       };
       const res = await WeeklyGoals.save(payload);
-      setWeeklyGoals({ goal: res.goal, items: res.items || [], locks: res.locks || {}, summary: res.summary || null });
+
+      // Backend'den dönen items'a ID'leri ekle, ancak silinen items'ı dahil etme
+      // API response ile gönderdiğimiz items'ı eşleştirip ID'leri güncelle
+      const savedItems = items.map((localItem, idx) => {
+        // API'den gelen item'ı bul (id'ye göre veya index'e göre)
+        const apiItem = (res.items || []).find(x =>
+          (localItem.id && x.id === localItem.id) || (!localItem.id && res.items.indexOf(x) === idx)
+        );
+        return {
+          ...localItem,
+          id: apiItem?.id || localItem.id, // Backend'den dönen ID'yi kullan
+        };
+      });
+
+      setWeeklyGoals({ goal: res.goal, items: savedItems, locks: res.locks || {}, summary: res.summary || null });
       const savedLeave = Number(res.goal?.leave_minutes ?? leaveMinutesForSave);
       if (Number.isFinite(savedLeave) && savedLeave > 0) {
         setWeeklyLeaveMinutesInput(String(Math.max(0, Math.round(savedLeave))));
       } else {
         setWeeklyLeaveMinutesInput('0');
       }
-      
+
       // Ref'i güncelle ki yeni data ile eski data karşılaştırması yapılmasın
-      const newLeaveMinutes = savedLeave && Number.isFinite(savedLeave) && savedLeave > 0 
-        ? String(Math.max(0, Math.round(savedLeave))) 
+      const newLeaveMinutes = savedLeave && Number.isFinite(savedLeave) && savedLeave > 0
+        ? String(Math.max(0, Math.round(savedLeave)))
         : '0';
       prevWeeklyDataRef.current = {
-        items: JSON.stringify(res.items || []),
+        items: JSON.stringify(savedItems),
         leaveMinutes: newLeaveMinutes
       };
-      
+
       addNotification('Haftalık hedefler kaydedildi', 'success');
       setWeeklySaveState('saved');
     } catch (err) {
@@ -651,7 +780,7 @@ function App() {
   useEffect(() => {
     const currentItemsStr = JSON.stringify(weeklyGoals.items);
     const currentLeaveMinutes = weeklyLeaveMinutesInput;
-    
+
     // İlk render'da önceki değerleri kaydet
     if (prevWeeklyDataRef.current.items === null) {
       prevWeeklyDataRef.current = {
@@ -660,17 +789,17 @@ function App() {
       };
       return;
     }
-    
+
     // Değişiklik var mı kontrol et
-    const hasChanged = 
+    const hasChanged =
       prevWeeklyDataRef.current.items !== currentItemsStr ||
       prevWeeklyDataRef.current.leaveMinutes !== currentLeaveMinutes;
-    
+
     // Değişiklik varsa ve saved durumundaysa idle'a dön
     if (hasChanged && weeklySaveState === 'saved') {
       setWeeklySaveState('idle');
     }
-    
+
     // Önceki değerleri güncelle
     prevWeeklyDataRef.current = {
       items: currentItemsStr,
@@ -2282,20 +2411,20 @@ function App() {
   function PasswordChangeInline({ onDone }) {
     const [form, setForm] = useState({ current: '', next: '', again: '' });
     const can = form.current && form.next && form.again && form.next === form.again;
-    
+
     const handleSubmit = async (e) => {
       e.preventDefault();
       if (!can) return;
-      try { 
-        await changePassword(form.current, form.next); 
-        onDone?.(); 
-        setForm({ current: '', next: '', again: '' }); 
-      } catch (err) { 
-        console.error('Password change error:', err); 
-        addNotification('Şifre güncellenemedi', 'error'); 
+      try {
+        await changePassword(form.current, form.next);
+        onDone?.();
+        setForm({ current: '', next: '', again: '' });
+      } catch (err) {
+        console.error('Password change error:', err);
+        addNotification('Şifre güncellenemedi', 'error');
       }
     };
-    
+
     return (
       <form onSubmit={handleSubmit} className="space-y-3">
         <input type="text" name="username" autoComplete="username" style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }} tabIndex="-1" aria-hidden="true" />
@@ -3331,12 +3460,13 @@ function App() {
                   <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
                     <thead className="bg-white/10">
                       <tr>
-                        <th className="px-3 py-2 text-left text-[24px]">Haftalık Hedef</th>
+                        <th className="px-3 py-2 text-left text-[24px]">Başlık</th>
                         <th className="px-3 py-2 text-left text-[24px]" style={{ paddingLeft: '20px' }}>Aksiyon Planları</th>
                         <th className="px-3 py-2 text-center text-[24px]" style={{ width: '100px', paddingRight: '20px', paddingLeft: '20px' }}>Hedef(dk)</th>
                         <th className="px-3 py-2 text-center text-[24px]">Ağırlık (%)</th>
                         <th className="px-3 py-2 text-center text-[24px]">Gerçekleşme(dk)</th>
                         <th className="px-3 py-2 text-center text-[24px]" style={{ width: '100px', paddingRight: '20px', paddingLeft: '20px' }}>Gerçekleşme(%)</th>
+                        <th className="px-3 py-2 text-center text-[24px]" style={{ width: '60px' }}>Bitti</th>
                         <th className="px-3 py-2 text-center text-[24px]"></th>
                       </tr>
                     </thead>
@@ -3348,25 +3478,59 @@ function App() {
                         const a = Math.max(0, Number(row.actual_minutes || 0));
                         const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
                         const w = capacity > 0 ? (t / capacity) * 100 : 0; // satır ağırlığı
-                        const eff = a > 0 && t > 0 ? (t / a) : 0; // verimlilik (katsayı) — sınır yok
+                        const isCompleted = row.is_completed === true;
+                        
+                        // Ceza hesaplaması ile verimlilik
+                        let effectiveActual = a;
+                        if (isCompleted) {
+                          // İş bitmiş, ne harcanmışsa o geçerli
+                          effectiveActual = a;
+                        } else {
+                          if (a > t) {
+                            // Ceza: (a - t) + 0.1*t
+                            const pen = (a - t) + (0.1 * t);
+                            effectiveActual = t + pen;
+                          } else if (a === t) {
+                            // Ceza: 0.1*t
+                            effectiveActual = t + (0.1 * t);
+                          } else {
+                            // a < t - eksik süre için ceza
+                            const shortage = Math.max(0, t - a);
+                            const pen = shortage + (0.1 * t);
+                            effectiveActual = t + pen;
+                          }
+                        }
+                        
+                        const eff = effectiveActual > 0 ? (t / effectiveActual) : 0; // ceza ile verimlilik
                         const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
                         return (
                           <tr key={row.id || `p-${idx}`} className="odd:bg-white/[0.02]">
                             <td className="px-3 py-2 align-top" style={{ verticalAlign: 'middle', paddingTop: '6px' }}>
-                              <textarea disabled={lockedTargets || user?.role === 'observer'} value={row.title || ''}
+                              <input
+                                type="text"
+                                disabled={lockedTargets || user?.role === 'observer'}
+                                value={row.title || ''}
                                 onChange={e => {
                                   const items = [...weeklyGoals.items];
                                   items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
                                   setWeeklyGoals({ ...weeklyGoals, items });
-                                }} className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" />
+                                }}
+                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[83px] text-[16px]"
+                                placeholder="Başlık girin..."
+                              />
                             </td>
                             <td className="px-3 py-2 align-top" style={{ verticalAlign: 'middle', paddingTop: '6px', paddingLeft: '20px' }}>
-                              <textarea disabled={lockedTargets || user?.role === 'observer'} value={row.action_plan || ''} onChange={e => {
-                                const items = [...weeklyGoals.items];
-                                items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
-                                setWeeklyGoals({ ...weeklyGoals, items });
-                              }}
-                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] min-w-[250px] text-[16px] resize-y" />
+                              <textarea
+                                disabled={lockedTargets || user?.role === 'observer'}
+                                value={row.action_plan || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
+                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] min-w-[250px] text-[16px] resize-y"
+                                placeholder="Aksiyon planı girin..."
+                              />
                             </td>
                             <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle', width: '20px' }}>
                               <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
@@ -3388,9 +3552,27 @@ function App() {
                               /></td>
                             <td className="px-3 py-2 text-center text-neutral-200 text-[32px]" style={{ verticalAlign: 'middle', width: '20px' }}>{rate}</td>
                             <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
+                              <input
+                                type="checkbox"
+                                checked={!!row.is_completed}
+                                disabled={lockedActuals || user?.role === 'observer'}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
+                                className="w-6 h-6 cursor-pointer"
+                                style={{ width: '24px', height: '24px', cursor: 'pointer' }}
+                                title="İş tamamlandı mı?"
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
                               <div className="flex items-center justify-center gap-2">
                                 <button
-                                  className="text-blue-300 hover:text-blue-200 text-[24px]"
+                                  className="text-blue-300 hover:text-blue-200 text-[24px] rounded px-2 py-1 transition-colors"
+                                  style={{
+                                    backgroundColor: row.description?.trim() ? 'rgba(255, 255, 0, 0.7)' : 'transparent'
+                                  }}
                                   onClick={() => {
                                     setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
                                     setGoalDescription(row.description || '');
@@ -3405,7 +3587,7 @@ function App() {
                                   <button className="text-rose-300 hover:text-rose-200 text-[24px]" onClick={() => {
                                     const items = weeklyGoals.items.filter(x => x !== row);
                                     setWeeklyGoals({ ...weeklyGoals, items });
-                                  }}>X</button>
+                                  }}>🗑️</button>
                                 )}
                               </div>
                             </td>
@@ -3418,7 +3600,7 @@ function App() {
                     <div className="mt-2" style={{ padding: '10px' }}>
                       <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
                         disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
-                        onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false }] }); }}
+                        onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
                       >
                         + Satır Ekle</button>
                     </div>
@@ -3431,7 +3613,7 @@ function App() {
                     <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
                       <thead className="bg-white/10">
                         <tr>
-                          <th className="px-3 py-2 text-left text-[24px]">Açıklama</th>
+                          <th className="px-3 py-2 text-left text-[24px]">Başlık</th>
                           <th className="px-3 py-2 text-left text-[24px]">Aksiyon Planı</th>
                           <th className="px-3 py-2 text-right text-[24px]">Süre (dk)</th>
                           <th className="px-3 py-2 text-[24px]"></th>
@@ -3441,20 +3623,32 @@ function App() {
                         {(weeklyGoals.items || []).filter(x => x.is_unplanned).map((row, idx) => (
                           <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
                             <td className="px-3 py-2">
-                              <textarea disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.title || ''} onChange={e => {
-                                const items = [...weeklyGoals.items];
-                                items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
-                                setWeeklyGoals({ ...weeklyGoals, items });
-                              }}
-                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
+                              <input
+                                type="text"
+                                disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
+                                value={row.title || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
+                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[83px] text-[16px]"
+                                placeholder="Başlık girin..."
+                              />
+                            </td>
                             <td className="px-3 py-2">
-                              <textarea disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.action_plan || ''}
+                              <textarea
+                                disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
+                                value={row.action_plan || ''}
                                 onChange={e => {
                                   const items = [...weeklyGoals.items];
                                   items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
                                   setWeeklyGoals({ ...weeklyGoals, items });
                                 }}
-                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y" /></td>
+                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y"
+                                placeholder="Aksiyon planı girin..."
+                              />
+                            </td>
                             <td className="px-3 py-2 text-right">
                               <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
                                 onChange={e => {
@@ -3468,7 +3662,10 @@ function App() {
                             <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
                               <div className="flex items-center justify-end gap-2">
                                 <button
-                                  className="text-blue-300 hover:text-blue-200 text-[24px]"
+                                  className="text-blue-300 hover:text-blue-200 text-[24px] rounded px-2 py-1 transition-colors"
+                                  style={{
+                                    backgroundColor: row.description?.trim() ? 'rgba(234, 179, 8, 0.4)' : 'transparent'
+                                  }}
                                   onClick={() => {
                                     setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
                                     setGoalDescription(row.description || '');
@@ -3484,7 +3681,7 @@ function App() {
                                     onClick={() => {
                                       const items = weeklyGoals.items.filter(x => x !== row);
                                       setWeeklyGoals({ ...weeklyGoals, items });
-                                    }}>X</button>)}
+                                    }}>🗑️</button>)}
                               </div>
                             </td>
                           </tr>
@@ -3502,26 +3699,58 @@ function App() {
                     )}
                   </div>
                 </div>
-                <div className="mt-6 grid grid-cols-2 gap-4" style={{ marginLeft: '2px' }}>
-                  <div className="bg-white/5 border border-white/10 rounded p-3 text-[24px]" style={{ paddingLeft: '10px' }}>
-                    <div>İzin Süresi: <span className="font-semibold">{weeklyLive.leaveMinutes} dk{weeklyLive.leaveMinutes ? ` (${(weeklyLive.leaveMinutes / 60).toFixed(1)} saat)` : ''}</span></div>
-                    <div>Kullanılabilir Süre: <span className="font-semibold">{weeklyLive.availableMinutes} dk{weeklyLive.availableMinutes ? ` (${(weeklyLive.availableMinutes / 60).toFixed(1)} saat)` : ''}</span></div>
-                    <div>Toplam Hedef Zamanı: <span className="font-semibold">{weeklyLive.totalTarget} dk</span></div>
-                    <div>Toplam Ağırlık: <span className="font-semibold">{weeklyLive.totalWeight}%</span></div>
-                    <div>Plandışı Süre: <span className="font-semibold">{weeklyLive.unplannedMinutes} dk</span></div>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 rounded p-3 text-[24px]" style={{ paddingLeft: '10px' }}>
-                    <div>Planlı Skor: {weeklyLive.plannedScore}%</div>
-                    <div>Plandışı Bonus: {weeklyLive.unplannedBonus}%</div>
-                    <div className="text-lg font-semibold">
-                      Performans Sonucu:
+                <div className="mt-6 bg-white/5 border border-white/10 rounded p-4" style={{ marginLeft: '2px', marginRight: '2px' }}>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[20px]">
+                    {/* Sol Kolon */}
+                    <div className="grid grid-cols-[200px_1fr] gap-2">
+                      <div className="text-white/70">İzin Süresi:</div>
+                      <div className="font-semibold text-white">{weeklyLive.leaveMinutes} dk</div>
 
-                      <span
-                        className="ml-2 font-bold"
-                        style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}
+                      <div className="text-white/70">Kullanılabilir Süre:</div>
+                      <div className="font-semibold text-white">{weeklyLive.availableMinutes} dk ({(weeklyLive.availableMinutes / 60).toFixed(1)} saat)</div>
+
+                      <div className="text-white/70">Planlı Zaman:</div>
+                      <div className="font-semibold text-white">{weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}</div>
+
+                      <div className="text-white/70">Plandışı Zaman:</div>
+                      <div className="font-semibold text-white">{weeklyLive.unplannedMinutes} dk</div>
+
+                      <div className="text-white/70">Toplam Zaman:</div>
+                      <div className="font-semibold text-white">{weeklyLive.totalActual} dk</div>
+                    </div>
+
+                    {/* Sağ Kolon */}
+                    <div className="grid grid-cols-[200px_1fr] gap-2">
+                      <div className="text-white/70">Gerçekleşen Zaman:</div>
+                      <div className={`font-semibold ${weeklyLive.overActualCapacity ? 'text-red-400' : 'text-white'}`}>
+                        {weeklyLive.totalActual} dk
+                        {weeklyLive.overActualCapacity && (
+                          <span className="ml-2 text-xs text-red-300">
+                            (Kapasite Aşımı! Kayıt yapılamaz)
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-white/70">Planlı Skor:</div>
+                      <div className="font-semibold text-white">{weeklyLive.plannedScore}%</div>
+
+                      <div className="text-white/70">Plandışı Skor:</div>
+                      <div className="font-semibold text-white">{weeklyLive.unplannedBonus}%</div>
+
+                      <div className="text-white/70">Performans Sonucu:</div>
+                      <div className="font-semibold text-white">{weeklyLive.finalScore}%</div>
+
+                      <div
+                        className="text-white/70"
+                        style={{ cursor: 'help' }}
+                        title={"📊 PERFORMANS DEĞERLENDİRME HESAPLAMASI\n\n📈 PLANLI SKOR:\nHer görevin hedef süresine göre ağırlığı hesaplanır\n\n✅ İŞ TAMAMLANDIYSA:\n• Hedeften kısa sürede bitirdiniz → 🎁 Bonus kazanırsınız\n• Hedeften uzun sürdüyse → ⏱ Fazla geçen süre kadar ceza uygulanır\n\n❌ İŞ TAMAMLANMADIYSA:\n• Hedeften kısa sürdüyse → ⏱ Eksik kalan süre + hedef sürenin %10’u kadar ceza\n  (Plandışı görevler varsa eksik süreyi telafi eder)\n• Hedeften uzun sürdüyse → ⏱ Fazla geçen süre + hedef sürenin %10’u kadar ceza\n\n⭐ PLANDIŞI BONUS:\n• Plan dışında yapılan görevlerdir\n• Haftalık toplam süreye göre oransal bonus kazandırır\n• Plandışı görevler, planlı görevlerdeki eksik süreleri telafi eder\n\n🎯 PERFORMANS SONUCU:\nPlanlı Skor + Plandışı Bonus\n\n🧩 DEĞERLENDİRME:\n• ✅ A (111% ve üzeri): Olağanüstü performans\n• ☑️ B (101% – 110%): Beklentilerin üzerinde\n• 🟡 C (80% – 100%): Beklenilen performans\n• 🟠 D (55% – 79%): Beklentilerin altında\n• 🔴 E (0% – 54%): Düşük performans\n\n💡 İPUÇLARI:\n• Görev tamamlandığında mutlaka 'Bitti' kutusunu işaretleyin!"}
+
                       >
-                        <span className="w-[50px]"></span> {weeklyLive.finalScore}% {getPerformanceGrade(weeklyLive.finalScore).grade} {getPerformanceGrade(weeklyLive.finalScore).description}
-                      </span>
+                        Değerlendirme:
+                      </div>
+                      <div className="font-bold" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
+                        {getPerformanceGrade(weeklyLive.finalScore).description}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3529,15 +3758,18 @@ function App() {
                   <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                   <span className="w-[10px]"></span>
                   {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_lead') && (
-                    <button 
-                      className={`flex-1 rounded px-4 py-2 transition-colors ${
-                        weeklySaveState === 'saving' 
-                          ? 'bg-blue-500 cursor-wait' 
-                          : weeklySaveState === 'saved'
+                    <button
+                      className={`flex-1 rounded px-4 py-2 transition-colors ${weeklySaveState === 'saving'
+                        ? 'bg-blue-500 cursor-wait'
+                        : weeklySaveState === 'saved'
                           ? 'bg-emerald-600 hover:bg-emerald-700'
                           : 'bg-green-600 hover:bg-green-700'
-                      } disabled:bg-gray-600 disabled:cursor-not-allowed`}
-                      disabled={weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) || weeklySaveState === 'saving'} 
+                        } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                      disabled={
+                        weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) ||
+                        weeklyLive.overActualCapacity ||
+                        weeklySaveState === 'saving'
+                      }
                       onClick={saveWeeklyGoals}
                     >
                       {weeklySaveState === 'saving' ? 'Kaydediliyor...' : weeklySaveState === 'saved' ? 'Kaydedildi ✓' : 'Kaydet'}
@@ -3622,16 +3854,17 @@ function App() {
                         const items = [...weeklyGoals.items];
                         items[selectedGoalIndex].description = goalDescription;
                         setWeeklyGoals({ ...weeklyGoals, items });
-                        // Backend'e kaydet
+                        setShowGoalDescription(false);
+
+                        // Backend'e kaydet (arka planda)
                         try {
                           await saveWeeklyGoals();
                           addNotification('Açıklama başarıyla kaydedildi.', 'success');
                         } catch (error) {
                           console.warn('Goal description save failed:', error);
-                          addNotification('Açıklama kaydedilemedi.', 'error');
+                          addNotification('Açıklama kaydedilemedi ama yerel olarak saklandı.', 'warning');
                         }
                       }
-                      setShowGoalDescription(false);
                     }}
                     className="w-full px-6 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors text-lg font-medium"
                   >
@@ -5346,7 +5579,7 @@ function App() {
                                       }
                                     }}
                                     style={{ marginLeft: '10px' }}
-                                  >X</button>
+                                  >🗑️</button>
                                 </div>
                               </div>
                             </div>
