@@ -46,7 +46,7 @@ body {
   display: block;
   min-width: 320px;
   min-height: 100vh;
-  overflow-x: auto;
+  overflow-x: hidden;
   background-color: #0b1120;
   color: rgba(255, 255, 255, 0.87);
 }

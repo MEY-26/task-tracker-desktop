@@ -4,3 +4,12 @@
     padding: 2rem;
     text-align: center;
   }
+
+/* Hide native scrollbars but allow wheel scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar { /* Chrome, Safari */
+  display: none;
+}

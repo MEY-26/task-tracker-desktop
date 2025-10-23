@@ -291,54 +291,57 @@ function App() {
           const w = (t / availableMinutes) * 100; // Bu görevin ağırlığı
           const isCompleted = it.is_completed === true;
 
-          let effectiveActual = a;
+          // Yeni tamamlanmadı verimlilik modeli:
+          // - a/t ilerleme oranı
+          // - Tam affedildiyse 1 kabul edilir
+          // - Aksi halde kare-kökten sert ceza ve sabit 0.05 düşüm (0 tabanına kırpılır)
+          let efficiency = 0;
 
           if (isCompleted) {
-            effectiveActual = a; // İş bitmiş, ne harcanmışsa o geçerli            
+            // Tamamlandı: klasik verimlilik (fazla süre varsa düşer)
+            const effActual = Math.max(a, 1); // 0 bölen korunumu
+            efficiency = Math.min(1, t / effActual);
           } else {
-            // İş bitmediyse
-            if (a > t) {
-              // Senaryo 4: ceza = (a - t) + 0.1*t  => efektif payda = t + ceza
-              const pen = (a - t) + (0.1 * t);
-              effectiveActual = t + pen;
-            } else if (a === t) {
-              // Senaryo 3: ceza = 0.1*t
-              effectiveActual = t + (0.1 * t);
+            const shortage = Math.max(0, t - a);
+            let forgivenessRatio = 0;
+            if (shortage > 0 && totalShortfall > 0 && unplannedForgiveness > 0) {
+              const thisShare = shortage / totalShortfall;
+              const forgiveness = unplannedForgiveness * thisShare;
+              forgivenessRatio = Math.min(1, forgiveness / shortage);
+            }
+            const EPS = 1e-6;
+            const fullyForgiven = (shortage > EPS) && ((1 - forgivenessRatio) <= EPS);
+            // Hedefe ulaşılmış ancak iş tamamlanmamışsa sabit ceza uygula
+            if (shortage <= EPS) {
+              const incompletePenalty = 0.10; // %10 sabit ceza
+              efficiency = Math.max(0, 1 - incompletePenalty);
+            } else if (fullyForgiven) {
+              efficiency = 1; // eksik plandışıyla tamamen kapandı
             } else {
-              const shortage = Math.max(0, t - a);
-              let forgivenessRatio = 0;
-              if (shortage > 0 && totalShortfall > 0 && unplannedForgiveness > 0) {
-                const thisShare = shortage / totalShortfall;
-                const forgiveness = unplannedForgiveness * thisShare;
-                forgivenessRatio = Math.min(1, forgiveness / shortage);
-              }
-              // TOLERANS: affın tam olduğu durum
-              const EPS = 1e-6;
-              const fullyForgiven = (shortage <= EPS) || (1 - forgivenessRatio <= EPS);
-              if (fullyForgiven) {
-                // Eksik süre plandışıyla tamamen kapandı → CEZA YOK
-                effectiveActual = t;
-              } else {
-                // Kısmi af: kalan eksik + hedefin %10’u ceza
-                const remainingShort = shortage * (1 - forgivenessRatio);
-                const pen = remainingShort + (0.1 * t);
-                effectiveActual = t + pen;
-              }
-
+              const completion = t > 0 ? (a / t) : 0;
+              const shortageRatio = 1 - completion; // eksik oranı
+              // Tamamlanmadı cezası: completion^2 ile ilerlemeyi ödüllendir, eksik oranı arttıkça doğrusal ceza uygula
+              // c1 ve c2 parametreleri ayarlanabilir (daha adil dağılım için)
+              const c1 = 1.0; // ilerlemeye ağırlık
+              const c2 = 0.4; // eksikliğe ceza ağırlığı (daha yumuşak ceza)
+              efficiency = Math.max(0, (c1 * completion * completion) - (c2 * shortageRatio));
             }
           }
-          const efficiency = t / effectiveActual;
           plannedScore += w * efficiency;
         }
       }
     }
 
-    // Plandışı Skor: Eksiklikleri affettikten sonra kalan bonus olur
+    // Plandışı Skor: iki farklı metrik
+    // - unplannedPercent: Toplam plandışı kullanım oranı (ekranda göstermek için)
+    // - unplannedBonus: Affedilenden sonra kalan plandışı bonusu (final puana eklenir)
     const remainingUnplanned = Math.max(0, unplannedMinutes - unplannedForgiveness);
     const unplannedBonus = availableMinutes > 0 ? (remainingUnplanned / availableMinutes) * 100 : 0;
+    const unplannedPercent = availableMinutes > 0 ? (unplannedMinutes / availableMinutes) * 100 : 0;
 
-    // Toplam performans
-    const finalScore = plannedScore + unplannedBonus;
+    // Toplam performans: planlı skor + plandışı bonus (affedilenden sonra kalan)
+    // Üst sınır yok; plan üstü katkı >100 olabilir
+    let finalScore = plannedScore + unplannedBonus;
 
     return {
       totalTarget,
@@ -349,6 +352,7 @@ function App() {
       plannedScore: Number(plannedScore.toFixed(2)),
       unplannedBonus: Number(unplannedBonus.toFixed(2)),
       finalScore: Number(finalScore.toFixed(2)),
+      unplannedPercent: Number(unplannedPercent.toFixed(2)),
       leaveMinutes,
       availableMinutes,
       overCapacity: totalTarget > availableMinutes,
@@ -2880,7 +2884,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-[calc(95vh)] bg-gradient-to-br from-slate-50 to-blue-50" >
+    <div className="bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden no-scrollbar" >
       <div className="bg-white shadow-lg w-full">
         <div className="flex justify-between w-full max-w-7xl mx-auto px-4" style={{ maxWidth: '1440px' }}>
           <img
@@ -3053,7 +3057,7 @@ function App() {
                       </button>
                     </div>
 
-                    <div className="overflow-y-auto scrollbar-stable notification-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
+                    <div className="overflow-y-auto no-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
                       {(!Array.isArray(notifications) || notifications.length === 0) ? (
                         <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
                       ) : (
@@ -3106,7 +3110,7 @@ function App() {
                   }} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
                 </div>
               </div>
-              <div className="overflow-y-auto scrollbar-stable flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
+              <div className="overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
                 {error && (
                   <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
                     {error}
@@ -3419,8 +3423,8 @@ function App() {
                   </button>
                 </div>
               </div>
-              <div className="p-6 space-y-5 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
-                <div className="flex items-center gap-3 flex-wrap">
+              <div className="p-6 space-y-5 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
+                <div className="flex items-center gap-3 flex-wrap" style={{ paddingBottom: '10px' }}>
                   <span className="w-[10px]"></span>
                   <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20"
                     onClick={() => {
@@ -3453,125 +3457,141 @@ function App() {
                       style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
                     />
                   </div>
-
                 </div>
+                <div className="mt-3 border-t border-white/10" />
+                <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Planlı İşler</div>
+                <div className="mt-3 border-t border-white/10" />
+                <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', paddingRight: '5px' }}>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 8px' }}>
+                      <thead className="bg-white/10">
+                        <tr>
+                          <th className="px-2 py-2 text-left text-[14px]" style={{ width: '20%' }}>Başlık</th>
+                          <th className="px-2 py-2 text-left text-[14px]" style={{ width: '30%' }}>Aksiyon Planları</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef(dk)</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef (%)</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Gerçekleşme(dk)</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Gerçekleşme(%)</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Tamamlandı</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Açıklama</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Sil</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
+                          const lockedTargets = combinedLocks.targets_locked && user?.role !== 'admin';
+                          const lockedActuals = combinedLocks.actuals_locked && user?.role !== 'admin';
+                          const t = Math.max(0, Number(row.target_minutes || 0));
+                          const a = Math.max(0, Number(row.actual_minutes || 0));
+                          const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
+                          const w = capacity > 0 ? (t / capacity) * 100 : 0; // satır ağırlığı
+                          const isCompleted = row.is_completed === true;
 
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
-                    <thead className="bg-white/10">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-[24px]">Başlık</th>
-                        <th className="px-3 py-2 text-left text-[24px]" style={{ paddingLeft: '20px' }}>Aksiyon Planları</th>
-                        <th className="px-3 py-2 text-center text-[24px]" style={{ width: '100px', paddingRight: '20px', paddingLeft: '20px' }}>Hedef(dk)</th>
-                        <th className="px-3 py-2 text-center text-[24px]">Ağırlık (%)</th>
-                        <th className="px-3 py-2 text-center text-[24px]">Gerçekleşme(dk)</th>
-                        <th className="px-3 py-2 text-center text-[24px]" style={{ width: '100px', paddingRight: '20px', paddingLeft: '20px' }}>Gerçekleşme(%)</th>
-                        <th className="px-3 py-2 text-center text-[24px]" style={{ width: '60px' }}>Bitti</th>
-                        <th className="px-3 py-2 text-center text-[24px]"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
-                        const lockedTargets = combinedLocks.targets_locked && user?.role !== 'admin';
-                        const lockedActuals = combinedLocks.actuals_locked && user?.role !== 'admin';
-                        const t = Math.max(0, Number(row.target_minutes || 0));
-                        const a = Math.max(0, Number(row.actual_minutes || 0));
-                        const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
-                        const w = capacity > 0 ? (t / capacity) * 100 : 0; // satır ağırlığı
-                        const isCompleted = row.is_completed === true;
-                        
-                        // Ceza hesaplaması ile verimlilik
-                        let effectiveActual = a;
-                        if (isCompleted) {
-                          // İş bitmiş, ne harcanmışsa o geçerli
-                          effectiveActual = a;
-                        } else {
-                          if (a > t) {
-                            // Ceza: (a - t) + 0.1*t
-                            const pen = (a - t) + (0.1 * t);
-                            effectiveActual = t + pen;
-                          } else if (a === t) {
-                            // Ceza: 0.1*t
-                            effectiveActual = t + (0.1 * t);
+                          // Ceza hesaplaması ile verimlilik
+                          let effectiveActual = a;
+                          if (isCompleted) {
+                            // İş bitmiş, ne harcanmışsa o geçerli
+                            effectiveActual = a;
                           } else {
-                            // a < t - eksik süre için ceza
-                            const shortage = Math.max(0, t - a);
-                            const pen = shortage + (0.1 * t);
-                            effectiveActual = t + pen;
+                            if (a > t) {
+                              // Ceza: (a - t) + 0.1*t
+                              const pen = (a - t) + (0.1 * t);
+                              effectiveActual = t + pen;
+                            } else if (a === t) {
+                              // Ceza: 0.1*t
+                              effectiveActual = t + (0.1 * t);
+                            } else {
+                              // a < t - eksik süre için ceza
+                              const shortage = Math.max(0, t - a);
+                              const pen = shortage + (0.1 * t);
+                              effectiveActual = t + pen;
+                            }
                           }
-                        }
-                        
-                        const eff = effectiveActual > 0 ? (t / effectiveActual) : 0; // ceza ile verimlilik
-                        const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
-                        return (
-                          <tr key={row.id || `p-${idx}`} className="odd:bg-white/[0.02]">
-                            <td className="px-3 py-2 align-top" style={{ verticalAlign: 'middle', paddingTop: '6px' }}>
-                              <input
-                                type="text"
-                                disabled={lockedTargets || user?.role === 'observer'}
-                                value={row.title || ''}
-                                onChange={e => {
-                                  const items = [...weeklyGoals.items];
-                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
-                                  setWeeklyGoals({ ...weeklyGoals, items });
-                                }}
-                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[83px] text-[16px]"
-                                placeholder="Başlık girin..."
-                              />
-                            </td>
-                            <td className="px-3 py-2 align-top" style={{ verticalAlign: 'middle', paddingTop: '6px', paddingLeft: '20px' }}>
-                              <textarea
-                                disabled={lockedTargets || user?.role === 'observer'}
-                                value={row.action_plan || ''}
-                                onChange={e => {
-                                  const items = [...weeklyGoals.items];
-                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
-                                  setWeeklyGoals({ ...weeklyGoals, items });
-                                }}
-                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] min-w-[250px] text-[16px] resize-y"
-                                placeholder="Aksiyon planı girin..."
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle', width: '20px' }}>
-                              <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
-                                onChange={e => {
-                                  const items = [...weeklyGoals.items];
-                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).target_minutes = Number(e.target.value || 0);
-                                  setWeeklyGoals({ ...weeklyGoals, items });
-                                }}
-                                className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[32px]"
-                                style={{ width: '90px', height: '83px', textAlign: 'center' }}
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-center text-neutral-200 text-[32px]" style={{ verticalAlign: 'middle' }}>{capacity > 0 ? ((t / capacity) * 100).toFixed(1) : '0.0'}</td>
-                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle', width: '20px' }}>
-                              <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
-                                onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
-                                className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[32px]"
-                                style={{ width: '90px', height: '83px', textAlign: 'center' }}
-                              /></td>
-                            <td className="px-3 py-2 text-center text-neutral-200 text-[32px]" style={{ verticalAlign: 'middle', width: '20px' }}>{rate}</td>
-                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
-                              <input
-                                type="checkbox"
-                                checked={!!row.is_completed}
-                                disabled={lockedActuals || user?.role === 'observer'}
-                                onChange={e => {
-                                  const items = [...weeklyGoals.items];
-                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
-                                  setWeeklyGoals({ ...weeklyGoals, items });
-                                }}
-                                className="w-6 h-6 cursor-pointer"
-                                style={{ width: '24px', height: '24px', cursor: 'pointer' }}
-                                title="İş tamamlandı mı?"
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
-                              <div className="flex items-center justify-center gap-2">
+
+                          const eff = effectiveActual > 0 ? (t / effectiveActual) : 0; // ceza ile verimlilik
+                          const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
+                          return (
+                            <tr key={row.id || `p-${idx}`} className="odd:bg-white/[0.02]">
+                              <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
+                                <textarea
+                                  disabled={lockedTargets || user?.role === 'observer'}
+                                  value={row.title || ''}
+                                  onChange={e => {
+                                    const items = [...weeklyGoals.items];
+                                    items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}
+                                  className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
+                                  placeholder="Başlık girin..."
+                                  style={{ overflow: 'auto', wordWrap: 'break-word' }}
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
+                                <textarea
+                                  disabled={lockedTargets || user?.role === 'observer'}
+                                  value={row.action_plan || ''}
+                                  onChange={e => {
+                                    const items = [...weeklyGoals.items];
+                                    items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}
+                                  className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[60px] min-w-[250px] text-[16px] resize-y"
+                                  placeholder="Aksiyon planı girin..."
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
+                                <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
+                                  onChange={e => {
+                                    const items = [...weeklyGoals.items];
+                                    items.find((r, i) => i === weeklyGoals.items.indexOf(row)).target_minutes = Number(e.target.value || 0);
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}
+                                  className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
+                                  style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
+                                <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={capacity > 0 ? ((t / capacity) * 100).toFixed(1) : '0.0'}
+                                  className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
+                                  style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
+                                <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
+                                  onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
+                                  className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
+                                  style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
+                                <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={rate}
+                                  className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
+                                  style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!row.is_completed}
+                                  disabled={lockedActuals || user?.role === 'observer'}
+                                  onChange={e => {
+                                    const items = [...weeklyGoals.items];
+                                    items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}
+                                  className="w-6 h-6 cursor-pointer"
+                                  style={{ width: '60px', height: '60px', cursor: 'pointer' }}
+                                  title="İş tamamlandı mı?"
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-middle text-center align-middle">
                                 <button
-                                  className="text-blue-300 hover:text-blue-200 text-[24px] rounded px-2 py-1 transition-colors"
+                                  className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[24px] transition-colors"
                                   style={{
-                                    backgroundColor: row.description?.trim() ? 'rgba(255, 255, 0, 0.7)' : 'transparent'
+                                    backgroundColor: row.description?.trim() ? 'rgba(237, 241, 21, 0.62)' : 'rgba(8, 87, 234, 0.4)',
+                                    width: '60px',
+                                    height: '60px',
+                                    borderRadius: '9999px'
                                   }}
                                   onClick={() => {
                                     setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
@@ -3582,89 +3602,117 @@ function App() {
                                 >
                                   🔍
                                 </button>
-                                <span className="w-[10px]"></span>
-                                {user?.role !== 'observer' && (!lockedTargets || user?.role === 'admin') && (
-                                  <button className="text-rose-300 hover:text-rose-200 text-[24px]" onClick={() => {
-                                    const items = weeklyGoals.items.filter(x => x !== row);
-                                    setWeeklyGoals({ ...weeklyGoals, items });
-                                  }}>🗑️</button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              </td>
+                              <td className="px-3 py-2 align-middle text-center align-middle">
+                                {(() => {
+                                  const canDelete = (user?.role !== 'observer') && (!lockedTargets || user?.role === 'admin');
+                                  return (
+                                    <button
+                                      disabled={!canDelete}
+                                      className={`inline-flex items-center justify-center text-[24px] ${canDelete ? 'text-blue-300 hover:text-blue-200' : 'text-gray-400'}`}
+                                      style={{ width: '60px', height: '60px', borderRadius: '9999px', backgroundColor: canDelete ? 'rgba(241, 91, 21, 0.62)' : 'rgba(148,163,184,0.35)', cursor: canDelete ? 'pointer' : 'default', pointerEvents: canDelete ? 'auto' : 'none' }}
+                                      onClick={() => {
+                                        if (!canDelete) return;
+                                        const items = weeklyGoals.items.filter(x => x !== row);
+                                        setWeeklyGoals({ ...weeklyGoals, items });
+                                      }}
+                                    >
+                                      🗑️
+                                    </button>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                   {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
-                    <div className="mt-2" style={{ padding: '10px' }}>
-                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
+                    <div className="mt-2">
+                      <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[14px]"
                         disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
                         onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
                       >
-                        + Satır Ekle</button>
+                        Görev Ekle</button>
                     </div>
                   )}
                 </div>
-
-                <div className="bg-white/5 border border-white/10 rounded p-3" style={{ marginLeft: '2px', paddingRight: '5px' }}>
-                  <div className="text-neutral-200 font-medium mb-2 text-[24px]" style={{ paddingLeft: '10px' }}>Plana dahil olmayan işler</div>
+                <div className="mt-3 border-t border-white/10" />
+                <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Plana Dahil Olmayan İşler</div>
+                <div className="mt-3 border-t border-white/10" />
+                <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', paddingRight: '5px' }}>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
                       <thead className="bg-white/10">
                         <tr>
-                          <th className="px-3 py-2 text-left text-[24px]">Başlık</th>
-                          <th className="px-3 py-2 text-left text-[24px]">Aksiyon Planı</th>
-                          <th className="px-3 py-2 text-right text-[24px]">Süre (dk)</th>
-                          <th className="px-3 py-2 text-[24px]"></th>
+                          <th className="px-2 py-2 text-left text-[14px]" colSpan="2" style={{ width: '25%' }}>Başlık</th>
+                          <th className="px-2 py-2 text-left text-[14px]" colSpan="3" style={{ width: '40%' }}>İş Ayrıntısı</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Süre(dk)</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Ağırlık(%)</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Açıklama</th>
+                          <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Sil</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {(weeklyGoals.items || []).filter(x => x.is_unplanned).map((row, idx) => (
-                          <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
-                            <td className="px-3 py-2">
-                              <input
-                                type="text"
-                                disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
-                                value={row.title || ''}
-                                onChange={e => {
-                                  const items = [...weeklyGoals.items];
-                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
-                                  setWeeklyGoals({ ...weeklyGoals, items });
-                                }}
-                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[83px] text-[16px]"
-                                placeholder="Başlık girin..."
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <textarea
-                                disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
-                                value={row.action_plan || ''}
-                                onChange={e => {
-                                  const items = [...weeklyGoals.items];
-                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
-                                  setWeeklyGoals({ ...weeklyGoals, items });
-                                }}
-                                className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[80px] text-[16px] resize-y"
-                                placeholder="Aksiyon planı girin..."
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
-                                onChange={e => {
-                                  const items = [...weeklyGoals.items];
-                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
-                                  setWeeklyGoals({ ...weeklyGoals, items });
-                                }}
-                                className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[32px]"
-                                style={{ width: '90px', height: '83px', textAlign: 'center' }} />
-                            </td>
-                            <td className="px-3 py-2 text-center" style={{ verticalAlign: 'middle' }}>
-                              <div className="flex items-center justify-end gap-2">
+                        {(weeklyGoals.items || []).filter(x => x.is_unplanned).map((row, idx) => {
+                          const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
+                          const a = Math.max(0, Number(row.actual_minutes || 0));
+                          const weightPercent = capacity > 0 ? (a / capacity) * 100 : 0;
+                          return (
+                            <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
+                              <td className="px-3 py-2 align-top" colSpan="2" style={{ verticalAlign: 'top' }}>
+                                <textarea
+                                  disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
+                                  value={row.title || ''}
+                                  onChange={e => {
+                                    const items = [...weeklyGoals.items];
+                                    items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}
+                                  className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
+                                  style={{ overflow: 'auto', wordWrap: 'break-word' }}
+                                  placeholder="Başlık girin..."
+                                />
+                              </td>
+                              <td className="px-3 py-2 align-top" colSpan="3" style={{ verticalAlign: 'top' }}>
+                                <textarea
+                                  disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
+                                  value={row.action_plan || ''}
+                                  onChange={e => {
+                                    const items = [...weeklyGoals.items];
+                                    items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}
+                                  className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
+                                  style={{ overflow: 'auto', wordWrap: 'break-word' }}
+                                  placeholder="İş ayrıntısı girin..."
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center align-top">
+                                <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
+                                  onChange={e => {
+                                    const items = [...weeklyGoals.items];
+                                    items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
+                                    setWeeklyGoals({ ...weeklyGoals, items });
+                                  }}
+                                  className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
+                                  style={{ width: '60px', height: '60px', textAlign: 'center' }} />
+                              </td>
+                              <td className="px-3 py-2 text-center align-top">
+                                <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={weightPercent.toFixed(1)}
+                                  className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
+                                  style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center align-top">
                                 <button
-                                  className="text-blue-300 hover:text-blue-200 text-[24px] rounded px-2 py-1 transition-colors"
+                                  className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] transition-colors"
                                   style={{
-                                    backgroundColor: row.description?.trim() ? 'rgba(234, 179, 8, 0.4)' : 'transparent'
+                                    backgroundColor: row.description?.trim() ? 'rgba(237, 241, 21, 0.62)' : 'rgba(8, 87, 234, 0.4)',
+                                    width: '60px',
+                                    height: '60px',
+                                    borderRadius: '9999px'
                                   }}
                                   onClick={() => {
                                     setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
@@ -3675,32 +3723,44 @@ function App() {
                                 >
                                   🔍
                                 </button>
-                                <span className="w-[10px]"></span>
-                                {((!combinedLocks.actuals_locked || user?.role === 'admin') && user?.role !== 'observer') && (
-                                  <button className="text-rose-300 hover:text-rose-200 text-[24px]"
-                                    onClick={() => {
-                                      const items = weeklyGoals.items.filter(x => x !== row);
-                                      setWeeklyGoals({ ...weeklyGoals, items });
-                                    }}>🗑️</button>)}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td className="px-3 py-2 text-center align-top">
+                                {(() => {
+                                  const canDelete = (!combinedLocks.actuals_locked || user?.role === 'admin') && user?.role !== 'observer';
+                                  return (
+                                    <button
+                                      disabled={!canDelete}
+                                      className={`inline-flex items-center justify-center text-[24px] ${canDelete ? 'text-blue-300 hover:text-blue-200' : 'text-gray-400'}`}
+                                      style={{ width: '60px', height: '60px', borderRadius: '9999px', backgroundColor: canDelete ? 'rgba(241, 91, 21, 0.62)' : 'rgba(148,163,184,0.35)', cursor: canDelete ? 'pointer' : 'default', pointerEvents: canDelete ? 'auto' : 'none' }}
+                                      onClick={() => { if (!canDelete) return; const items = weeklyGoals.items.filter(x => x !== row); setWeeklyGoals({ ...weeklyGoals, items }); }}>
+                                      🗑️
+                                    </button>
+                                  );
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
-                    {(!combinedLocks.actuals_locked || user?.role === 'admin') && user?.role !== 'observer' && (
-                      <div className="mt-2" style={{ paddingLeft: '10px' }}>
-                        <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20 w-full"
-                          onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true }] }); }}
-                          style={{ marginBottom: '10px' }}
-                        >
-                          + Satır Ekle</button>
-                      </div>
-                    )}
                   </div>
+                  {user?.role !== 'observer' && (!combinedLocks.actuals_locked || user?.role === 'admin') && (
+                    <div className="mt-2">
+                      <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[14px]"
+                        disabled={combinedLocks.actuals_locked && user?.role !== 'admin'}
+                        onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true, is_completed: false }] }); }}
+                      >
+                        Görev Ekle</button>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-6 bg-white/5 border border-white/10 rounded p-4" style={{ marginLeft: '2px', marginRight: '2px' }}>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[20px]">
+                <div className="mt-3 border-t border-white/10" />
+                <div className="text-neutral-200 font-semibold text-[32px] text-center">Hedef Ayrıntısı</div>
+                <div className="mt-3 border-t border-white/10" />
+                <div className="mt-6 bg-white/5 rounded p-8" style={{ paddingLeft: '15px', paddingRight: '15px' }}>
+                  <div className="mb-4">
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-[20px]">
                     {/* Sol Kolon */}
                     <div className="grid grid-cols-[200px_1fr] gap-2">
                       <div className="text-white/70">İzin Süresi:</div>
@@ -3735,7 +3795,7 @@ function App() {
                       <div className="font-semibold text-white">{weeklyLive.plannedScore}%</div>
 
                       <div className="text-white/70">Plandışı Skor:</div>
-                      <div className="font-semibold text-white">{weeklyLive.unplannedBonus}%</div>
+                      <div className="font-semibold text-white">{weeklyLive.unplannedPercent}%</div>
 
                       <div className="text-white/70">Performans Sonucu:</div>
                       <div className="font-semibold text-white">{weeklyLive.finalScore}%</div>
@@ -3754,7 +3814,8 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 w-[98%]" style={{ paddingTop: '10px', paddingLeft: '15px', paddingBottom: '10px' }}>
+                <div className="mt-3 border-t border-white/10" />
+                <div className="flex items-center gap-3 w-[98%]" style={{ marginTop: '10px', marginLeft: '16px', marginRight: '16px', marginBottom: '12px' }}>
                   <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                   <span className="w-[10px]"></span>
                   {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_lead') && (
@@ -4005,8 +4066,6 @@ function App() {
           <>
             <div className="flex justify-center">
               <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
-
-
                 <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
                   {user?.role === 'admin' && (
                     <button
@@ -4153,7 +4212,7 @@ function App() {
                     style={{ paddingTop: '10px', paddingBottom: '10px' }}
                   >
                     <div className="px-2">
-                      <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800">
+                      <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap overflow-hidden text-ellipsis">
                         {task.title || `Görev ${task.id}`}
                       </div>
                     </div>
@@ -4193,20 +4252,28 @@ function App() {
                     <div className="px-2 text-xs xs:text-sm text-gray-900">
                       {task.start_date ? formatDateOnly(task.start_date) : '-'}
                     </div>
-                    <div className="px-2 text-xs xs:text-sm text-gray-900 whitespace-nowrap overflow-hidden">
+                    <div className="px-2 text-xs xs:text-sm text-gray-900 text-center">
                       {Array.isArray(task.assigned_users) && task.assigned_users.length > 0 ? (
-                        <div className="flex flex-nowrap gap-1 overflow-hidden">
-                          {task.assigned_users.slice(0, 2).map((u) => (
-                            <span key={typeof u === 'object' ? u.id : u} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
-
-                            >
-                              {typeof u === 'object' ? (u.name || u.email || `#${u.id}`) : String(u)}
+                        <div className="flex justify-center items-center gap-1">
+                          {task.assigned_users.length === 1 ? (
+                            <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs whitespace-nowrap">
+                              {typeof task.assigned_users[0] === 'object' ?
+                                (task.assigned_users[0].name || task.assigned_users[0].email || `#${task.assigned_users[0].id}`) :
+                                String(task.assigned_users[0])
+                              }
                             </span>
-                          ))}
-                          {task.assigned_users.length > 2 && (
-                            <span className="inline-block bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs whitespace-nowrap">
-                              +{task.assigned_users.length - 2}
-                            </span>
+                          ) : (
+                            <>
+                              <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs whitespace-nowrap">
+                                {typeof task.assigned_users[0] === 'object' ?
+                                  (task.assigned_users[0].name || task.assigned_users[0].email || `#${task.assigned_users[0].id}`) :
+                                  String(task.assigned_users[0])
+                                }
+                              </span>
+                              <span className="inline-block bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs whitespace-nowrap">
+                                +{task.assigned_users.length - 1}
+                              </span>
+                            </>
                           )}
                         </div>
                       ) : (
@@ -4259,7 +4326,8 @@ function App() {
                             e.stopPropagation();
                             handlePermanentDelete(task.id);
                           }}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-colors"
+                          className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
+                          style={{ width: '40px', height: '40px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
                           title="Görevi kalıcı olarak sil"
                         >
                           🗑️
@@ -4326,8 +4394,8 @@ function App() {
               </div>
 
               <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden divide-x divide-white/10">
-                <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden scrollbar-stable" style={{ padding: '0px 24px' }}>
-                  <div className="py-6 flex flex-col gap-4 sm:gap-6 min-h-[calc(105vh-280px)]">
+                <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar" style={{ padding: '0px 24px' }}>
+                  <div className="py-6 flex flex-col gap-4 sm:gap-6">
                     {error && (
                       <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
                         {error}
@@ -4654,7 +4722,7 @@ function App() {
                             </div>
                           </div>
                         )}
-                        {(user?.role === 'admin' || (user?.role === 'team_leader' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id))) ? (
+                        {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id) ? (
                           <div className="space-y-3 !text-[18px]">
                             <input
                               type="file"
@@ -4745,9 +4813,9 @@ function App() {
                                             addNotification('Silinemedi', 'error');
                                           }
                                         }}
-                                        className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded flex items-center justify-center ml-2"
+                                        className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
+                                        style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
                                         title="Dosyayı sil"
-                                        style={{ width: '65px', height: '40px' }}
                                       >
                                         🗑️
                                       </button>
@@ -4928,17 +4996,19 @@ function App() {
                     </div>
                   </div>
                   <div className="border-b border-white/10 flex-none" style={{ padding: '1px' }}>
-                    <div className="flex items-center justify-between" style={{ paddingLeft: '10px' }}>
+                    <div className="flex items-center justify-between" style={{ paddingLeft: '10px', paddingRight: '10px' }}>
                       <h3 className="text-lg md:text-xl font-semibold text-white">📢 Görev Geçmişi</h3>
-                      <button
-                        onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
-                        className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'}`}
-                        title={user?.role === 'admin' ? (historyDeleteMode ? 'Silme modunu kapat' : 'Silme modunu aç') : 'Sadece admin'}
-                      >🗑️</button>
+                      {user?.role === 'admin' && (
+                        <button
+                          onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
+                          className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'} inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]`}
+                          style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                          title={user?.role === 'admin' ? (historyDeleteMode ? 'Silme modunu kapat' : 'Silme modunu aç') : 'Sadece admin'}
+                        >🗑️</button>)}
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto scrollbar-stable space-y-4" style={{ padding: '10px' }}>
+                  <div className="flex-1 overflow-y-auto no-scrollbar space-y-4" style={{ padding: '10px' }}>
                     {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
                       taskHistory.filter(h => !h.field.includes('_color')).map((h) => (
                         <div key={h.id} className="relative bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
@@ -5133,8 +5203,8 @@ function App() {
                             {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
                               <button
                                 onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); setTaskHistories(prev => ({ ...prev, [selectedTask.id]: Array.isArray(h2) ? h2 : [] })); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
-                                className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-rose-300 hover:text-white hover:bg-rose-600/30 transition z-10"
-                                style={{ position: 'absolute', top: '5px', right: '0px', zIndex: 10, width: '40px', height: '40px' }}
+                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
+                                style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
                                 title="Yorumu sil"
                               >🗑️</button>
                             )}
@@ -5218,250 +5288,381 @@ function App() {
           </div>
         </div>,
         document.body
-      )}
-      {showUserProfile && createPortal(
-        <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
-                <div></div>
-                <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
-                <div className="justify-self-end">
-                  <button onClick={() => setShowUserProfile(false)}
-                    className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
-                </div>
-              </div>
-
-              <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-                <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
-                  <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
-                    <div>
-                      <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
-                        <div className="text-neutral-300 !text-[18px]">İsim</div>
-                        <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
-
-                        <div className="text-neutral-300 !text-[18px]">E-posta</div>
-                        <div className="!text-[18px] truncate">{user?.email || 'Belirtilmemiş'}</div>
-
-                        <div className="text-neutral-300 !text-[18px]">Rol</div>
-                        <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 !text-[18px]">{getRoleText(user?.role)}</div>
-                      </div>
-                    </div>
-                    <div className="bg-white/5 rounded-xl p-4">
-                      {user?.role !== 'observer' && (
-                        <button
-                          className="w-full h-full rounded px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
-                          onClick={async () => {
-                            setWeeklyUserId(null); // Kendi hedeflerini göster
-                            setShowWeeklyGoals(true);
-                            await loadWeeklyGoals(null, null); // Kendi hedeflerini yükle
-                          }}
-                        >
-                          <span className="!text-[40px]">🎯</span>
-                          <span className="!text-[24px]">Haftalık Hedefler</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                <div className="bg-white/5 rounded-xl p-6 mx-4">
-                  <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
-                    🔐 <span className="ml-2">Şifre Değiştir</span>
-                  </div>
-                  <PasswordChangeForm onDone={() => setShowUserProfile(false)} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {showTeamModal && createPortal(
-        <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-            <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
-                <h2 className="font-semibold text-center">Takım</h2>
-                <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
-                  <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
-                </button>
-              </div>
-              <div className="p-4 space-y-3 overflow-y-auto scrollbar-stable" style={{ maxHeight: 'calc(80vh - 120px)' }}>
-                {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
-                  teamMembers.filter(m => m.role !== 'observer').map(m => (
-                    <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 rounded px-3 py-2"
-                      style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
-                      <div>
-                        <div className="font-medium text-white">{m.name}</div>
-                        <div className="text-sm text-neutral-300">{m.email}</div>
-                      </div>
-                      <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => {
-                        setShowTeamModal(false); setWeeklyUserId(m.id);
-                        setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
-                      }} style={{ height: '70px' }}>Hedefleri Aç</button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-neutral-300">
-                    {bulkLeaderId ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {showUserPanel && createPortal(
-        <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-              style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-              <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                  <div className="justify-self-start"></div>
-                  <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Kullanıcı Yönetimi</h2>
+      )
+      }
+      {
+        showUserProfile && createPortal(
+          <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
+            <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+              <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
+                  <div></div>
+                  <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
                   <div className="justify-self-end">
-                    <button
-                      onClick={() => setShowUserPanel(false)}
-                      className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
-                      aria-label="Kapat"
-                    >✕</button>
+                    <button onClick={() => setShowUserProfile(false)}
+                      className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
+                  </div>
+                </div>
+
+                <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+                  <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
+                    <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
+                      <div>
+                        <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
+                          <div className="text-neutral-300 !text-[18px]">İsim</div>
+                          <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
+
+                          <div className="text-neutral-300 !text-[18px]">E-posta</div>
+                          <div className="!text-[18px] truncate">{user?.email || 'Belirtilmemiş'}</div>
+
+                          <div className="text-neutral-300 !text-[18px]">Rol</div>
+                          <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 !text-[18px]">{getRoleText(user?.role)}</div>
+                        </div>
+                      </div>
+                      <div className="bg-white/5 rounded-xl p-4">
+                        {user?.role !== 'observer' && (
+                          <button
+                            className="w-full h-full rounded px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+                            onClick={async () => {
+                              setWeeklyUserId(null); // Kendi hedeflerini göster
+                              setShowWeeklyGoals(true);
+                              await loadWeeklyGoals(null, null); // Kendi hedeflerini yükle
+                            }}
+                          >
+                            <span className="!text-[40px]">🎯</span>
+                            <span className="!text-[24px]">Haftalık Hedefler</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                  <div className="bg-white/5 rounded-xl p-6 mx-4">
+                    <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
+                      🔐 <span className="ml-2">Şifre Değiştir</span>
+                    </div>
+                    <PasswordChangeForm onDone={() => setShowUserProfile(false)} />
                   </div>
                 </div>
               </div>
-              <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto scrollbar-stable" style={{ height: 'calc(80vh - 72px)' }}>
-                <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
-                  {user?.role === 'admin' && (
-                    <div className="pt-4" style={{ paddingTop: '5px' }}>
-                      <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
-                      <AdminCreateUser />
+            </div>
+          </div>,
+          document.body
+        )
+      }
+
+      {
+        showTeamModal && createPortal(
+          <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto' }} />
+            <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+              <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
+                  <h2 className="font-semibold text-center">Takım</h2>
+                  <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
+                    <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
+                  </button>
+                </div>
+                <div className="p-4 space-y-3 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(80vh - 120px)' }}>
+                  {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
+                    teamMembers.filter(m => m.role !== 'observer').map(m => (
+                      <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 rounded px-3 py-2"
+                        style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
+                        <div>
+                          <div className="font-medium text-white">{m.name}</div>
+                          <div className="text-sm text-neutral-300">{m.email}</div>
+                        </div>
+                        <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => {
+                          setShowTeamModal(false); setWeeklyUserId(m.id);
+                          setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
+                        }} style={{ height: '70px' }}>Hedefleri Aç</button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-neutral-300">
+                      {bulkLeaderId ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
                     </div>
                   )}
                 </div>
-                <div className="w-3/5 shrink-0 bg-[#0f172a] overflow-y-auto scrollbar-stable" style={{ padding: '20px' }}>
-                  <div className="flex text-[24px] font-semibold mb-4 space-y-3" style={{ marginBottom: '10px' }}>
-                    <span>Kullanıcılar</span> <span className="w-[50px]"></span>
-                    <input
-                      type="text"
-                      placeholder="Kullanıcı ara..."
-                      value={userSearchTerm}
-                      onChange={(e) => setUserSearchTerm(e.target.value)}
-                      className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{ color: 'black' }}
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck="false"
-                      data-lpignore="true"
-                      data-form-type="other"
-                      name="user-search"
-                      id="user-search"
-                      onFocus={(e) => {
-                        e.target.setAttribute('autocomplete', 'off');
-                        e.target.setAttribute('autocorrect', 'off');
-                        e.target.setAttribute('autocapitalize', 'off');
-                        e.target.setAttribute('spellcheck', 'false');
-                      }}
-                      onInput={(e) => {
-                        if (e.target.value && !e.isTrusted) {
-                          e.target.value = '';
-                          setUserSearchTerm('');
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="text-[16px] font-semibold mb-4 space-y-3">
-                    <div className="flex items-center gap-3 bg-blue-500/20 border rounded-[20px] !w-[100%] justify-end" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px' }}>
-                      <span className="text-[18px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px' }}>
-                        {selectedUsers.length} kullanıcı seçildi ▶
-                      </span>
-                      <select
-                        value={bulkLeaderId}
-                        onChange={(e) => setBulkLeaderId(e.target.value)}
-                        style={{ paddingLeft: '5px', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                        className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !max-w-[250px] !w-[250px] truncate"
-                        title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçin'}
-                      >
-                        <option value="">Lider Seçin</option>
-                        <option value="remove">Lideri Kaldır</option>
-                        {Array.isArray(users) && users
-                          .filter(u => u.role === 'team_leader' || u.role === 'admin')
-                          .map(leader => (
-                            <option key={`bulk-${leader.id}`} value={leader.id} title={`${leader.name} (${getRoleText(leader.role)})`}>
-                              {leader.name} ({getRoleText(leader.role)})
-                            </option>
-                          ))}
-                      </select>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      }
+
+      {
+        showUserPanel && createPortal(
+          <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
+            <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+              <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+                style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <div className="justify-self-start"></div>
+                    <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Kullanıcı Yönetimi</h2>
+                    <div className="justify-self-end">
                       <button
-                        onClick={async () => {
-                          if (!bulkLeaderId) return;
-                          const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
-                          const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
-                            users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
-                          if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
-                            return;
-                          }
-                          try {
-                            setLoading(true);
-                            let successCount = 0;
-                            let errorCount = 0;
-
-                            for (const userId of selectedUsers) {
-                              try {
-                                await updateUserAdmin(userId, { leader_id: leaderId });
-                                successCount++;
-                              } catch (err) {
-                                console.error(`User ${userId} update error:`, err);
-                                errorCount++;
-                              }
-                            }
-
-                            if (successCount > 0) {
-                              addNotification(`${successCount} kullanıcı güncellendi`, 'success');
-                              await loadUsers();
-                            }
-                            if (errorCount > 0) {
-                              addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
-                            }
-
-                            setSelectedUsers([]);
-                            setBulkLeaderId('');
-                          } catch (err) {
-                            console.error('Bulk update error:', err);
-                            addNotification('Toplu güncelleme başarısız', 'error');
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        disabled={!bulkLeaderId}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-                        style={{ marginRight: '20px' }}
-                      >
-                        Uygula
-                      </button>
-                      <span className="!px-3"></span>
-                      <button
-                        onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
-                        className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
-                        style={{ marginRight: '20px' }}
-                      >
-                        İptal
-                      </button>
+                        onClick={() => setShowUserPanel(false)}
+                        className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                        aria-label="Kapat"
+                      >✕</button>
                     </div>
                   </div>
+                </div>
+                <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)' }}>
+                  <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
+                    {user?.role === 'admin' && (
+                      <div className="pt-4" style={{ paddingTop: '5px' }}>
+                        <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
+                        <AdminCreateUser />
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-3/5 shrink-0 bg-[#0f172a] overflow-y-auto no-scrollbar" style={{ padding: '20px' }}>
+                    <div className="flex text-[24px] font-semibold mb-4 space-y-3" style={{ marginBottom: '10px' }}>
+                      <span>Kullanıcılar</span> <span className="w-[50px]"></span>
+                      <input
+                        type="text"
+                        placeholder="Kullanıcı ara..."
+                        value={userSearchTerm}
+                        onChange={(e) => setUserSearchTerm(e.target.value)}
+                        className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ color: 'black' }}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        spellCheck="false"
+                        data-lpignore="true"
+                        data-form-type="other"
+                        name="user-search"
+                        id="user-search"
+                        onFocus={(e) => {
+                          e.target.setAttribute('autocomplete', 'off');
+                          e.target.setAttribute('autocorrect', 'off');
+                          e.target.setAttribute('autocapitalize', 'off');
+                          e.target.setAttribute('spellcheck', 'false');
+                        }}
+                        onInput={(e) => {
+                          if (e.target.value && !e.isTrusted) {
+                            e.target.value = '';
+                            setUserSearchTerm('');
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="text-[16px] font-semibold mb-4 space-y-3">
+                      <div className="flex items-center gap-3 bg-blue-500/20 border rounded-[20px] !w-[100%] justify-end" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px' }}>
+                        <span className="text-[18px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px' }}>
+                          {selectedUsers.length} kullanıcı seçildi ▶
+                        </span>
+                        <select
+                          value={bulkLeaderId}
+                          onChange={(e) => setBulkLeaderId(e.target.value)}
+                          style={{ paddingLeft: '5px', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !max-w-[250px] !w-[250px] truncate"
+                          title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçin'}
+                        >
+                          <option value="">Lider Seçin</option>
+                          <option value="remove">Lideri Kaldır</option>
+                          {Array.isArray(users) && users
+                            .filter(u => u.role === 'team_leader' || u.role === 'admin')
+                            .map(leader => (
+                              <option key={`bulk-${leader.id}`} value={leader.id} title={`${leader.name} (${getRoleText(leader.role)})`}>
+                                {leader.name} ({getRoleText(leader.role)})
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={async () => {
+                            if (!bulkLeaderId) return;
+                            const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
+                            const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
+                              users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
+                            if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
+                              return;
+                            }
+                            try {
+                              setLoading(true);
+                              let successCount = 0;
+                              let errorCount = 0;
 
-                  <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                  {user?.role === 'admin' ? (
-                    <div className="space-y-3">
-                      {Array.isArray(users) && users
-                        .filter(u => {
+                              for (const userId of selectedUsers) {
+                                try {
+                                  await updateUserAdmin(userId, { leader_id: leaderId });
+                                  successCount++;
+                                } catch (err) {
+                                  console.error(`User ${userId} update error:`, err);
+                                  errorCount++;
+                                }
+                              }
+
+                              if (successCount > 0) {
+                                addNotification(`${successCount} kullanıcı güncellendi`, 'success');
+                                await loadUsers();
+                              }
+                              if (errorCount > 0) {
+                                addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
+                              }
+
+                              setSelectedUsers([]);
+                              setBulkLeaderId('');
+                            } catch (err) {
+                              console.error('Bulk update error:', err);
+                              addNotification('Toplu güncelleme başarısız', 'error');
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          disabled={!bulkLeaderId}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
+                          style={{ marginRight: '20px' }}
+                        >
+                          Uygula
+                        </button>
+                        <span className="!px-3"></span>
+                        <button
+                          onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
+                          className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
+                          style={{ marginRight: '20px' }}
+                        >
+                          İptal
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                    {user?.role === 'admin' ? (
+                      <div className="space-y-3">
+                        {Array.isArray(users) && users
+                          .filter(u => {
+                            // Arama terimi filtresi
+                            if (userSearchTerm) {
+                              const searchTerm = userSearchTerm.toLowerCase();
+                              const matchesSearch = (
+                                u.name?.toLowerCase().includes(searchTerm) ||
+                                u.email?.toLowerCase().includes(searchTerm) ||
+                                getRoleText(u.role)?.toLowerCase().includes(searchTerm)
+                              );
+                              if (!matchesSearch) return false;
+                            }
+                            return true;
+                          })
+                          .map((u) => {
+                            const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
+                            return (
+                              <div
+                                key={u.id}
+                                className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
+                                style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="min-w-0 flex text-[16px] items-center gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedUsers.includes(u.id)}
+                                      disabled={u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedUsers(prev => [...prev, u.id]);
+                                        } else {
+                                          setSelectedUsers(prev => prev.filter(id => id !== u.id));
+                                        }
+                                      }}
+                                      className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'cursor-pointer'
+                                        }`}
+                                      style={{ scale: '3', marginLeft: '15px', marginRight: '20px' }}
+                                    />
+                                    <div className="flex-1 min-w-0 max-w-[300px]">
+                                      <div className="text-base font-medium truncate text-white" title={u.name}>{u.name}</div>
+                                      <div className="text-xs text-gray-400 truncate mt-1" title={u.email}>{u.email}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    {(u.role === 'team_member') && (
+                                      <select
+                                        className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[200px] !w-[200px] truncate"
+                                        value={u.leader_id || ''}
+                                        onChange={async (e) => {
+                                          const val = e.target.value ? parseInt(e.target.value) : null;
+                                          try {
+                                            await updateUserAdmin(u.id, { leader_id: val });
+                                            addNotification('Lider ataması güncellendi', 'success');
+                                            await loadUsers();
+                                          } catch (err) {
+                                            console.error('Leader assign error:', err);
+                                            addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
+                                          }
+                                        }}
+                                        style={{ padding: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                        title={u.leader_id ? users.find(x => x.id === u.leader_id)?.name + ' (' + getRoleText(users.find(x => x.id === u.leader_id)?.role) + ')' : 'Lider Yok'}
+                                      >
+                                        <option value="">Lider Yok</option>
+                                        {Array.isArray(users) && users.filter(x => x.role === 'team_leader' || x.role === 'admin').map(l => (
+                                          <option key={`ldr-${l.id}`} value={l.id} title={`${l.name} (${getRoleText(l.role)})`}>{l.name} ({getRoleText(l.role)})</option>
+                                        ))}
+                                      </select>
+                                    )}
+                                    <button
+                                      className="text-xs rounded px-3 py-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+                                      onClick={async () => {
+                                        if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
+
+                                        try {
+                                          setLoading(true);
+                                          await PasswordReset.adminResetPassword(u.id, '123456');
+                                          addNotification('Şifre başarıyla "123456" olarak sıfırlandı', 'success');
+                                          await loadPasswordResetRequests();
+                                        } catch (err) {
+                                          console.error('Admin reset password error:', err);
+                                          addNotification(err.response?.data?.message || 'Şifre sıfırlanamadı', 'error');
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      }}
+                                      style={{ marginLeft: '10px' }}
+                                    >
+                                      ⟳
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <select
+                                        className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[120px] !w-[120px]"
+                                        value={u.role}
+                                        onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
+                                        style={{ padding: '5px', marginLeft: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                        title={getRoleText(u.role)}
+                                      >
+                                        <option value="admin">Yönetici</option>
+                                        <option value="team_leader">Takım Lideri</option>
+                                        <option value="team_member">Takım Üyesi</option>
+                                        <option value="observer">Gözlemci</option>
+                                      </select>
+                                    </div>
+                                    <button className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px]"
+                                      style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                      onClick={async () => {
+                                        if (!confirm('Silinsin mi?')) return; try {
+                                          await deleteUserAdmin(u.id);
+                                          addNotification('Kullanıcı silindi', 'success');
+                                          await loadUsers();
+                                        }
+                                        catch (err) {
+                                          console.error('Delete user error:', err);
+                                          addNotification('Silinemedi', 'error');
+                                        }
+                                      }}
+                                    >🗑️</button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                        {Array.isArray(users) && users.filter(u => {
                           // Arama terimi filtresi
                           if (userSearchTerm) {
                             const searchTerm = userSearchTerm.toLowerCase();
@@ -5472,416 +5673,117 @@ function App() {
                             );
                             if (!matchesSearch) return false;
                           }
+                          // Lider filtresi
                           return true;
-                        })
-                        .map((u) => {
-                          const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
-                          return (
-                            <div
-                              key={u.id}
-                              className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
-                              style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="min-w-0 flex text-[16px] items-center gap-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedUsers.includes(u.id)}
-                                    disabled={u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedUsers(prev => [...prev, u.id]);
-                                      } else {
-                                        setSelectedUsers(prev => prev.filter(id => id !== u.id));
-                                      }
-                                    }}
-                                    className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'
-                                      ? 'opacity-50 cursor-not-allowed'
-                                      : 'cursor-pointer'
-                                      }`}
-                                    style={{ scale: '3', marginLeft: '15px', marginRight: '20px' }}
-                                  />
-                                  <div className="flex-1 min-w-0 max-w-[300px]">
-                                    <div className="text-base font-medium truncate text-white" title={u.name}>{u.name}</div>
-                                    <div className="text-xs text-gray-400 truncate mt-1" title={u.email}>{u.email}</div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                  {(u.role === 'team_member') && (
-                                    <select
-                                      className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[200px] !w-[200px] truncate"
-                                      value={u.leader_id || ''}
-                                      onChange={async (e) => {
-                                        const val = e.target.value ? parseInt(e.target.value) : null;
-                                        try {
-                                          await updateUserAdmin(u.id, { leader_id: val });
-                                          addNotification('Lider ataması güncellendi', 'success');
-                                          await loadUsers();
-                                        } catch (err) {
-                                          console.error('Leader assign error:', err);
-                                          addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
-                                        }
-                                      }}
-                                      style={{ padding: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                      title={u.leader_id ? users.find(x => x.id === u.leader_id)?.name + ' (' + getRoleText(users.find(x => x.id === u.leader_id)?.role) + ')' : 'Lider Yok'}
-                                    >
-                                      <option value="">Lider Yok</option>
-                                      {Array.isArray(users) && users.filter(x => x.role === 'team_leader' || x.role === 'admin').map(l => (
-                                        <option key={`ldr-${l.id}`} value={l.id} title={`${l.name} (${getRoleText(l.role)})`}>{l.name} ({getRoleText(l.role)})</option>
-                                      ))}
-                                    </select>
-                                  )}
-                                  <button
-                                    className="text-xs rounded px-3 py-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
-                                    onClick={async () => {
-                                      if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
-
-                                      try {
-                                        setLoading(true);
-                                        await PasswordReset.adminResetPassword(u.id, '123456');
-                                        addNotification('Şifre başarıyla "123456" olarak sıfırlandı', 'success');
-                                        await loadPasswordResetRequests();
-                                      } catch (err) {
-                                        console.error('Admin reset password error:', err);
-                                        addNotification(err.response?.data?.message || 'Şifre sıfırlanamadı', 'error');
-                                      } finally {
-                                        setLoading(false);
-                                      }
-                                    }}
-                                    style={{ marginLeft: '10px' }}
-                                  >
-                                    ⟳
-                                  </button>
-                                  <div className="flex items-center gap-2">
-                                    <select
-                                      className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[120px] !w-[120px]"
-                                      value={u.role}
-                                      onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
-                                      style={{ padding: '5px', marginLeft: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                      title={getRoleText(u.role)}
-                                    >
-                                      <option value="admin">Yönetici</option>
-                                      <option value="team_leader">Takım Lideri</option>
-                                      <option value="team_member">Takım Üyesi</option>
-                                      <option value="observer">Gözlemci</option>
-                                    </select>
-                                  </div>
-                                  <button className="text-xs rounded bg-rose-600 hover:bg-rose-700 transition-colors"
-                                    onClick={async () => {
-                                      if (!confirm('Silinsin mi?')) return; try {
-                                        await deleteUserAdmin(u.id);
-                                        addNotification('Kullanıcı silindi', 'success');
-                                        await loadUsers();
-                                      }
-                                      catch (err) {
-                                        console.error('Delete user error:', err);
-                                        addNotification('Silinemedi', 'error');
-                                      }
-                                    }}
-                                    style={{ marginLeft: '10px' }}
-                                  >🗑️</button>
-                                </div>
-                              </div>
+                        }).length === 0 && userSearchTerm && (
+                            <div className="text-center py-4 text-gray-400">
+                              {userSearchTerm ? `"${userSearchTerm}" için kullanıcı bulunamadı` : 'Seçilen filtreye uygun kullanıcı bulunamadı'}
                             </div>
-                          );
-                        })}
-
-                      {Array.isArray(users) && users.filter(u => {
-                        // Arama terimi filtresi
-                        if (userSearchTerm) {
-                          const searchTerm = userSearchTerm.toLowerCase();
-                          const matchesSearch = (
-                            u.name?.toLowerCase().includes(searchTerm) ||
-                            u.email?.toLowerCase().includes(searchTerm) ||
-                            getRoleText(u.role)?.toLowerCase().includes(searchTerm)
-                          );
-                          if (!matchesSearch) return false;
-                        }
-                        // Lider filtresi
-                        return true;
-                      }).length === 0 && userSearchTerm && (
-                          <div className="text-center py-4 text-gray-400">
-                            {userSearchTerm ? `"${userSearchTerm}" için kullanıcı bulunamadı` : 'Seçilen filtreye uygun kullanıcı bulunamadı'}
-                          </div>
-                        )}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-neutral-400">Yalnızca admin kullanıcı listesi görüntüler.</div>
-                  )}
+                          )}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-neutral-400">Yalnızca admin kullanıcı listesi görüntüler.</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )
+      }
 
-      {showTaskSettings && createPortal(
-        <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
-          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-              style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-              <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                  <div className="justify-self-start">
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Ayarları</h2>
-                  <div className="justify-self-end">
-                    <button
-                      onClick={() => setShowTaskSettings(false)}
-                      className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
-                      aria-label="Kapat"
-                    >✕</button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto scrollbar-stable" style={{ height: 'calc(80vh - 72px)' }}>
-                <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
-                  <div className="pt-4" style={{ paddingTop: '5px' }}>
-                    <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Türleri</div>
-
-                    {/* Yeni Görev Türü Ekleme */}
-                    <div className="rounded-lg p-4 mb-4">
-                      <label className="text-[18px] font-medium mb-3">Yeni Görev Türü Ekle</label>
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="text"
-                            placeholder="Görev türü adı (örn: Fikstür, Yeni Ürün)"
-                            value={newTaskTypeName}
-                            onChange={(e) => setNewTaskTypeName(e.target.value)}
-                            className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-[16px] text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                            style={{ height: '40px' }}
-                          />
-                          <input
-                            type="color"
-                            value={newTaskTypeColor}
-                            onChange={(e) => setNewTaskTypeColor(e.target.value)}
-                            className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
-                            title="Renk seç"
-                            style={{ height: '40px', width: '40px', backgroundColor: newTaskTypeColor, marginLeft: '5px' }}
-                          />
-                        </div>
-                        <button
-                          onClick={handleAddTaskType}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px]"
-                        >
-                          Tür Ekle
-                        </button>
-                      </div>
+      {
+        showTaskSettings && createPortal(
+          <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
+            <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
+            <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+              <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+                style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <div className="justify-self-start">
                     </div>
-
-                    {/* Mevcut Görev Türleri */}
-                    <div className="space-y-3" style={{ marginTop: '30px' }}>
-                      <label className="text-[18px]">Mevcut Görev Türleri</label>
-                      <div className="space-y-2" style={{ marginTop: '10px' }}>
-                        {getAllTaskTypes().map(taskType => (
-                          <div key={taskType.id || taskType.value} className="rounded-lg p-3 flex items-center justify-between">
-                            <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
-                              {editingTaskTypeId === (taskType.id || taskType.value) ? (
-                                <>
-                                  <input
-                                    type="color"
-                                    value={editingTaskTypeColor}
-                                    onChange={(e) => setEditingTaskTypeColor(e.target.value)}
-                                    className="w-5 h-5 rounded-full cursor-pointer"
-                                    style={{ backgroundColor: taskType.color, width: '24px', height: '24px' }}
-                                    title="Renk seç"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={editingTaskTypeName}
-                                    onChange={(e) => setEditingTaskTypeName(e.target.value)}
-                                    className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded text-[18px] text-white focus:outline-none focus:border-blue-500"
-                                    placeholder="Tür adı"
-                                    style={{ paddingLeft: '5px' }}
-                                  />
-                                  <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
-                                    <button
-                                      onClick={handleSaveTaskType}
-                                      className="text-green-400 hover:text-green-300 text-[14px]"
-                                    >
-                                      Kaydet
-                                    </button>
-                                    <button
-                                      onClick={handleCancelEditTaskType}
-                                      className="text-gray-400 hover:text-gray-300 text-[14px]"
-                                    >
-                                      İptal
-                                    </button>
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
-                                  <span className="text-[18px]" style={{ paddingLeft: '5px' }}>{taskType.label}</span>
-                                  <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
-                                    {taskType.isCustom && !taskType.isPermanent ? (
-                                      <>
-                                        <button
-                                          onClick={() => handleEditTaskType(taskType)}
-                                          className="text-blue-400 hover:text-blue-300 text-[14px]"
-                                        >
-                                          Düzenle
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
-                                          className="text-red-400 hover:text-red-300 text-[14px]"
-                                        >
-                                          Sil
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <span className="text-gray-500 text-[16px]">
-                                        {taskType.isPermanent ? 'Sistem Türü' : 'Silinmez'}
-                                      </span>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Ayarları</h2>
+                    <div className="justify-self-end">
+                      <button
+                        onClick={() => setShowTaskSettings(false)}
+                        className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                        aria-label="Kapat"
+                      >✕</button>
                     </div>
                   </div>
                 </div>
+                <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)' }}>
+                  <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
+                    <div className="pt-4" style={{ paddingTop: '5px' }}>
+                      <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Türleri</div>
 
-                <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
-                  <div className="pt-4" style={{ paddingTop: '5px' }}>
-                    <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Durumları</div>
-
-                    {/* Görev Türü Seçimi */}
-                    <div className="mb-4">
-                      <label className="block text-[18px] mb-3">Görev Türü Seçin</label>
-                      <select
-                        value={selectedTaskTypeForStatuses}
-                        onChange={(e) => setSelectedTaskTypeForStatuses(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[18px] focus:outline-none focus:border-blue-500"
-                        style={{ height: '40px' }}
-                      >
-                        {getAllTaskTypes().map(taskType => (
-                          <option key={taskType.value} value={taskType.value}>
-                            {taskType.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Yeni Durum Ekleme */}
-                    <div className="rounded-lg p-4 mb-4">
-                      <label className="text-[18px] mb-3">Yeni Durum Ekle</label>
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="text"
-                            placeholder="Durum adı (örn: Tasarlanacak, Test Edilecek)"
-                            value={newStatusName}
-                            onChange={(e) => setNewStatusName(e.target.value)}
-                            className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[16px] placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                            style={{ height: '40px' }}
-                          />
-                          <input
-                            type="color"
-                            value={newStatusColor}
-                            onChange={(e) => setNewStatusColor(e.target.value)}
-                            className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
-                            title="Renk seç"
-                            style={{ height: '40px', width: '40px', backgroundColor: newStatusColor, marginLeft: '5px' }}
-                          />
-                        </div>
-                        <button
-                          onClick={handleAddTaskStatus}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px] font-medium"
-                        >
-                          Durum Ekle
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Seçilen Tür için Mevcut Durumlar */}
-                    <div className="space-y-3">
-                      <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</div>
-
-                      {/* Sistem Durumları (Sabit) */}
-                      <div className="mb-4">
-                        <div className="space-y-2">
-                          {/* Waiting - Default */}
-                          <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
-                            <div className="flex items-center justify-between h-full">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px' }}></div>
-                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Bekliyor</span>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Varsayılan</span>
-                              </div>
-                            </div>
+                      {/* Yeni Görev Türü Ekleme */}
+                      <div className="rounded-lg p-4 mb-4">
+                        <label className="text-[18px] font-medium mb-3">Yeni Görev Türü Ekle</label>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="text"
+                              placeholder="Görev türü adı (örn: Fikstür, Yeni Ürün)"
+                              value={newTaskTypeName}
+                              onChange={(e) => setNewTaskTypeName(e.target.value)}
+                              className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-[16px] text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                              style={{ height: '40px' }}
+                            />
+                            <input
+                              type="color"
+                              value={newTaskTypeColor}
+                              onChange={(e) => setNewTaskTypeColor(e.target.value)}
+                              className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
+                              title="Renk seç"
+                              style={{ height: '40px', width: '40px', backgroundColor: newTaskTypeColor, marginLeft: '5px' }}
+                            />
                           </div>
-
-                          {/* Completed */}
-                          <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
-                            <div className="flex items-center justify-between h-full">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px' }}></div>
-                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Tamamlandı</span>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Cancelled */}
-                          <div className="bg-[#1f2937] rounded-lg p-3 " style={{ marginBottom: '5px', height: '50px' }}>
-                            <div className="flex items-center justify-between h-full">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px' }}></div>
-                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>İptal</span>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
-                              </div>
-                            </div>
-                          </div>
+                          <button
+                            onClick={handleAddTaskType}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px]"
+                          >
+                            Tür Ekle
+                          </button>
                         </div>
                       </div>
-                      {/* Özel Durumlar (Dinamik) */}
-                      <div>
-                        <div className="space-y-2">
-                          {customTaskStatuses[selectedTaskTypeForStatuses]?.length > 0 ? (
-                            customTaskStatuses[selectedTaskTypeForStatuses].map(status => (
-                              <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between" style={{ marginBottom: '5px', height: '50px' }}>
-                                {editingTaskStatusId === (status.id || status.key) ? (
+
+                      {/* Mevcut Görev Türleri */}
+                      <div className="space-y-3" style={{ marginTop: '30px' }}>
+                        <label className="text-[18px]">Mevcut Görev Türleri</label>
+                        <div className="space-y-2" style={{ marginTop: '10px' }}>
+                          {getAllTaskTypes().map(taskType => (
+                            <div key={taskType.id || taskType.value} className="rounded-lg p-3 flex items-center justify-between">
+                              <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
+                                {editingTaskTypeId === (taskType.id || taskType.value) ? (
                                   <>
-                                    <div className="flex items-center space-x-3 flex-1">
-                                      <input
-                                        type="color"
-                                        value={editingTaskStatusColor}
-                                        onChange={(e) => setEditingTaskStatusColor(e.target.value)}
-                                        className="w-5 h-5 rounded-full border-2 border-white/20 cursor-pointer"
-                                        style={{ backgroundColor: status.color, width: '24px', height: '24px' }}
-                                        title="Renk seç"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={editingTaskStatusName}
-                                        onChange={(e) => setEditingTaskStatusName(e.target.value)}
-                                        className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded !text-[18px] text-white focus:outline-none focus:border-blue-500"
-                                        placeholder="Durum adı"
-                                        style={{ paddingLeft: '5px' }}
-                                      />
-                                    </div>
+                                    <input
+                                      type="color"
+                                      value={editingTaskTypeColor}
+                                      onChange={(e) => setEditingTaskTypeColor(e.target.value)}
+                                      className="w-5 h-5 rounded-full cursor-pointer"
+                                      style={{ backgroundColor: taskType.color, width: '24px', height: '24px' }}
+                                      title="Renk seç"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={editingTaskTypeName}
+                                      onChange={(e) => setEditingTaskTypeName(e.target.value)}
+                                      className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                      placeholder="Tür adı"
+                                      style={{ paddingLeft: '5px' }}
+                                    />
                                     <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
                                       <button
-                                        onClick={handleSaveTaskStatus}
+                                        onClick={handleSaveTaskType}
                                         className="text-green-400 hover:text-green-300 text-[14px]"
                                       >
                                         Kaydet
                                       </button>
                                       <button
-                                        onClick={handleCancelEditTaskStatus}
+                                        onClick={handleCancelEditTaskType}
                                         className="text-gray-400 hover:text-gray-300 text-[14px]"
                                       >
                                         İptal
@@ -5890,35 +5792,216 @@ function App() {
                                   </>
                                 ) : (
                                   <>
-                                    <div className="flex items-center space-x-3">
-                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
-                                      <span className="!text-[18px]" style={{ paddingLeft: '5px' }}>{status.name || status.label}</span>
-                                    </div>
+                                    <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
+                                    <span className="text-[18px]" style={{ paddingLeft: '5px' }}>{taskType.label}</span>
                                     <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
-                                      <button
-                                        onClick={() => handleEditTaskStatus(status)}
-                                        className="text-blue-400 hover:text-blue-300 text-[14px]"
-                                      >
-                                        Düzenle
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteTaskStatus(status.id || status.key)}
-                                        className="text-red-400 hover:text-red-300 text-[14px]"
-                                      >
-                                        Sil
-                                      </button>
+                                      {taskType.isCustom && !taskType.isPermanent ? (
+                                        <>
+                                          <button
+                                            onClick={() => handleEditTaskType(taskType)}
+                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
+                                            style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                          >
+                                            Düzenle
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
+                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
+                                            style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                          >
+                                            🗑️
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <span className="text-gray-500 text-[16px]">
+                                          {taskType.isPermanent ? 'Sistem Türü' : 'Silinmez'}
+                                        </span>
+                                      )}
                                     </div>
                                   </>
                                 )}
                               </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-400 text-center text-[18px] py-4 border-2 border-dashed border-gray-600 rounded-lg">
-                              Bu görev türü için henüz özel durum tanımlanmamış.
-                              <br />
-                              Yukarıdan yeni durum ekleyebilirsiniz.
                             </div>
-                          )}
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
+                    <div className="pt-4" style={{ paddingTop: '5px' }}>
+                      <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Durumları</div>
+
+                      {/* Görev Türü Seçimi */}
+                      <div className="mb-4">
+                        <label className="block text-[18px] mb-3">Görev Türü Seçin</label>
+                        <select
+                          value={selectedTaskTypeForStatuses}
+                          onChange={(e) => setSelectedTaskTypeForStatuses(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[18px] focus:outline-none focus:border-blue-500"
+                          style={{ height: '40px' }}
+                        >
+                          {getAllTaskTypes().map(taskType => (
+                            <option key={taskType.value} value={taskType.value}>
+                              {taskType.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Yeni Durum Ekleme */}
+                      <div className="rounded-lg p-4 mb-4">
+                        <label className="text-[18px] mb-3">Yeni Durum Ekle</label>
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="text"
+                              placeholder="Durum adı (örn: Tasarlanacak, Test Edilecek)"
+                              value={newStatusName}
+                              onChange={(e) => setNewStatusName(e.target.value)}
+                              className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[16px] placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                              style={{ height: '40px' }}
+                            />
+                            <input
+                              type="color"
+                              value={newStatusColor}
+                              onChange={(e) => setNewStatusColor(e.target.value)}
+                              className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
+                              title="Renk seç"
+                              style={{ height: '40px', width: '40px', backgroundColor: newStatusColor, marginLeft: '5px' }}
+                            />
+                          </div>
+                          <button
+                            onClick={handleAddTaskStatus}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px] font-medium"
+                          >
+                            Durum Ekle
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Seçilen Tür için Mevcut Durumlar */}
+                      <div className="space-y-3">
+                        <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</div>
+
+                        {/* Sistem Durumları (Sabit) */}
+                        <div className="mb-4">
+                          <div className="space-y-2">
+                            {/* Waiting - Default */}
+                            <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                              <div className="flex items-center justify-between h-full">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px' }}></div>
+                                  <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Bekliyor</span>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                  <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Varsayılan</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Completed */}
+                            <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                              <div className="flex items-center justify-between h-full">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px' }}></div>
+                                  <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Tamamlandı</span>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                  <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Cancelled */}
+                            <div className="bg-[#1f2937] rounded-lg p-3 " style={{ marginBottom: '5px', height: '50px' }}>
+                              <div className="flex items-center justify-between h-full">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px' }}></div>
+                                  <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>İptal</span>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                  <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Özel Durumlar (Dinamik) */}
+                        <div>
+                          <div className="space-y-2">
+                            {customTaskStatuses[selectedTaskTypeForStatuses]?.length > 0 ? (
+                              customTaskStatuses[selectedTaskTypeForStatuses].map(status => (
+                                <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between" style={{ marginBottom: '5px', height: '50px' }}>
+                                  {editingTaskStatusId === (status.id || status.key) ? (
+                                    <>
+                                      <div className="flex items-center space-x-3 flex-1">
+                                        <input
+                                          type="color"
+                                          value={editingTaskStatusColor}
+                                          onChange={(e) => setEditingTaskStatusColor(e.target.value)}
+                                          className="w-5 h-5 rounded-full border-2 border-white/20 cursor-pointer"
+                                          style={{ backgroundColor: status.color, width: '24px', height: '24px' }}
+                                          title="Renk seç"
+                                        />
+                                        <input
+                                          type="text"
+                                          value={editingTaskStatusName}
+                                          onChange={(e) => setEditingTaskStatusName(e.target.value)}
+                                          className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded !text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                          placeholder="Durum adı"
+                                          style={{ paddingLeft: '5px' }}
+                                        />
+                                      </div>
+                                      <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
+                                        <button
+                                          onClick={handleSaveTaskStatus}
+                                          className="text-green-400 hover:text-green-300 text-[14px]"
+                                        >
+                                          Kaydet
+                                        </button>
+                                        <button
+                                          onClick={handleCancelEditTaskStatus}
+                                          className="text-gray-400 hover:text-gray-300 text-[14px]"
+                                        >
+                                          İptal
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
+                                        <span className="!text-[18px]" style={{ paddingLeft: '5px' }}>{status.name || status.label}</span>
+                                      </div>
+                                      <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
+                                        <button
+                                          onClick={() => handleEditTaskStatus(status)}
+                                          className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
+                                          style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                        >
+                                          Düzenle
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteTaskStatus(status.id || status.key)}
+                                          className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
+                                          style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                        >
+                                          🗑️
+                                        </button>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-gray-400 text-center text-[18px] py-4 border-2 border-dashed border-gray-600 rounded-lg">
+                                Bu görev türü için henüz özel durum tanımlanmamış.
+                                <br />
+                                Yukarıdan yeni durum ekleyebilirsiniz.
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -5926,10 +6009,10 @@ function App() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )
+      }
 
       {
         error && (
@@ -5939,7 +6022,7 @@ function App() {
           </div>
         )
       }
-    </div>
+    </div >
   );
 }
 export default App;
