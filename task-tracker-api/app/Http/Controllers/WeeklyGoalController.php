@@ -52,10 +52,11 @@ class WeeklyGoalController extends Controller
         return (int) min(self::WEEKLY_BASE_MINUTES, $leave);
     }
 
-    private function weekCapacity(int $leaveMinutes): int
+    private function weekCapacity(int $leaveMinutes, int $overtimeMinutes = 0): int
     {
         $leave = $this->normalizeLeaveMinutes($leaveMinutes);
-        return max(0, self::WEEKLY_BASE_MINUTES - $leave);
+        $overtime = max(0, (int)$overtimeMinutes);
+        return max(0, self::WEEKLY_BASE_MINUTES - $leave + $overtime);
     }
 
     public function get(Request $request)
@@ -83,7 +84,7 @@ class WeeklyGoalController extends Controller
                     'goal' => null,
                     'items' => [],
                     'locks' => $locks,
-                    'summary' => $this->computeSummary([], 0),
+                    'summary' => $this->computeSummary([], 0, 0),
                     'message' => 'Observer kullanıcılar için haftalık hedef oluşturulamaz.'
                 ]);
             }
@@ -91,6 +92,7 @@ class WeeklyGoalController extends Controller
                 'user_id' => $userId,
                 'week_start' => $weekStart,
                 'leave_minutes' => 0,
+                'overtime_minutes' => 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -100,10 +102,13 @@ class WeeklyGoalController extends Controller
         if (!isset($goal->leave_minutes)) {
             $goal->leave_minutes = 0;
         }
+        if (!isset($goal->overtime_minutes)) {
+            $goal->overtime_minutes = 0;
+        }
 
         $items = DB::table('weekly_goal_items')->where('weekly_goal_id', $goal->id)->orderBy('id')->get();
 
-        $summary = $this->computeSummary($items, (int)($goal->leave_minutes ?? 0));
+        $summary = $this->computeSummary($items, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0));
 
         return response()->json([
             'goal' => $goal,
@@ -113,14 +118,15 @@ class WeeklyGoalController extends Controller
         ]);
     }
 
-    private function computeSummary($items, int $leaveMinutes = 0)
+    private function computeSummary($items, int $leaveMinutes = 0, int $overtimeMinutes = 0)
     {
         $collection = collect($items);
         $planned = $collection->where('is_unplanned', false);
         $unplanned = $collection->where('is_unplanned', true);
 
         $leaveMinutes = $this->normalizeLeaveMinutes($leaveMinutes);
-        $availableMinutes = $this->weekCapacity($leaveMinutes);
+        $overtimeMinutes = max(0, (int)$overtimeMinutes);
+        $availableMinutes = $this->weekCapacity($leaveMinutes, $overtimeMinutes);
 
         // Toplam hedef ve ağırlık
         $totalTarget = (int)$planned->sum(function ($it) {
@@ -156,8 +162,30 @@ class WeeklyGoalController extends Controller
         // Plandışı affı: eksikleri kapatmak için kullanılabilir, fazlası bonus olur
         $unplannedForgiveness = min($unplannedMinutes, $totalShortfall);
 
-        // Planlı skor hesaplama
+        // Toplam eksik (Def) ve affetme (F) hesaplama
+        $Pg = 0;
+        $deficits = [];
+        foreach ($planned as $it) {
+            $t = max(0, (int)($it->target_minutes ?? 0));
+            $a = max(0, (int)($it->actual_minutes ?? 0));
+            $isCompleted = (bool)($it->is_completed ?? false);
+            $Pg += $isCompleted ? $t : min($a, $t);
+            $def = $isCompleted ? 0 : max(0, $t - $a);
+            $deficits[] = $def;
+        }
+        $Def = max(0, $availableMinutes - $Pg);
+        $F = min($unplannedMinutes, $Def);
+        $D = $Def - $F;
+
+        $W = $plannedActual + $unplannedMinutes;
+        $L = max(0, $availableMinutes - $W);
+        $unfinishedCount = $planned->filter(function ($it) {
+            return !(bool)($it->is_completed ?? false);
+        })->count();
+
+        // Planlı skor hesaplama (frontend ile aynı mantık)
         $plannedScore = 0.0;
+        $incompleteCapPenaltyRaw = 0.0;
         if ($availableMinutes > 0) {
             foreach ($planned as $it) {
                 $t = max(0, (int)($it->target_minutes ?? 0));
@@ -168,59 +196,83 @@ class WeeklyGoalController extends Controller
                 $w = ($t / $availableMinutes) * 100.0;
                 $isCompleted = (bool)($it->is_completed ?? false);
 
-                $effectiveActual = $a;
                 if ($isCompleted) {
-                    // İş bitmiş, ne harcanmışsa o geçerli
-                    $effectiveActual = $a;
+                    // Tamamlanmış: hız bonusu uygulanır (2x tavan)
+                    $efficiency = $a > 0 ? min(2.0, ($t / $a)) : 0.0;
+                    $plannedScore += $w * $efficiency;
                 } else {
-                    if ($a > $t) {
-                        // Ceza: (a - t) + 0.1*t
-                        $pen = ($a - $t) + (0.1 * $t);
-                        $effectiveActual = $t + $pen;
-                    } elseif ($a === $t) {
-                        // Ceza: 0.1*t
-                        $effectiveActual = $t + (0.1 * $t);
-                    } else { // a < t
-                        $shortage = max(0, $t - $a);
-                        $forgivenessRatio = 0.0;
-                        if ($shortage > 0 && $totalShortfall > 0 && $unplannedForgiveness > 0) {
-                            $thisShare = $shortage / $totalShortfall;
-                            $forgiveness = $unplannedForgiveness * $thisShare;
-                            $forgivenessRatio = min(1.0, $forgiveness / $shortage);
-                        }
-                        // Tolerans: affın tam olduğu durumda ceza yok
-                        $EPS = 1e-6;
-                        $fullyForgiven = ($shortage <= $EPS) || (1 - $forgivenessRatio <= $EPS);
-                        if ($fullyForgiven) {
-                            $effectiveActual = $t;
-                        } else {
-                            $remainingShort = $shortage * (1 - $forgivenessRatio);
-                            $pen = $remainingShort + (0.1 * $t);
-                            $effectiveActual = $t + $pen;
-                        }
+                    // Tamamlanmamış: gerçek süre oranına göre hesaplanır
+                    if ($a < $t) {
+                        $eff = min(1.0, $a / $t);
+                        $plannedScore += $w * $eff;
+                    } else {
+                        // Hedefe ulaşmış ama tamamlanmamış: sabit tavan
+                        $effCap = max(0, min(1.0, 1.0 - 0.10)); // 90% tavan
+                        $plannedScore += $w * $effCap;
+                        $incompleteCapPenaltyRaw += $w * (1.0 - $effCap);
                     }
                 }
-
-                $efficiency = $effectiveActual > 0 ? ($t / $effectiveActual) : 0.0;
-                $plannedScore += $w * $efficiency;
             }
         }
 
-        // Plandışı skor: affedilenden kalan kısım bonus
-        $remainingUnplanned = max(0, $unplannedMinutes - $unplannedForgiveness);
-        $unplannedBonus = $availableMinutes > 0 ? (($remainingUnplanned / $availableMinutes) * 100.0) : 0.0;
+        // Plandışı skor (frontend ile aynı mantık)
+        $unplannedScore = 0.0;
+        if ($F > 1e-6) {
+            // Plandışı süre planlı eksikliği karşılıyor → karşılanan eksiklik oranı kadar skor ekle
+            $unplannedScore = ($F / $availableMinutes) * 100.0;
+        } elseif ($unfinishedCount === 0 && ($unplannedMinutes - $F) > 1e-6) {
+            // Tüm planlılar tamamlandı ve fazladan plandışı süre var → bonus olarak ekle
+            $U_extra = max(0, $unplannedMinutes - $F);
+            $unplannedScore = ($U_extra / $availableMinutes) * 100.0;
+        }
 
-        $final = $plannedScore + $unplannedBonus;
+        // Bonus (hız/tasarruf bonusu)
+        $bonusB = 0.0;
+        if ($unfinishedCount === 0 && abs($D) < 1e-6) {
+            $saved = 0.0;
+            foreach ($planned as $idx => $it) {
+                if ((bool)($it->is_completed ?? false)) {
+                    $t = max(0, (int)($it->target_minutes ?? 0));
+                    $a = max(0, (int)($it->actual_minutes ?? 0));
+                    $saved += max(0, $t - $a);
+                }
+            }
+            $s = $availableMinutes > 0 ? ($saved / $availableMinutes) : 0.0;
+            $U_extra = max(0, $unplannedMinutes - $F);
+            $e = $availableMinutes > 0 ? ($U_extra / $availableMinutes) : 0.0;
+            $bonusB = min(0.20, (0.10 * $s) + (0.25 * $e)); // B_max = 0.20
+        }
+
+        // Cezalar
+        $penaltyP1 = 0.0;
+        if ($D > 1e-6) {
+            $penaltyP1 = ($W >= $availableMinutes ? 0.50 : 0.75) * ($D / $availableMinutes); // kappa veya lambda_
+        }
+        $penaltyEASA = ($unfinishedCount > 0 && $L > 0) ? (2.5 * ($L / $availableMinutes)) : 0.0; // mu = 2.5
+
+        // Mesai bonusu (1.5x çarpan ile)
+        $T_cap = self::WEEKLY_BASE_MINUTES;
+        $T_overtime_used = max(0, min($overtimeMinutes, $W - $T_cap));
+        $overtimeBonus = $T_overtime_used > 0 ? (($T_overtime_used / $T_cap) * 1.5) : 0.0;
+
+        // Final skor (frontend ile aynı formül)
+        // Frontend'de PlanlyScore ve UnplannedScore 0-1 arası normalize edilmiş değerler
+        // Burada yüzde olarak hesapladık, normalize edelim
+        $plannedScoreNormalized = $plannedScore / 100.0;
+        $unplannedScoreNormalized = $unplannedScore / 100.0;
+        $scoreRaw = $plannedScoreNormalized + $unplannedScoreNormalized + $bonusB + $overtimeBonus - $penaltyP1 - $penaltyEASA;
+        $final = min(130.0, max(0.0, $scoreRaw * 100.0)); // scoreCap = 130
 
         return [
             'total_target_minutes' => $totalTarget,
             'total_weight_percent' => round($totalWeight, 2),
             'unplanned_minutes' => $unplannedMinutes,
             'planned_score' => round($plannedScore, 2),
-            'unplanned_bonus' => round($unplannedBonus, 2),
+            'unplanned_bonus' => round($unplannedScore, 2),
             'final_score' => round($final, 2),
             'available_minutes' => $availableMinutes,
             'leave_minutes' => $leaveMinutes,
+            'overtime_minutes' => $overtimeMinutes,
         ];
     }
 
@@ -277,6 +329,7 @@ class WeeklyGoalController extends Controller
                 ->select(
                     'wg.user_id',
                     'wg.leave_minutes',
+                    'wg.overtime_minutes',
                     'wgi.id as item_id',
                     'wgi.target_minutes',
                     'wgi.actual_minutes',
@@ -292,6 +345,7 @@ class WeeklyGoalController extends Controller
                 ->groupBy('user_id')
                 ->map(function ($rows) {
                     $leave = (int)($rows->first()->leave_minutes ?? 0);
+                    $overtime = (int)($rows->first()->overtime_minutes ?? 0);
                     $items = $rows
                         ->filter(function ($row) {
                             return $row->item_id !== null;
@@ -309,6 +363,7 @@ class WeeklyGoalController extends Controller
 
                     return (object) [
                         'leave_minutes' => $leave,
+                        'overtime_minutes' => $overtime,
                         'items' => $items,
                     ];
                 });
@@ -317,15 +372,17 @@ class WeeklyGoalController extends Controller
         $items = $users->map(function ($user) use ($itemsByUser) {
             $userData = $itemsByUser->get($user->id, (object) [
                 'leave_minutes' => 0,
+                'overtime_minutes' => 0,
                 'items' => collect(),
             ]);
 
             $leaveMinutes = (int)($userData->leave_minutes ?? 0);
+            $overtimeMinutes = (int)($userData->overtime_minutes ?? 0);
             $userItems = $userData->items instanceof \Illuminate\Support\Collection
                 ? $userData->items
                 : collect($userData->items ?? []);
 
-            $summary = $this->computeSummary($userItems, $leaveMinutes);
+            $summary = $this->computeSummary($userItems, $leaveMinutes, $overtimeMinutes);
             $plannedItems = $userItems->where('is_unplanned', false);
             $totalActual = (int)$plannedItems->sum('actual_minutes');
             $totalTarget = max(0, (int)($summary['total_target_minutes'] ?? 0));
@@ -348,8 +405,9 @@ class WeeklyGoalController extends Controller
                 'planned_score' => $summary['planned_score'] ?? 0,
                 'unplanned_bonus' => $summary['unplanned_bonus'] ?? 0,
                 'completion_percent' => $completionPercent,
-                'available_minutes' => $summary['available_minutes'] ?? $this->weekCapacity($leaveMinutes),
+                'available_minutes' => $summary['available_minutes'] ?? $this->weekCapacity($leaveMinutes, $overtimeMinutes),
                 'leave_minutes' => $summary['leave_minutes'] ?? $leaveMinutes,
+                'overtime_minutes' => $summary['overtime_minutes'] ?? $overtimeMinutes,
             ];
         })->values();
 
@@ -365,6 +423,7 @@ class WeeklyGoalController extends Controller
             'user_id' => 'nullable|integer|exists:users,id',
             'week_start' => 'nullable|date',
             'leave_minutes' => 'nullable|integer|min:0|max:'.self::WEEKLY_BASE_MINUTES,
+            'overtime_minutes' => 'nullable|integer|min:0',
             'items' => 'required|array',
             'items.*.id' => 'nullable|integer',
             'items.*.title' => 'required|string|max:255',
@@ -390,6 +449,7 @@ class WeeklyGoalController extends Controller
                 'user_id' => $userId,
                 'week_start' => $weekStart,
                 'leave_minutes' => 0,
+                'overtime_minutes' => 0,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -398,9 +458,12 @@ class WeeklyGoalController extends Controller
 
         $requestedLeave = $this->normalizeLeaveMinutes($request->input('leave_minutes'));
         $existingLeave = $this->normalizeLeaveMinutes($goal->leave_minutes ?? 0);
+        $requestedOvertime = max(0, (int)($request->input('overtime_minutes') ?? 0));
+        $existingOvertime = max(0, (int)($goal->overtime_minutes ?? 0));
         $canEditTargets = !$locks['targets_locked'] || $auth->role === 'admin';
         $leaveMinutes = $canEditTargets ? $requestedLeave : $existingLeave;
-        $capacity = $this->weekCapacity($leaveMinutes);
+        $overtimeMinutes = $canEditTargets ? $requestedOvertime : $existingOvertime;
+        $capacity = $this->weekCapacity($leaveMinutes, $overtimeMinutes);
 
         $items = $request->input('items', []);
 
@@ -416,14 +479,17 @@ class WeeklyGoalController extends Controller
             })
             : 0.0;
 
-        if ($totalTarget > $capacity) {
-            return response()->json(['message' => 'Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.'], 422);
-        }
-        if ($capacity > 0 && $totalWeight > 100.0 + 0.001) {
-            return response()->json(['message' => "Hedef ağırlık toplamı %100'ü aşamaz."], 422);
-        }
-        if ($capacity === 0 && $totalTarget > 0) {
-            return response()->json(['message' => 'İzin süresi bu hafta için planlı hedef bırakmıyor.'], 422);
+        // Admin için kapasite kontrollerini bypass et
+        if ($auth->role !== 'admin') {
+            if ($totalTarget > $capacity) {
+                return response()->json(['message' => 'Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.'], 422);
+            }
+            if ($capacity > 0 && $totalWeight > 100.0 + 0.001) {
+                return response()->json(['message' => "Hedef ağırlık toplamı %100'ü aşamaz."], 422);
+            }
+            if ($capacity === 0 && $totalTarget > 0) {
+                return response()->json(['message' => 'İzin süresi bu hafta için planlı hedef bırakmıyor.'], 422);
+            }
         }
 
         DB::beginTransaction();
@@ -486,6 +552,7 @@ class WeeklyGoalController extends Controller
                     ->where('id', $goal->id)
                     ->update([
                         'leave_minutes' => $leaveMinutes,
+                        'overtime_minutes' => $overtimeMinutes,
                         'updated_at' => now(),
                     ]);
             }
@@ -504,7 +571,7 @@ class WeeklyGoalController extends Controller
             'goal' => $goal,
             'items' => $fresh,
             'locks' => $locks,
-            'summary' => $this->computeSummary($fresh, (int)($goal->leave_minutes ?? 0)),
+            'summary' => $this->computeSummary($fresh, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0)),
             'message' => 'Kaydedildi'
         ]);
     }

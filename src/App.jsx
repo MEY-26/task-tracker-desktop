@@ -5,6 +5,8 @@ import './App.css'
 import { createPortal } from 'react-dom';
 import * as ExcelJS from 'exceljs';
 import logo from './assets/logo.svg';
+import { computeWeeklyScore } from './utils/computeWeeklyScore';
+
 
 const WEEKLY_BASE_MINUTES = 2700;
 
@@ -91,6 +93,7 @@ function App() {
   const [weeklyOverviewError, setWeeklyOverviewError] = useState(null);
   const [weeklyOverviewWeekStart, setWeeklyOverviewWeekStart] = useState('');
   const [weeklyLeaveMinutesInput, setWeeklyLeaveMinutesInput] = useState('0');
+  const [weeklyOvertimeMinutesInput, setWeeklyOvertimeMinutesInput] = useState('0');
   const [showGoalDescription, setShowGoalDescription] = useState(false);
   const [selectedGoalIndex, setSelectedGoalIndex] = useState(null);
   const [goalDescription, setGoalDescription] = useState('');
@@ -211,6 +214,19 @@ function App() {
     }
   }, [weeklyLeaveMinutesInput]);
 
+  const weeklyOvertimeMinutes = useMemo(() => {
+    try {
+      const normalized = (weeklyOvertimeMinutesInput ?? '').toString().replace(',', '.').trim();
+      if (!normalized) return 0;
+      const minutes = Math.round(Number(normalized));
+      if (!Number.isFinite(minutes) || minutes <= 0) return 0;
+      return Math.max(0, minutes);
+    } catch (err) {
+      console.warn('weeklyOvertimeMinutes compute failed:', err);
+      return 0;
+    }
+  }, [weeklyOvertimeMinutesInput]);
+
   const handleWeeklyLeaveMinutesChange = useCallback((event) => {
     const raw = (event?.target?.value ?? '').toString();
     if (raw === '') {
@@ -238,6 +254,32 @@ function App() {
     setWeeklyLeaveMinutesInput(clamped.toString());
   }, [weeklyLeaveMinutesInput]);
 
+  const handleWeeklyOvertimeMinutesChange = useCallback((event) => {
+    const raw = (event?.target?.value ?? '').toString();
+    if (raw === '') {
+      setWeeklyOvertimeMinutesInput('');
+      return;
+    }
+    if (!/^\d*$/.test(raw)) {
+      return;
+    }
+    setWeeklyOvertimeMinutesInput(raw);
+  }, []);
+
+  const handleWeeklyOvertimeMinutesBlur = useCallback(() => {
+    const normalized = (weeklyOvertimeMinutesInput ?? '').toString().trim();
+    if (!normalized) {
+      setWeeklyOvertimeMinutesInput('0');
+      return;
+    }
+    const parsed = parseInt(normalized, 10);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      setWeeklyOvertimeMinutesInput('0');
+      return;
+    }
+    setWeeklyOvertimeMinutesInput(parsed.toString());
+  }, [weeklyOvertimeMinutesInput]);
+
   // Performans harfi ve rengi hesaplama
   function getPerformanceGrade(score) {
     if (score >= 111) return { grade: 'A', color: '#00c800', description: 'Olağan Üstü Performans' };
@@ -250,115 +292,84 @@ function App() {
   // Live summary for UI (updates immediately on input changes)
   const weeklyLive = useMemo(() => {
     const items = Array.isArray(weeklyGoals.items) ? weeklyGoals.items : [];
-    const planned = items.filter(x => !x.is_unplanned);
-    const unplanned = items.filter(x => x.is_unplanned);
 
-    const leaveMinutes = weeklyLeaveMinutes;
-    const availableMinutes = Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutes);
+    const planned = items.filter(x => !x.is_unplanned).map(x => ({
+      name: x?.name,
+      target_minutes: Math.max(0, Number(x?.target_minutes || 0)),
+      actual_minutes: Math.max(0, Number(x?.actual_minutes || 0)),
+      is_completed: x?.is_completed === true,
+    }));
 
-    const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x?.target_minutes || 0)), 0);
-    const totalWeightRaw = availableMinutes > 0 ? (totalTarget / availableMinutes) * 100 : 0;
-    const totalWeight = Math.min(100, Number(totalWeightRaw.toFixed(1)));
-    const unplannedMinutes = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
+    const unplanned = items.filter(x => x.is_unplanned).map(x => ({
+      name: x?.name,
+      actual_minutes: Math.max(0, Number(x?.actual_minutes || 0)),
+    }));
 
-    // Planlı görevlerin gerçekleşen süresi
-    const plannedActual = planned.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
+    const breakdown = computeWeeklyScore({
+      baseMinutes: WEEKLY_BASE_MINUTES,      // sende zaten var (2700)
+      leaveMinutes: weeklyLeaveMinutes,      // senin state'in
+      overtimeMinutes: weeklyOvertimeMinutes, // mesai süresi
+      planned,
+      unplanned,
+      params: {
+        alpha: 0.10,
+        beta: 0.25,
+        B_max: 0.20,
+        eta_max: 2.0,
+        kappa: 0.50,
+        lambda_: 0.75,
+        mu: 2.5,
+        scoreCap: 130,
+        incompletePenalty: 0.10,
+      },
+    });
 
-    // Tüm gerçekleşen sürelerin toplamı (hem planlı hem plandışı)
-    const totalActual = items.reduce((acc, x) => acc + Math.max(0, Number(x?.actual_minutes || 0)), 0);
+    const totalTarget = breakdown.sumPlannedMinutes;
+    const availableMinutes = breakdown.T_allow;
+    const plannedActual = breakdown.sumActualPlanned;
+    const unplannedMinutes = breakdown.U;
+    const totalActual = breakdown.W;
 
-    // Planlı görevlerdeki toplam eksik süreyi hesapla (plandışı affı için)
-    const totalShortfall = planned.reduce((acc, it) => {
-      const t = Math.max(0, Number(it?.target_minutes || 0));
-      const a = Math.max(0, Number(it?.actual_minutes || 0));
-      const isCompleted = it.is_completed === true;
-      if (!isCompleted && a < t) {
-        return acc + (t - a);
-      }
-      return acc;
-    }, 0);
+    const unplannedPercent = availableMinutes > 0
+      ? Number(((unplannedMinutes / availableMinutes) * 100).toFixed(2))
+      : 0;
 
-    // Plandışı görevler eksiklikleri affeder (ama fazla kullanımı affetmez)
-    const unplannedForgiveness = Math.min(unplannedMinutes, totalShortfall);
+    const plannedScore = Number((breakdown.PlanlyScore * 100).toFixed(2));
+    const remainingUnplanned = Math.max(0, unplannedMinutes - breakdown.F);
+    const unplannedBonus = availableMinutes > 0
+      ? Number(((remainingUnplanned / availableMinutes) * 100).toFixed(2))
+      : 0;
 
-    // Planlı Skor: Her görev için ayrı hesaplama
-    let plannedScore = 0;
-    if (availableMinutes > 0) {
-      for (const it of planned) {
-        const t = Math.max(0, Number(it?.target_minutes || 0));
-        const a = Math.max(0, Number(it?.actual_minutes || 0));
-        if (t > 0) {
-          const w = (t / availableMinutes) * 100; // Bu görevin ağırlığı
-          const isCompleted = it.is_completed === true;
+    const finalScore = Number((breakdown.Score).toFixed(2));
 
-          // Yeni tamamlanmadı verimlilik modeli:
-          // - a/t ilerleme oranı
-          // - Tam affedildiyse 1 kabul edilir
-          // - Aksi halde kare-kökten sert ceza ve sabit 0.05 düşüm (0 tabanına kırpılır)
-          let efficiency = 0;
-
-          if (isCompleted) {
-            // Tamamlandı: klasik verimlilik (fazla süre varsa düşer)
-            const effActual = Math.max(a, 1); // 0 bölen korunumu
-            efficiency = Math.min(1, t / effActual);
-          } else {
-            const shortage = Math.max(0, t - a);
-            let forgivenessRatio = 0;
-            if (shortage > 0 && totalShortfall > 0 && unplannedForgiveness > 0) {
-              const thisShare = shortage / totalShortfall;
-              const forgiveness = unplannedForgiveness * thisShare;
-              forgivenessRatio = Math.min(1, forgiveness / shortage);
-            }
-            const EPS = 1e-6;
-            const fullyForgiven = (shortage > EPS) && ((1 - forgivenessRatio) <= EPS);
-            // Hedefe ulaşılmış ancak iş tamamlanmamışsa sabit ceza uygula
-            if (shortage <= EPS) {
-              const incompletePenalty = 0.10; // %10 sabit ceza
-              efficiency = Math.max(0, 1 - incompletePenalty);
-            } else if (fullyForgiven) {
-              efficiency = 1; // eksik plandışıyla tamamen kapandı
-            } else {
-              const completion = t > 0 ? (a / t) : 0;
-              const shortageRatio = 1 - completion; // eksik oranı
-              // Tamamlanmadı cezası: completion^2 ile ilerlemeyi ödüllendir, eksik oranı arttıkça doğrusal ceza uygula
-              // c1 ve c2 parametreleri ayarlanabilir (daha adil dağılım için)
-              const c1 = 1.0; // ilerlemeye ağırlık
-              const c2 = 0.4; // eksikliğe ceza ağırlığı (daha yumuşak ceza)
-              efficiency = Math.max(0, (c1 * completion * completion) - (c2 * shortageRatio));
-            }
-          }
-          plannedScore += w * efficiency;
-        }
-      }
-    }
-
-    // Plandışı Skor: iki farklı metrik
-    // - unplannedPercent: Toplam plandışı kullanım oranı (ekranda göstermek için)
-    // - unplannedBonus: Affedilenden sonra kalan plandışı bonusu (final puana eklenir)
-    const remainingUnplanned = Math.max(0, unplannedMinutes - unplannedForgiveness);
-    const unplannedBonus = availableMinutes > 0 ? (remainingUnplanned / availableMinutes) * 100 : 0;
-    const unplannedPercent = availableMinutes > 0 ? (unplannedMinutes / availableMinutes) * 100 : 0;
-
-    // Toplam performans: planlı skor + plandışı bonus (affedilenden sonra kalan)
-    // Üst sınır yok; plan üstü katkı >100 olabilir
-    let finalScore = plannedScore + unplannedBonus;
+    const overtimeBonus = breakdown.OvertimeBonus || 0;
+    const overtimeMinutes = breakdown.T_overtime || 0;
+    const overtimeUsed = breakdown.T_overtime_used || 0;
 
     return {
       totalTarget,
-      totalWeight,
+      totalWeight: availableMinutes > 0 ? Number(((totalTarget / availableMinutes) * 100).toFixed(1)) : 0,
       unplannedMinutes,
       plannedActual,
       totalActual,
-      plannedScore: Number(plannedScore.toFixed(2)),
-      unplannedBonus: Number(unplannedBonus.toFixed(2)),
-      finalScore: Number(finalScore.toFixed(2)),
-      unplannedPercent: Number(unplannedPercent.toFixed(2)),
-      leaveMinutes,
+      plannedScore,
+      unplannedBonus,
+      finalScore,
+      unplannedPercent,
+      leaveMinutes: weeklyLeaveMinutes,
+      overtimeMinutes,
+      overtimeBonus,
+      overtimeUsed,
       availableMinutes,
       overCapacity: totalTarget > availableMinutes,
       overActualCapacity: totalActual > availableMinutes,
+
+      // debug/rapor için detay
+      breakdown,
+      overtimeBonusPercent: Number((overtimeBonus * 100).toFixed(2)),
     };
-  }, [weeklyGoals.items, weeklyLeaveMinutes]);
+  }, [weeklyGoals.items, weeklyLeaveMinutes, weeklyOvertimeMinutes]);
+
 
   // Warn if total planned time exceeds available minutes after leave
   const overTargetWarnedRef = useRef(false);
@@ -414,10 +425,17 @@ function App() {
       } else {
         setWeeklyLeaveMinutesInput('0');
       }
+      const overtimeFromServer = Number(res.goal?.overtime_minutes ?? 0);
+      if (Number.isFinite(overtimeFromServer) && overtimeFromServer > 0) {
+        setWeeklyOvertimeMinutesInput(String(Math.max(0, Math.round(overtimeFromServer))));
+      } else {
+        setWeeklyOvertimeMinutesInput('0');
+      }
     } catch (err) {
       console.error('Weekly goals load error:', err);
       setWeeklyGoals({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
       setWeeklyLeaveMinutesInput('0');
+      setWeeklyOvertimeMinutesInput('0');
     }
   }
 
@@ -459,25 +477,28 @@ function App() {
         ? Number(weeklyLive.availableMinutes)
         : Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutesForSave);
 
-      if ((weeklyLive?.totalTarget || 0) > availableMinutes) {
-        addNotification('Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.', 'error');
-        setWeeklySaveState('idle');
-        return;
-      }
-      if (availableMinutes === 0 && (weeklyLive?.totalTarget || 0) > 0) {
-        addNotification('İzin sonrası kullanılabilir süre 0 dakika, planlı hedef ekleyemezsiniz.', 'error');
-        setWeeklySaveState('idle');
-        return;
-      }
+      // Admin için kapasite kontrollerini bypass et
+      if (user?.role !== 'admin') {
+        if ((weeklyLive?.totalTarget || 0) > availableMinutes) {
+          addNotification('Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.', 'error');
+          setWeeklySaveState('idle');
+          return;
+        }
+        if (availableMinutes === 0 && (weeklyLive?.totalTarget || 0) > 0) {
+          addNotification('İzin sonrası kullanılabilir süre 0 dakika, planlı hedef ekleyemezsiniz.', 'error');
+          setWeeklySaveState('idle');
+          return;
+        }
 
-      // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
-      const totalActual = weeklyLive?.totalActual || 0;
+        // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
+        const totalActual = weeklyLive?.totalActual || 0;
 
-      if (totalActual > availableMinutes) {
-        const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
-        addNotification(errorMsg, 'error');
-        setWeeklySaveState('idle');
-        return;
+        if (totalActual > availableMinutes) {
+          const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
+          addNotification(errorMsg, 'error');
+          setWeeklySaveState('idle');
+          return;
+        }
       }
 
       // Auto compute weights from target minutes (planned only)
@@ -529,9 +550,11 @@ function App() {
         };
       });
 
+      const overtimeMinutesForSave = weeklyOvertimeMinutes;
       const payload = {
         week_start: weeklyWeekStart || fmtYMD(getMonday()),
         leave_minutes: leaveMinutesForSave,
+        overtime_minutes: overtimeMinutesForSave,
         items,
         ...(weeklyUserId ? { user_id: weeklyUserId } : {}),
       };
@@ -550,22 +573,38 @@ function App() {
         };
       });
 
-      setWeeklyGoals({ goal: res.goal, items: savedItems, locks: res.locks || {}, summary: res.summary || null });
       const savedLeave = Number(res.goal?.leave_minutes ?? leaveMinutesForSave);
-      if (Number.isFinite(savedLeave) && savedLeave > 0) {
-        setWeeklyLeaveMinutesInput(String(Math.max(0, Math.round(savedLeave))));
-      } else {
-        setWeeklyLeaveMinutesInput('0');
-      }
-
-      // Ref'i güncelle ki yeni data ile eski data karşılaştırması yapılmasın
+      const savedOvertime = Number(res.goal?.overtime_minutes ?? weeklyOvertimeMinutes);
+      
+      // Ref'i ÖNCE güncelle ki state güncellemelerinden sonra useEffect değişiklik algılamasın
+      // Bu, useEffect'in değişiklik algılamasını önler ve "Kaydedildi" durumunu korur
       const newLeaveMinutes = savedLeave && Number.isFinite(savedLeave) && savedLeave > 0
         ? String(Math.max(0, Math.round(savedLeave)))
         : '0';
+      const newOvertimeMinutes = savedOvertime && Number.isFinite(savedOvertime) && savedOvertime > 0
+        ? String(Math.max(0, Math.round(savedOvertime)))
+        : '0';
+      
+      // Ref'i state güncellemelerinden ÖNCE güncelle
       prevWeeklyDataRef.current = {
         items: JSON.stringify(savedItems),
-        leaveMinutes: newLeaveMinutes
+        leaveMinutes: newLeaveMinutes,
+        overtimeMinutes: newOvertimeMinutes
       };
+      
+      // Şimdi state'i güncelle
+      setWeeklyGoals({ goal: res.goal, items: savedItems, locks: res.locks || {}, summary: res.summary || null });
+      if (Number.isFinite(savedLeave) && savedLeave > 0) {
+        setWeeklyLeaveMinutesInput(newLeaveMinutes);
+      } else {
+        setWeeklyLeaveMinutesInput('0');
+      }
+      
+      if (Number.isFinite(savedOvertime) && savedOvertime > 0) {
+        setWeeklyOvertimeMinutesInput(newOvertimeMinutes);
+      } else {
+        setWeeklyOvertimeMinutesInput('0');
+      }
 
       addNotification('Haftalık hedefler kaydedildi', 'success');
       setWeeklySaveState('saved');
@@ -784,12 +823,14 @@ function App() {
   useEffect(() => {
     const currentItemsStr = JSON.stringify(weeklyGoals.items);
     const currentLeaveMinutes = weeklyLeaveMinutesInput;
+    const currentOvertimeMinutes = weeklyOvertimeMinutesInput;
 
     // İlk render'da önceki değerleri kaydet
     if (prevWeeklyDataRef.current.items === null) {
       prevWeeklyDataRef.current = {
         items: currentItemsStr,
-        leaveMinutes: currentLeaveMinutes
+        leaveMinutes: currentLeaveMinutes,
+        overtimeMinutes: currentOvertimeMinutes
       };
       return;
     }
@@ -797,7 +838,8 @@ function App() {
     // Değişiklik var mı kontrol et
     const hasChanged =
       prevWeeklyDataRef.current.items !== currentItemsStr ||
-      prevWeeklyDataRef.current.leaveMinutes !== currentLeaveMinutes;
+      prevWeeklyDataRef.current.leaveMinutes !== currentLeaveMinutes ||
+      prevWeeklyDataRef.current.overtimeMinutes !== currentOvertimeMinutes;
 
     // Değişiklik varsa ve saved durumundaysa idle'a dön
     if (hasChanged && weeklySaveState === 'saved') {
@@ -807,9 +849,23 @@ function App() {
     // Önceki değerleri güncelle
     prevWeeklyDataRef.current = {
       items: currentItemsStr,
-      leaveMinutes: currentLeaveMinutes
+      leaveMinutes: currentLeaveMinutes,
+      overtimeMinutes: currentOvertimeMinutes
     };
-  }, [weeklyGoals.items, weeklyLeaveMinutesInput, weeklySaveState]);
+  }, [weeklyGoals.items, weeklyLeaveMinutesInput, weeklyOvertimeMinutesInput, weeklySaveState]);
+
+  // Haftalık hedef listesini otomatik güncelle (kayıt sonrası - sadece showWeeklyOverview açıksa)
+  // Not: Bu sadece overview açıkken güncelleme yapar, kaydet butonunun durumunu etkilemez
+  useEffect(() => {
+    if (showWeeklyOverview && weeklyWeekStart && weeklySaveState === 'saved') {
+      // Kayıt tamamlandıktan sonra kısa bir gecikme ile güncelle
+      const timer = setTimeout(() => {
+        loadWeeklyOverview(weeklyWeekStart);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weeklySaveState === 'saved', showWeeklyOverview, weeklyWeekStart]);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -3456,12 +3512,27 @@ function App() {
                       title="Planlanan hafta için izinli olacağınız toplam dakika"
                       style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
                     />
+                    <label className="whitespace-nowrap text-[24px]" style={{ marginLeft: '20px' }}>Mesai (dk)</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      step="5"
+                      min="0"
+                      value={weeklyOvertimeMinutesInput}
+                      onChange={handleWeeklyOvertimeMinutesChange}
+                      onBlur={handleWeeklyOvertimeMinutesBlur}
+                      disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                      className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
+                      placeholder="0"
+                      title="Mesaiye kalma durumunda 2700 dakikayı aşmak için mesai süresi"
+                      style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
+                    />
                   </div>
                 </div>
                 <div className="mt-3 border-t border-white/10" />
                 <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Planlı İşler</div>
                 <div className="mt-3 border-t border-white/10" />
-                <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', paddingRight: '5px' }}>
+                <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px'}}>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 8px' }}>
                       <thead className="bg-white/10">
@@ -3489,7 +3560,10 @@ function App() {
 
                           // Ceza hesaplaması ile verimlilik
                           let effectiveActual = a;
-                          if (isCompleted) {
+                          if (a === 0) {
+                            // Hiç çalışılmamışsa verimlilik 0
+                            effectiveActual = 0;
+                          } else if (isCompleted) {
                             // İş bitmiş, ne harcanmışsa o geçerli
                             effectiveActual = a;
                           } else {
@@ -3629,24 +3703,24 @@ function App() {
                     </table>
                   </div>
                   {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
-                    <div className="mt-2">
-                      <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[14px]"
+                    <div className="mt-2" style={{paddingBottom: '10px'}}>
+                      <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px]"
                         disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
                         onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
                       >
-                        Görev Ekle</button>
+                        İş Ekle</button>
                     </div>
                   )}
                 </div>
                 <div className="mt-3 border-t border-white/10" />
                 <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Plana Dahil Olmayan İşler</div>
                 <div className="mt-3 border-t border-white/10" />
-                <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', paddingRight: '5px' }}>
+                <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px'}}>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
                       <thead className="bg-white/10">
                         <tr>
-                          <th className="px-2 py-2 text-left text-[14px]" colSpan="2" style={{ width: '25%' }}>Başlık</th>
+                          <th className="px-2 py-2 text-left text-[14px]" colSpan="2" style={{ width: '30%' }}>Başlık</th>
                           <th className="px-2 py-2 text-left text-[14px]" colSpan="3" style={{ width: '40%' }}>İş Ayrıntısı</th>
                           <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Süre(dk)</th>
                           <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Ağırlık(%)</th>
@@ -3745,12 +3819,12 @@ function App() {
                     </table>
                   </div>
                   {user?.role !== 'observer' && (!combinedLocks.actuals_locked || user?.role === 'admin') && (
-                    <div className="mt-2">
-                      <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[14px]"
+                    <div className="mt-2" style={{paddingBottom: '10px'}}>
+                      <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px]"
                         disabled={combinedLocks.actuals_locked && user?.role !== 'admin'}
                         onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true, is_completed: false }] }); }}
                       >
-                        Görev Ekle</button>
+                        İş Ekle</button>
                     </div>
                   )}
                 </div>
@@ -3758,61 +3832,92 @@ function App() {
                 <div className="text-neutral-200 font-semibold text-[32px] text-center">Hedef Ayrıntısı</div>
                 <div className="mt-3 border-t border-white/10" />
                 <div className="mt-6 bg-white/5 rounded p-8" style={{ paddingLeft: '15px', paddingRight: '15px' }}>
-                  <div className="mb-4">
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-[20px]">
-                    {/* Sol Kolon */}
-                    <div className="grid grid-cols-[200px_1fr] gap-2">
-                      <div className="text-white/70">İzin Süresi:</div>
-                      <div className="font-semibold text-white">{weeklyLive.leaveMinutes} dk</div>
+                  {(() => {
+                    const items = Array.isArray(weeklyGoals.items) ? weeklyGoals.items : [];
+                    const plannedItems = items.filter(x => !x.is_unplanned);
+                    const unplannedItems = items.filter(x => x.is_unplanned);
+                    const plannedCount = plannedItems.length;
+                    const unplannedCount = unplannedItems.length;
+                    const totalCount = items.length;
+                    const remainingTime = Math.max(0, weeklyLive.availableMinutes - weeklyLive.totalActual);
+                    
+                    const bd = weeklyLive.breakdown || {};
+                    const p1 = Number(((bd.PenaltyP1 || 0) * 100).toFixed(2));
+                    const peasa = Number(((bd.PenaltyEASA || 0) * 100).toFixed(2));
+                    const bonus = Number(((bd.BonusB || 0) * 100).toFixed(2));
+                    const incCap = Number(((bd.IncompleteCapPenaltyRaw || 0) * 100).toFixed(2));
+                    const overtimeBonus = Number(weeklyLive.overtimeBonusPercent || 0);
+                    const overtimeUsed = Number(weeklyLive.overtimeUsed || 0);
+                    
+                    // Toplam cezalar ve bonuslar
+                    const totalPenalties = p1 + peasa + incCap;
+                    const totalBonuses = bonus + overtimeBonus;
+                    const net = totalBonuses - totalPenalties;
+                    
+                    const tip = `Kesinti/Bonus Detayı\n\n🔴 CEZALAR:\nAçık Cezası (P1): -${p1}%\nKullanılmayan Süre Cezası (EASA): -${peasa}%\nTamamlanmama Cezası: -${incCap}%\n\n🟢 BONUSLAR:\nHız/Tasarruf Bonusu: +${bonus}%\nMesai Bonusu: +${overtimeBonus}% (${overtimeUsed} dk mesai, 1.5x çarpan)\n\n📊 TOPLAM:\nCezalar: -${totalPenalties.toFixed(2)}%\nBonuslar: +${totalBonuses.toFixed(2)}%\nNet: ${net >= 0 ? '+' : ''}${net.toFixed(2)}%\n\nPerformans Sonucu: ${weeklyLive.finalScore}%`;
+                    
+                    return (
+                      <div className="grid grid-cols-[auto_auto_auto_auto_auto_auto] gap-x-6 gap-y-3 text-[20px] items-center">
+                        {/* İlk Sütun - Label'lar */}
+                        <div className="flex flex-col gap-3">
+                          <div className="text-white/70 whitespace-nowrap">İzin Süresi:</div>
+                          <div className="text-white/70 whitespace-nowrap">Mesai Süresi:</div>
+                          <div className="text-white/70 whitespace-nowrap">Kullanılabilir Süre:</div>
+                          <div className="text-white/70 whitespace-nowrap">Planlı Süre:</div>
+                          <div className="text-white/70 whitespace-nowrap">Plandışı Süre:</div>
+                        </div>
 
-                      <div className="text-white/70">Kullanılabilir Süre:</div>
-                      <div className="font-semibold text-white">{weeklyLive.availableMinutes} dk ({(weeklyLive.availableMinutes / 60).toFixed(1)} saat)</div>
+                        {/* İkinci Sütun - Değerler (sola yaslı) */}
+                        <div className="flex flex-col gap-3">
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.leaveMinutes} dk</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.overtimeMinutes} dk</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.availableMinutes} dk</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.unplannedMinutes} dk</div>
+                        </div>
 
-                      <div className="text-white/70">Planlı Zaman:</div>
-                      <div className="font-semibold text-white">{weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}</div>
+                        {/* Üçüncü Sütun - Label'lar */}
+                        <div className="flex flex-col gap-3 ml-4">
+                          <div className="text-white/70 whitespace-nowrap">Kullanılan Süre:</div>
+                          <div className="text-white/70 whitespace-nowrap">Kalan Süre:</div>
+                          <div className="text-white/70 whitespace-nowrap">Planlı İş:</div>
+                          <div className="text-white/70 whitespace-nowrap">Plandışı İş:</div>
+                          <div className="text-white/70 whitespace-nowrap">Toplam İş:</div>
+                        </div>
 
-                      <div className="text-white/70">Plandışı Zaman:</div>
-                      <div className="font-semibold text-white">{weeklyLive.unplannedMinutes} dk</div>
+                        {/* Dördüncü Sütun - Değerler (sola yaslı) */}
+                        <div className="flex flex-col gap-3">
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.totalActual} dk</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{remainingTime} dk</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{plannedCount} Adet</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{unplannedCount} Adet</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{totalCount} Adet</div>
+                        </div>
 
-                      <div className="text-white/70">Toplam Zaman:</div>
-                      <div className="font-semibold text-white">{weeklyLive.totalActual} dk</div>
-                    </div>
+                        {/* Beşinci Sütun - Label'lar */}
+                        <div className="flex flex-col gap-3 ml-4">
+                          <div className="text-white/70 whitespace-nowrap">Planlı Skor:</div>
+                          <div className="text-white/70 whitespace-nowrap">Plandışı Skor:</div>
+                          <div className="text-white/70 whitespace-nowrap" title={tip}>Kesinti/Bonus:</div>
+                          <div className="text-white/70 whitespace-nowrap">Performans Skoru:</div>
+                          <div className="text-white/70 whitespace-nowrap">Değerlendirme:</div>
+                        </div>
 
-                    {/* Sağ Kolon */}
-                    <div className="grid grid-cols-[200px_1fr] gap-2">
-                      <div className="text-white/70">Gerçekleşen Zaman:</div>
-                      <div className={`font-semibold ${weeklyLive.overActualCapacity ? 'text-red-400' : 'text-white'}`}>
-                        {weeklyLive.totalActual} dk
-                        {weeklyLive.overActualCapacity && (
-                          <span className="ml-2 text-xs text-red-300">
-                            (Kapasite Aşımı! Kayıt yapılamaz)
-                          </span>
-                        )}
+                        {/* Altıncı Sütun - Değerler (sağa yaslı) */}
+                        <div className="flex flex-col gap-3">
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.plannedScore}%</div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{Number(weeklyLive.unplannedPercent || 0)}%</div>
+                          <div className={`font-semibold whitespace-nowrap text-left ${net >= 0 ? 'text-green-400' : 'text-red-400'}`} title={tip}>
+                            {net >= 0 ? '+' : ''}{net.toFixed(2)}%
+                          </div>
+                          <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.finalScore}%</div>
+                          <div className="font-bold whitespace-nowrap text-left" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
+                            {getPerformanceGrade(weeklyLive.finalScore).description}
+                          </div>
+                        </div>
                       </div>
-
-                      <div className="text-white/70">Planlı Skor:</div>
-                      <div className="font-semibold text-white">{weeklyLive.plannedScore}%</div>
-
-                      <div className="text-white/70">Plandışı Skor:</div>
-                      <div className="font-semibold text-white">{weeklyLive.unplannedPercent}%</div>
-
-                      <div className="text-white/70">Performans Sonucu:</div>
-                      <div className="font-semibold text-white">{weeklyLive.finalScore}%</div>
-
-                      <div
-                        className="text-white/70"
-                        style={{ cursor: 'help' }}
-                        title={"📊 PERFORMANS DEĞERLENDİRME HESAPLAMASI\n\n📈 PLANLI SKOR:\nHer görevin hedef süresine göre ağırlığı hesaplanır\n\n✅ İŞ TAMAMLANDIYSA:\n• Hedeften kısa sürede bitirdiniz → 🎁 Bonus kazanırsınız\n• Hedeften uzun sürdüyse → ⏱ Fazla geçen süre kadar ceza uygulanır\n\n❌ İŞ TAMAMLANMADIYSA:\n• Hedeften kısa sürdüyse → ⏱ Eksik kalan süre + hedef sürenin %10’u kadar ceza\n  (Plandışı görevler varsa eksik süreyi telafi eder)\n• Hedeften uzun sürdüyse → ⏱ Fazla geçen süre + hedef sürenin %10’u kadar ceza\n\n⭐ PLANDIŞI BONUS:\n• Plan dışında yapılan görevlerdir\n• Haftalık toplam süreye göre oransal bonus kazandırır\n• Plandışı görevler, planlı görevlerdeki eksik süreleri telafi eder\n\n🎯 PERFORMANS SONUCU:\nPlanlı Skor + Plandışı Bonus\n\n🧩 DEĞERLENDİRME:\n• ✅ A (111% ve üzeri): Olağanüstü performans\n• ☑️ B (101% – 110%): Beklentilerin üzerinde\n• 🟡 C (80% – 100%): Beklenilen performans\n• 🟠 D (55% – 79%): Beklentilerin altında\n• 🔴 E (0% – 54%): Düşük performans\n\n💡 İPUÇLARI:\n• Görev tamamlandığında mutlaka 'Bitti' kutusunu işaretleyin!"}
-
-                      >
-                        Değerlendirme:
-                      </div>
-                      <div className="font-bold" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
-                        {getPerformanceGrade(weeklyLive.finalScore).description}
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
                 <div className="mt-3 border-t border-white/10" />
                 <div className="flex items-center gap-3 w-[98%]" style={{ marginTop: '10px', marginLeft: '16px', marginRight: '16px', marginBottom: '12px' }}>
@@ -3827,8 +3932,11 @@ function App() {
                           : 'bg-green-600 hover:bg-green-700'
                         } disabled:bg-gray-600 disabled:cursor-not-allowed`}
                       disabled={
-                        weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) ||
-                        weeklyLive.overActualCapacity ||
+                        // Admin için kapasite kontrollerini bypass et
+                        (user?.role !== 'admin' && (
+                          weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) ||
+                          weeklyLive.overActualCapacity
+                        )) ||
                         weeklySaveState === 'saving'
                       }
                       onClick={saveWeeklyGoals}
@@ -3868,7 +3976,7 @@ function App() {
             <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
               <div className="flex-1"></div>
               <div className="flex-1 text-center">
-                <h3 className="text-xl font-semibold">Hedef Açıklaması</h3>
+                <h3 className="text-xl font-semibold">Ek Açıklama</h3>
               </div>
               <div className="flex-1 flex justify-end">
                 <button
@@ -3880,26 +3988,25 @@ function App() {
               </div>
             </div>
 
-            <div className="p-8" style={{ maxHeight: 'calc(80vh - 80px)', paddingLeft: '10px', paddingRight: '10px' }}>
+            <div className="p-8" style={{ maxHeight: 'calc(80vh - 80px)', paddingLeft: '10px', paddingRight: '10px', paddingBottom: '10px' }}>
               <div className="flex-1 gap-3 mb-6 p-6 bg-white/5 rounded-lg">
                 {weeklyGoals.items[selectedGoalIndex].title && (
-                  <h4 className="text-xl font-medium text-blue-300 mb-3">Hedef: {weeklyGoals.items[selectedGoalIndex].title || 'Başlık belirtilmemiş'}</h4>
+                  <h3 className="text-xl font-medium text-blue-300 mb-3">Hedef: {weeklyGoals.items[selectedGoalIndex].title || 'Başlık belirtilmemiş'}</h3>
                 )}
                 {weeklyGoals.items[selectedGoalIndex].action_plan && (
-                  <h4 className="text-xl font-medium text-blue-300 mb-3">Aksiyon Planı: {weeklyGoals.items[selectedGoalIndex].action_plan}</h4>
+                  <h3 className="text-xl font-medium text-blue-300 mb-3">Aksiyon Planı: {weeklyGoals.items[selectedGoalIndex].action_plan}</h3>
                 )}
               </div>
               <div className="mb-6">
-                <h3 className="text-xl font-medium text-blue-300 mb-3">Ek Açıklama:</h3>
+                <h3 className="text-xl font-medium text-blue-300 mb-3">Açıklama:</h3>
                 <textarea
                   value={goalDescription}
                   onChange={(e) => setGoalDescription(e.target.value)}
-                  className="w-full h-[150px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-y text-base"
-                  placeholder="Bu hedefle ilgili ek açıklamalarınızı buraya yazabilirsiniz..."
+                  className="w-full !h-[200px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-none text-base"
+                  placeholder="Ek açıklamalarınızı buraya yazabilirsiniz..."
                   disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
                 />
               </div>
-
               <div className="flex justify-end gap-4 pt-4">
                 <button
                   onClick={() => setShowGoalDescription(false)}

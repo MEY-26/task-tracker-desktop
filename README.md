@@ -36,6 +36,10 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔒 Hedef kilitleme sistemi (Pazartesi 10:00)
 - 🏆 Liderlik tablosu ve performans skorlama
 - 📈 Gerçek zamanlı hedef analizi
+- ⏰ Mesai süresi desteği (overtime minutes)
+- 🎁 Mesai bonusu sistemi (1.5x çarpan)
+- 👨‍💼 Admin kilitleme bypass yetkisi
+- 🔄 Otomatik liste güncelleme sistemi
 
 ### ⚡ Performans ve Optimizasyon
 - 🚀 Memoized görev filtreleme sistemi
@@ -220,7 +224,12 @@ task-tracker-desktop/
 │   │   ├── admin/           # Admin paneli bileşenleri
 │   │   └── account/         # Hesap yönetimi bileşenleri
 │   ├── hooks/               # Custom React hooks
+│   │   └── useNotifications.js
 │   ├── utils/               # Yardımcı fonksiyonlar
+│   │   ├── date.js
+│   │   ├── string.js
+│   │   ├── tasks.js
+│   │   └── computeWeeklyScore.js
 │   └── assets/              # Statik dosyalar
 ├── task-tracker-api/        # Laravel API backend
 │   ├── app/
@@ -231,7 +240,8 @@ task-tracker-desktop/
 │   │   │   ├── TaskStatusController.php
 │   │   │   ├── UserController.php
 │   │   │   ├── PasswordResetController.php
-│   │   │   └── NotificationController.php
+│   │   │   ├── NotificationController.php
+│   │   │   └── WeeklyGoalController.php
 │   │   ├── Models/
 │   │   │   ├── Task.php
 │   │   │   ├── TaskType.php
@@ -255,6 +265,7 @@ task-tracker-desktop/
 │   │   │   ├── create_task_attachments_table.php
 │   │   │   ├── create_weekly_goals_tables.php
 │   │   │   ├── add_is_completed_to_weekly_goal_items_table.php
+│   │   │   ├── add_overtime_minutes_to_weekly_goals_table.php
 │   │   │   └── add_text_columns_to_tasks_table.php
 │   │   └── seeders/         # Başlangıç verileri
 │   │       ├── DatabaseSeeder.php
@@ -389,7 +400,19 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.9.1 - Kalıcı Dosya İndirme Sistemi (Son Güncelleme)
+### v2.9.2 - Haftalık Hedef Sistemi İyileştirmeleri (Son Güncelleme)
+- ✅ **Mesai Süresi Desteği**: Overtime minutes (mesai dakikaları) eklenmesi
+- ✅ **Mesai Bonusu Sistemi**: 1.5x çarpan ile mesai bonusu hesaplama
+- ✅ **Admin Kilitleme Bypass**: Admin kullanıcılar kilitleme durumunda da kayıt yapabilir
+- ✅ **Final Skor Hesaplama Düzeltmesi**: Backend ve frontend skor hesaplamaları senkronize edildi
+- ✅ **Otomatik Liste Güncelleme**: Haftalık hedef listesi otomatik güncelleniyor
+- ✅ **Hedef Ayrıntısı Düzenleme**: 3 sütunlu düzen ile daha iyi görünüm
+- ✅ **Kesinti/Bonus Sistemi**: Cezalar ve bonuslar ayrıntılı gösterimi
+- ✅ **Backend Hesaplama İyileştirmesi**: computeSummary fonksiyonu frontend ile uyumlu hale getirildi
+- ✅ **Veritabanı Migration**: overtime_minutes kolonu eklendi
+- ✅ **Kaydet Butonu İyileştirmesi**: Buton durumu korunması ve doğru çalışması
+
+### v2.9.1 - Kalıcı Dosya İndirme Sistemi
 - ✅ **Zaman Sınırı Kaldırıldı**: Dosyalar artık süresiz erişilebilir
 - ✅ **Token Tabanlı Güvenlik**: MD5 hash ile korumalı kalıcı indirme linkleri
 - ✅ **Signed URL Sistemi Kaldırıldı**: Expires parametresi ve signature hatalarının çözümü

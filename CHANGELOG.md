@@ -4,22 +4,33 @@ Tüm önemli değişiklikler bu dosyada belgelenecektir.
 
 Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uygun olacaktır.
 
-## [Unreleased]
+## [2.9.2] - 2025-01-14
 
 ### Added
-- GitHub için proje hazırlığı
-- Kapsamlı dokümantasyon
-- Kurulum rehberleri
-- Katkıda bulunma rehberi
-- Local network erişimi desteği
-- Vite host konfigürasyonu
-- CORS ayarları güncellemeleri
-- Windows firewall kuralları
-- Authentication hata düzeltmeleri
+- Mesai süresi (overtime minutes) desteği eklendi
+- Mesai bonusu sistemi (1.5x çarpan) eklendi
+- Admin kullanıcılar için kilitleme bypass yetkisi
+- Haftalık hedef listesi otomatik güncelleme özelliği
+- Kesinti/Bonus ayrıntılı gösterimi
+- `src/utils/computeWeeklyScore.js` yardımcı fonksiyonu eklendi
+- `database/migrations/2025_10_31_051309_add_overtime_minutes_to_weekly_goals_table.php` migration dosyası eklendi
 
 ### Changed
-- Package.json metadata güncellemeleri
-- Build script'leri iyileştirmeleri
+- Backend computeSummary fonksiyonu frontend ile uyumlu hale getirildi
+- Final skor hesaplama mantığı düzeltildi ve senkronize edildi
+- Hedef Ayrıntısı bölümü 3 sütunlu düzene geçirildi
+- Kaydet butonu durumu korunması iyileştirildi
+- Admin kullanıcılar için kapasite kontrolleri bypass edildi
+
+### Fixed
+- Final skor hesaplamalarındaki tutarsızlık sorunu çözüldü
+- Kaydet butonunun hızlı durum değiştirme sorunu çözüldü
+- Admin kullanıcılar için kilitleme durumunda kayıt yapma sorunu çözüldü
+
+### Database
+- `overtime_minutes` kolonu `weekly_goals` tablosuna eklendi
+
+## [Unreleased]
 
 ## [1.0.0] - 2024-01-XX
 
