@@ -119,7 +119,6 @@ export function computeWeeklyScore({ baseMinutes, leaveMinutes, overtimeMinutes,
   }
 
   // A devamı) Planlı Skor — affetmeyi satırlara dağıtarak hesapla
-  const sumDef = deficits.reduce((s, x) => s + x, 0);
   for (let i = 0; i < pl.length; i++) {
     const t = P[i];
     const a = A[i];
