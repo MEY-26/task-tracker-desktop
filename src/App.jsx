@@ -10,6 +10,117 @@ import { computeWeeklyScore } from './utils/computeWeeklyScore';
 
 const WEEKLY_BASE_MINUTES = 2700;
 
+// Tooltip component with dynamic positioning using fixed positioning
+const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, formatDateOnly, getLastAddedDescription }) => {
+  const [tooltipPosition, setTooltipPosition] = useState({ visible: false, top: 0, left: 0, arrowPosition: 'bottom', arrowLeft: 0 });
+  const statusRef = useRef(null);
+
+  const handleMouseEnter = () => {
+    onLoadHistory();
+    
+    if (statusRef.current) {
+      const rect = statusRef.current.getBoundingClientRect();
+      const tooltipHeight = 150; // Estimated tooltip height
+      const tooltipWidth = 300; // Estimated tooltip width
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // Calculate tooltip position (centered horizontally above/below status indicator)
+      const left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+      
+      // Keep tooltip within viewport bounds
+      const clampedLeft = Math.max(10, Math.min(left, window.innerWidth - tooltipWidth - 10));
+      
+      let top, arrowPosition;
+      
+      // If there's not enough space below but enough space above, show tooltip on top
+      if (spaceBelow < tooltipHeight + 20 && spaceAbove > tooltipHeight + 20) {
+        top = rect.top - tooltipHeight - 10; // Position above
+        arrowPosition = 'bottom';
+      } else {
+        top = rect.bottom + 10; // Position below
+        arrowPosition = 'top';
+      }
+      
+      // Ensure tooltip stays within viewport
+      if (top < 10) {
+        top = 10;
+      } else if (top + tooltipHeight > window.innerHeight - 10) {
+        top = window.innerHeight - tooltipHeight - 10;
+      }
+      
+      setTooltipPosition({
+        visible: true,
+        top,
+        left: clampedLeft,
+        arrowPosition,
+        arrowLeft: rect.left + (rect.width / 2) - clampedLeft // Arrow position relative to tooltip
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setTooltipPosition({ visible: false, top: 0, left: 0, arrowPosition: 'bottom' });
+  };
+
+  return (
+    <div
+      ref={statusRef}
+      className="relative group"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div
+        className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
+        style={{
+          backgroundColor: getStatusColor(task.status, task),
+          border: '3px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
+          width: '24px',
+          height: '24px'
+        }}        
+      ></div>
+      {tooltipPosition.visible && (
+        <div
+          className="fixed px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 transition-opacity duration-200 pointer-events-none z-[9999]"
+          style={{
+            top: `${tooltipPosition.top}px`,
+            left: `${tooltipPosition.left}px`,
+            opacity: 1,
+            backgroundColor: 'rgba(17, 24, 39, 0.98)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            minWidth: '300px',
+            maxWidth: '400px',
+            padding: '20px 16px'
+          }}
+          onMouseEnter={(e) => e.stopPropagation()}
+        >
+          <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
+          <div className="text-justify">Durum: {getStatusText(task.status, task)}</div>
+          <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription()}</div>
+          <div
+            className="absolute w-0 h-0 border-l-4 border-r-4"
+            style={{
+              [tooltipPosition.arrowPosition === 'top' ? 'bottom' : 'top']: '-4px',
+              left: `${tooltipPosition.arrowLeft}px`,
+              transform: 'translateX(-50%)',
+              [tooltipPosition.arrowPosition === 'top' 
+                ? 'borderTopColor' 
+                : 'borderBottomColor']: 'rgba(17, 24, 39, 0.98)',
+              [tooltipPosition.arrowPosition === 'top'
+                ? 'borderBottomColor'
+                : 'borderTopColor']: 'transparent',
+              borderLeftColor: 'transparent',
+              borderRightColor: 'transparent'
+            }}
+          ></div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -1303,7 +1414,7 @@ function App() {
         });
 
         response = await api.post('/tasks', form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+          // Content-Type header'ı interceptor tarafından otomatik olarak kaldırılacak
           timeout: 0, // large files: disable per-request timeout
           onUploadProgress: (e) => {
             try {
@@ -4209,16 +4320,18 @@ function App() {
                   >
                     Tamamlanan ({taskCounts.completed})
                   </button>
-                  <button
-                    onClick={() => setActiveTab('deleted')}
-                    className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
-                      ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                      }`}
-                    style={{ marginLeft: '5px' }}
-                  >
-                    İptal ({taskCounts.deleted})
-                  </button>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => setActiveTab('deleted')}
+                      className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
+                        ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                        }`}
+                      style={{ marginLeft: '5px' }}
+                    >
+                      İptal ({taskCounts.deleted})
+                    </button>
+                  )}
                   <div className="relative" style={{ marginLeft: '5px' }}>
                     <select
                       value={selectedTaskType}
@@ -4296,7 +4409,7 @@ function App() {
                   <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
                     <span>Dosyalar</span><span className="text-[10px] ml-1">{sortIndicator('attachments_count')}</span>
                   </button>
-                  {activeTab === 'active' ? (
+                  {activeTab === 'active' || activeTab === 'completed' ? (
                     <button className="flex items-center justify-center px-2">
                       <span>Güncel Durum</span>
                     </button>
@@ -4391,42 +4504,15 @@ function App() {
                       {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
                     </div>
                     <div className="px-2 flex justify-center items-center">
-                      {activeTab === 'active' ? (
-                        <div
-                          className="relative group"
-                          onMouseEnter={() => loadTaskHistoryForTooltip(task.id)}
-                        >
-                          <div
-                            className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
-                            style={{
-                              backgroundColor: getStatusColor(task.status, task),
-                              border: '3px solid rgba(255, 255, 255, 0.3)',
-                              boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
-                              width: '24px',
-                              height: '24px'
-                            }}
-                            title={getStatusText(task.status, task)}
-                          ></div>
-                          <div
-                            className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50"
-                            style={{
-                              backgroundColor: 'rgba(17, 24, 39, 0.98)',
-                              backdropFilter: 'blur(8px)',
-                              WebkitBackdropFilter: 'blur(8px)',
-                              minWidth: '300px',
-                              maxWidth: '400px',
-                              padding: '20px 16px'
-                            }}
-                          >
-                            <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
-                            <div className="text-justify">Durum: {getStatusText(task.status, task)}</div>
-                            <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription(taskHistories[task.id] || [])}</div>
-                            <div
-                              className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent"
-                              style={{ borderBottomColor: 'rgba(17, 24, 39, 0.98)' }}
-                            ></div>
-                          </div>
-                        </div>
+                      {activeTab === 'active' || activeTab === 'completed' ? (
+                        <TooltipStatus
+                          task={task}
+                          onLoadHistory={() => loadTaskHistoryForTooltip(task.id)}
+                          getStatusColor={getStatusColor}
+                          getStatusText={getStatusText}
+                          formatDateOnly={formatDateOnly}
+                          getLastAddedDescription={() => getLastAddedDescription(taskHistories[task.id] || [])}
+                        />
                       ) : (
                         <button
                           onClick={(e) => {

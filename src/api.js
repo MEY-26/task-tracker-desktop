@@ -42,6 +42,11 @@ api.interceptors.request.use(
     if (token && token !== 'null' && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // FormData gönderildiğinde Content-Type header'ını kaldır
+    // Axios otomatik olarak multipart/form-data boundary'sini ekler
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     return config;
   },
   (error) => {
@@ -262,7 +267,7 @@ export const Tasks = {
       form.append('_method', 'PUT');
       for (const f of files) form.append('attachments[]', f);
       const response = await api.post(`/tasks/${taskId}`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        // Content-Type header'ı interceptor tarafından otomatik olarak kaldırılacak
         timeout: 0, // large files: disable per-request timeout
         onUploadProgress: (e) => {
           if (typeof onProgress === 'function') {

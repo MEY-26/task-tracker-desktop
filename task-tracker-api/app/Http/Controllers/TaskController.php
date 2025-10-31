@@ -440,13 +440,13 @@ class TaskController extends Controller
             }
         }
         if ($user->role === 'team_leader') {
-            $allowedFields = ['due_date', 'status', 'comment'];
+            $allowedFields = ['due_date', 'status', 'comment', 'attachments'];
             $requestFields = array_keys($request->all());
 
             foreach ($requestFields as $field) {
-                if (!in_array($field, $allowedFields)) {
+                if (!in_array($field, $allowedFields) && $field !== '_method') {
                     return response()->json([
-                        'message' => 'Takım liderleri sadece bitiş tarihi, durum ve yorum değiştirebilir.'
+                        'message' => 'Takım liderleri sadece bitiş tarihi, durum, yorum ve dosya ekleyebilir/değiştirebilir.'
                     ], 403);
                 }
             }
