@@ -60,6 +60,7 @@ class TaskController extends Controller
     {
 
         $validated = $request->validate([
+            'no' => 'nullable|string|max:255',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'priority' => 'required|in:low,medium,high,critical',
@@ -351,12 +352,18 @@ class TaskController extends Controller
             return response()->json(['message' => 'Observer rolündeki kullanıcılar görevlerde değişiklik yapamaz. Sadece görüntüleme yetkiniz var.'], 403);
         }
 
+        // Check if this is just a file upload request
+        $isFileUploadOnly = $request->hasFile('attachments') && !$request->hasAny(['title', 'description', 'priority', 'status', 'task_type', 'task_type_color', 'status_color', 'responsible_id', 'start_date', 'due_date', 'assigned_users', 'no']);
+        
         if ($user->role !== 'admin' && $user->id !== $task->created_by && $user->id !== $task->responsible_id) {
-            return response()->json(['message' => 'Bu görevi güncelleme yetkiniz yok.'], 403);
+            // If it's just a file upload, allow assigned users to upload
+            if (!$isFileUploadOnly || !$task->assignedUsers->contains('id', $user->id)) {
+                return response()->json(['message' => 'Bu görevi güncelleme yetkiniz yok.'], 403);
+            }
         }
 
-
         $validated = $request->validate([
+            'no' => 'nullable|string|max:255',
             'title' => 'sometimes|string|max:255',
             'description' => 'sometimes|nullable|string',
             'priority' => 'in:low,medium,high,critical',
@@ -849,9 +856,8 @@ class TaskController extends Controller
         }
         if (
             $user->role !== 'admin' &&
-            $user->id !== $task->created_by &&
-            $user->id !== $task->responsible_id &&
-            !$task->assignedUsers->contains('id', $user->id)
+            $user->role !== 'team_leader' &&
+            $user->id !== $task->responsible_id
         ) {
             return response()->json(['message' => 'Bu dosyayı silme yetkiniz yok.'], 403);
         }

@@ -489,3 +489,44 @@ cd task-tracker-api
 composer install
 php artisan migrate
 ```
+
+## 🛠️ Otomatik Güncelleme (Windows)
+
+Haftalık otomatik güncellemeler için `scripts/windows-auto-update.ps1` kullanılabilir. Betik; git'ten güncel kodu çeker, frontend/backend bağımlılıklarını günceller ve Laravel migrasyonlarını çalıştırır.
+
+### Betiğin Yaptıkları
+1. `git fetch` + `git pull origin main`
+2. `npm install --no-audit`
+3. `task-tracker-api` klasöründe `composer install --no-interaction --prefer-dist`
+4. `php artisan migrate --force`
+5. `logs/auto-update.log` dosyasına her adımı kayıt eder
+
+Her adım `Invoke-ExternalCommand` fonksiyonu ile izlenir. Hata durumunda betik durur ve log’da ayrıntı bulunur.
+
+### Manuel Çalıştırma
+```
+powershell -ExecutionPolicy Bypass -File "C:\wamp64\www\task-tracker-desktop\scripts\windows-auto-update.ps1"
+```
+- Varsayılan dizin farklıysa `-RepoPath "D:\projeler\task-tracker-desktop"` parametresi ile değiştirilebilir.
+- `-Force` eklenirse yerel değişiklikler olsa bile pull yapılır (kendi değişikliklerinizi kaybedebilirsiniz).
+
+> Betik çalışırken `npm`, `composer` ve `php` komutlarının PATH’te bulunması gerekir. WAMP veya ilgili araçların kurulu olduğundan emin olun.
+
+### Windows Task Scheduler ile Haftalık Görev
+1. `Win + R` → `taskschd.msc`
+2. Sağ panelden **Create Basic Task…**
+3. Ad ve açıklama: `Task Tracker Auto Update`
+4. Trigger: **Weekly** → Pazartesi, 07:00
+5. Action: **Start a program**
+   - Program/script: `powershell.exe`
+   - Arguments:
+     ```
+     -ExecutionPolicy Bypass -File "C:\wamp64\www\task-tracker-desktop\scripts\windows-auto-update.ps1"
+     ```
+6. Sihirbazı bitir. Gerekiyorsa görevin özelliklerinde “Run whether user is logged on or not” ve “Run with highest privileges” seçeneklerini işaretleyin.
+7. Görevi sağ tıklayıp **Run** diyerek test edin. Sonuçlar `logs/auto-update.log` içinde görülür.
+
+### Ek Notlar
+- `git pull` sonrası servis/daemon restart işlemleri yapmaz. Gerekiyorsa betiğin sonuna `npm run build`, `php artisan config:cache` gibi komutlar eklenebilir.
+- `php artisan migrate --force`, veritabanı değişikliklerini üretime uygular; bakım moduna alma veya yedekleme adımlarını ihtiyaca göre ekleyin.
+- Yerel değişiklik varsa (ve `-Force` kullanılmadıysa) güncelleme iptal edilir.
