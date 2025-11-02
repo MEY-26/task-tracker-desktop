@@ -400,7 +400,17 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.9.2 - Haftalık Hedef Sistemi İyileştirmeleri (Son Güncelleme)
+### v2.10.0 - Footer ve Otomatik Guncelleme Sistemi (Son Guncelleme)
+- ✅ **Footer Bar Eklendi**: Sayfanin altinda VADEN logo, tasarim bilgisi, iletisim ve sosyal medya linkleri
+- ✅ **Otomatik Guncelleme Betigi**: Windows icin PowerShell tabanli haftalik otomatik guncelleme sistemi
+- ✅ **Izın Sistemleri Iyilestirildi**: Dosya silme yetkisi Admin/Takim Lideri/Sorumlu ile sinirlandirildi
+- ✅ **Atanan Kullanicilar Icin Durum Kontrolu**: Atananlar sadece combobox ile durum degistirebilir
+- ✅ **NO Alani Eklendi**: Manuel giriş yapilabilen, yalnizca Admin/Sorumlu tarafindan duzenlenebilen alan
+- ✅ **Takim Lideri Otomatik Atama**: Sorumlu olarak takim lideri secildiginde ekibi otomatik atanir
+- ✅ **Aninda Guncelleme**: Takim atamalari ve durum degisiklikleri aninda gorunur
+- ✅ **Veritabani Migration**: NO alani icin yeni migration dosyasi eklendi
+
+### v2.9.2 - Haftalik Hedef Sistemi Iyilestirmeleri
 - ✅ **Mesai Süresi Desteği**: Overtime minutes (mesai dakikaları) eklenmesi
 - ✅ **Mesai Bonusu Sistemi**: 1.5x çarpan ile mesai bonusu hesaplama
 - ✅ **Admin Kilitleme Bypass**: Admin kullanıcılar kilitleme durumunda da kayıt yapabilir
