@@ -393,11 +393,11 @@ function App() {
 
   // Performans harfi ve rengi hesaplama
   function getPerformanceGrade(score) {
-    if (score >= 111) return { grade: 'A', color: '#00c800', description: 'Olağan Üstü Performans' };
-    if (score >= 101) return { grade: 'B', color: '#3dac05ff', description: 'Beklentilerin Üzerinde' };
-    if (score >= 80) return { grade: 'C', color: '#649600', description: 'Beklenilen Performans' };
-    if (score >= 55) return { grade: 'D', color: '#fa6400', description: 'Beklentileri Karşılamayan' };
-    return { grade: 'E', color: '#fa3200', description: 'Düşük Performans' };
+    if (score >= 111) return { grade: 'A', color: '#00c800', description: 'Üstün Başarı' };
+    if (score >= 101) return { grade: 'B', color: '#3dac05', description: 'Beklentiyi Aşıyor' };
+    if (score >= 80) return { grade: 'C', color: '#649600', description: 'Beklentiyi Karşılıyor' };
+    if (score >= 55) return { grade: 'D', color: '#fa6400', description: 'İyileştirme Gerekli' };
+    return { grade: 'E', color: '#fa3200', description: 'Yetersiz' };
   }
 
   // Live summary for UI (updates immediately on input changes)
@@ -1687,6 +1687,7 @@ function App() {
       task_type: task.task_type || 'development',
       responsible_id: task.responsible?.id || '',
       assigned_user_ids: (task.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x)),
+      no: task.no || '',
     });
     setShowDetailModal(true);
 
@@ -1722,87 +1723,108 @@ function App() {
     try {
       if (selectedTask) {
         const updates = {};
+        const isTeamLeader = user?.role === 'team_leader';
+        const isAdmin = user?.role === 'admin';
+        const isResponsible = user?.id === selectedTask.responsible?.id;
 
-        // Description (admin only in UI, but backend will validate anyway)
-        if ((descDraft ?? '') !== (selectedTask.description ?? '')) {
-          updates.description = descDraft ?? '';
-        }
+        // Takım lideri sadece bitiş tarihi ve durum değiştirebilir
+        if (isTeamLeader && !isAdmin && !isResponsible) {
+          // Sadece status ve due_date
+          if (detailDraft) {
+            if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
+              updates.status = detailDraft.status || 'waiting';
+            }
+          }
+          const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
+          if ((editingDates.due_date || '') !== curDue) {
+            updates.due_date = editingDates.due_date || null;
+          }
+        } else {
+          // Admin, Sorumlu veya diğer roller için tüm alanlar
+          // Description (admin only in UI, but backend will validate anyway)
+          if ((descDraft ?? '') !== (selectedTask.description ?? '')) {
+            updates.description = descDraft ?? '';
+          }
 
-        // Drafted selectable fields
-        if (detailDraft) {
-          if ((detailDraft.no || '') !== (selectedTask.no || '')) {
-            updates.no = detailDraft.no || '';
-          }
-          if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
-            updates.status = detailDraft.status || 'waiting';
-          }
-          if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
-            updates.priority = detailDraft.priority || 'medium';
-          }
-          if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
-            updates.task_type = detailDraft.task_type || 'development';
-          }
-          const currentResponsibleId = selectedTask.responsible?.id || null;
-          if ((detailDraft.responsible_id || null) !== currentResponsibleId) {
-            updates.responsible_id = detailDraft.responsible_id || null;
-
-            // Eğer sorumlu değiştiyse, önceki liderin ekibini kaldır ve yeni liderin ekibini ekle
-            const newResponsibleId = detailDraft.responsible_id || null;
-            const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
-            let cleanedAssignedUsers = beforeIds;
-
-            // Önceki liderin ekibini kaldır
-            if (previousResponsibleIdDetailRef.current && users) {
-              const prevResponsibleUser = users.find(u => u.id === previousResponsibleIdDetailRef.current);
-              if (prevResponsibleUser && prevResponsibleUser.role === 'team_leader') {
-                const prevTeamMembers = users.filter(u => u.leader_id === previousResponsibleIdDetailRef.current);
-                const prevTeamMemberIds = prevTeamMembers.map(m => m.id);
-                cleanedAssignedUsers = cleanedAssignedUsers.filter(id => !prevTeamMemberIds.includes(id));
+          // Drafted selectable fields
+          if (detailDraft) {
+            // NO alanı sadece Admin veya Sorumlu tarafından değiştirilebilir
+            if (isAdmin || isResponsible) {
+              if ((detailDraft.no || '') !== (selectedTask.no || '')) {
+                updates.no = detailDraft.no || '';
               }
             }
+            if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
+              updates.status = detailDraft.status || 'waiting';
+            }
+            if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
+              updates.priority = detailDraft.priority || 'medium';
+            }
+            if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
+              updates.task_type = detailDraft.task_type || 'development';
+            }
+            const currentResponsibleId = selectedTask.responsible?.id || null;
+            if ((detailDraft.responsible_id || null) !== currentResponsibleId) {
+              updates.responsible_id = detailDraft.responsible_id || null;
 
-            // Yeni lider takım lideriyse, ekibini ekle
-            if (newResponsibleId && users) {
-              const newResponsibleUser = users.find(u => u.id === newResponsibleId);
-              if (newResponsibleUser && newResponsibleUser.role === 'team_leader') {
-                // Takım liderinin ekibini bul
-                const teamMembers = users.filter(u => u.leader_id === newResponsibleId);
-                const teamMemberIds = teamMembers.map(m => m.id);
-                // Ekibi ekle (duplikasyon olmaması için)
-                const combinedIds = [...new Set([...cleanedAssignedUsers, ...teamMemberIds])];
-                updates.assigned_users = combinedIds;
+              // Eğer sorumlu değiştiyse, önceki liderin ekibini kaldır ve yeni liderin ekibini ekle
+              const newResponsibleId = detailDraft.responsible_id || null;
+              const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
+              let cleanedAssignedUsers = beforeIds;
+
+              // Önceki liderin ekibini kaldır
+              if (previousResponsibleIdDetailRef.current && users) {
+                const prevResponsibleUser = users.find(u => u.id === previousResponsibleIdDetailRef.current);
+                if (prevResponsibleUser && prevResponsibleUser.role === 'team_leader') {
+                  const prevTeamMembers = users.filter(u => u.leader_id === previousResponsibleIdDetailRef.current);
+                  const prevTeamMemberIds = prevTeamMembers.map(m => m.id);
+                  cleanedAssignedUsers = cleanedAssignedUsers.filter(id => !prevTeamMemberIds.includes(id));
+                }
+              }
+
+              // Yeni lider takım lideriyse, ekibini ekle
+              if (newResponsibleId && users) {
+                const newResponsibleUser = users.find(u => u.id === newResponsibleId);
+                if (newResponsibleUser && newResponsibleUser.role === 'team_leader') {
+                  // Takım liderinin ekibini bul
+                  const teamMembers = users.filter(u => u.leader_id === newResponsibleId);
+                  const teamMemberIds = teamMembers.map(m => m.id);
+                  // Ekibi ekle (duplikasyon olmaması için)
+                  const combinedIds = [...new Set([...cleanedAssignedUsers, ...teamMemberIds])];
+                  updates.assigned_users = combinedIds;
+                } else {
+                  // Takım lideri değilse, sadece temizlenmiş listeyi kullan
+                  updates.assigned_users = cleanedAssignedUsers;
+                }
               } else {
-                // Takım lideri değilse, sadece temizlenmiş listeyi kullan
                 updates.assigned_users = cleanedAssignedUsers;
               }
-            } else {
-              updates.assigned_users = cleanedAssignedUsers;
+
+              // Önceki sorumluyu güncelle
+              previousResponsibleIdDetailRef.current = newResponsibleId;
             }
 
-            // Önceki sorumluyu güncelle
-            previousResponsibleIdDetailRef.current = newResponsibleId;
-          }
-
-          // Eğer sorumlu değişmediyse, sadece atananları kontrol et
-          if (!updates.assigned_users) {
-            const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
-            const afterIds = Array.isArray(detailDraft.assigned_user_ids) ? detailDraft.assigned_user_ids : beforeIds;
-            const sameLength = beforeIds.length === afterIds.length;
-            const sameSet = sameLength && beforeIds.every(id => afterIds.includes(id));
-            if (!sameSet) {
-              updates.assigned_users = afterIds;
+            // Eğer sorumlu değişmediyse, sadece atananları kontrol et
+            if (!updates.assigned_users) {
+              const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
+              const afterIds = Array.isArray(detailDraft.assigned_user_ids) ? detailDraft.assigned_user_ids : beforeIds;
+              const sameLength = beforeIds.length === afterIds.length;
+              const sameSet = sameLength && beforeIds.every(id => afterIds.includes(id));
+              if (!sameSet) {
+                updates.assigned_users = afterIds;
+              }
             }
           }
-        }
 
-        // Dates (from editingDates)
-        const curStart = selectedTask.start_date ? selectedTask.start_date.slice(0, 10) : '';
-        const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
-        if ((editingDates.start_date || '') !== curStart) {
-          updates.start_date = editingDates.start_date || null;
-        }
-        if ((editingDates.due_date || '') !== curDue) {
-          updates.due_date = editingDates.due_date || null;
+          // Dates (from editingDates)
+          const curStart = selectedTask.start_date ? selectedTask.start_date.slice(0, 10) : '';
+          const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
+          if ((editingDates.start_date || '') !== curStart) {
+            updates.start_date = editingDates.start_date || null;
+          }
+          if ((editingDates.due_date || '') !== curDue) {
+            updates.due_date = editingDates.due_date || null;
+          }
         }
 
         if (Object.keys(updates).length > 0) {
@@ -3178,7 +3200,8 @@ function App() {
                       resetNewTask();
                       setShowAddForm(!showAddForm);
                     }}
-                    className="add-task-button bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
+                    className="add-task-button bg-[#0f172a] from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
+                    style={{ marginRight: '5px' }}
                   >
                     <span className="add-icon">➕</span>
                   </button>
@@ -3187,8 +3210,9 @@ function App() {
                 <div className="relative profile-menu">
                   <button
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="profile-icon text-xs sm:text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+                    className="profile-icon text-xs sm:text-sm font-medium text-white bg-[#0f172a] hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
                     title={user?.email || ''}
+                    style={{ marginRight: '5px' }}
                   >
                     <span className="user-icon">👤</span>
                     <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
@@ -3197,15 +3221,15 @@ function App() {
 
                   {showProfileMenu && (
                     <div
-                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-[9999]"
-                      style={{ display: 'block' }}
+                      className="absolute right-0 top-full mt-2 w-48 !bg-[#0f172a] rounded-lg shadow-xl border border-red-600 py-1 z-[9999]"
+                      style={{ display: 'block', padding: '5px' }}
                     >
                       <button
                         onClick={() => {
                           setShowProfileMenu(false);
                           setShowUserProfile(true);
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
                         style={{ padding: '10px' }}
                       >
                         <span className="flex items-center gap-2">
@@ -3219,7 +3243,7 @@ function App() {
                             setShowProfileMenu(false);
                             setShowTaskSettings(true);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
                           style={{ padding: '10px' }}
                         >
                           <span className="flex items-center gap-2">
@@ -3235,7 +3259,7 @@ function App() {
                             await loadTeamMembers(user?.id);
                             setShowTeamModal(true);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
                           style={{ padding: '10px' }}
                         >
                           <span className="flex items-center gap-2 whitespace-nowrap">
@@ -3251,7 +3275,7 @@ function App() {
                             setShowProfileMenu(false);
                             setShowUserPanel(true);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
                           style={{ padding: '10px' }}
                         >
                           <span className="flex items-center gap-2 whitespace-nowrap">
@@ -3265,7 +3289,7 @@ function App() {
                           setShowProfileMenu(false);
                           handleLogout();
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
                         style={{ padding: '10px' }}
                       >
                         <span className="flex items-center gap-2 whitespace-nowrap">
@@ -3284,7 +3308,7 @@ function App() {
                       if (next) await loadNotifications();
                       setShowNotifications(next);
                     }}
-                    className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible"
+                    className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
                     aria-label="Bildirimler"
                   >
                     {badgeCount > 0 && (
@@ -3370,7 +3394,7 @@ function App() {
                 }}
               />
               <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'auto' }}>
-                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1400px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }} onClick={(e) => e.stopPropagation()}>
+                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }} onClick={(e) => e.stopPropagation()}>
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
                     <div></div>
                     <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
@@ -3651,7 +3675,7 @@ function App() {
             <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
               <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} style={{ pointerEvents: 'auto' }} />
               <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[96vw] max-w-[1500px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+                <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
                   style={{ paddingBottom: '10px', pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
                     <div className="flex-1">
@@ -3755,7 +3779,7 @@ function App() {
                               <th className="px-2 py-2 text-left text-[14px]" style={{ width: '20%' }}>Başlık</th>
                               <th className="px-2 py-2 text-left text-[14px]" style={{ width: '30%' }}>Aksiyon Planları</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef(dk)</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef (%)</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef(%)</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Gerçekleşme(dk)</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Gerçekleşme(%)</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Tamamlandı</th>
@@ -3875,7 +3899,7 @@ function App() {
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center align-middle">
                                     <button
-                                      className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[24px] transition-colors"
+                                      className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[24px] transition-colors buttonHoverEffect"
                                       style={{
                                         backgroundColor: row.description?.trim() ? 'rgba(237, 241, 21, 0.62)' : 'rgba(8, 87, 234, 0.4)',
                                         width: '60px',
@@ -3898,7 +3922,7 @@ function App() {
                                       return (
                                         <button
                                           disabled={!canDelete}
-                                          className={`inline-flex items-center justify-center text-[24px] ${canDelete ? 'text-blue-300 hover:text-blue-200' : 'text-gray-400'}`}
+                                          className={`inline-flex items-center justify-center text-[24px] buttonHoverEffect ${canDelete ? 'text-blue-300 hover:text-blue-200' : 'text-gray-400'}`}
                                           style={{ width: '60px', height: '60px', borderRadius: '9999px', backgroundColor: canDelete ? 'rgba(241, 91, 21, 0.62)' : 'rgba(148,163,184,0.35)', cursor: canDelete ? 'pointer' : 'default', pointerEvents: canDelete ? 'auto' : 'none' }}
                                           onClick={() => {
                                             if (!canDelete) return;
@@ -3996,7 +4020,7 @@ function App() {
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
                                     <button
-                                      className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] transition-colors"
+                                      className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] transition-colors buttonHoverEffect"
                                       style={{
                                         backgroundColor: row.description?.trim() ? 'rgba(237, 241, 21, 0.62)' : 'rgba(8, 87, 234, 0.4)',
                                         width: '60px',
@@ -4019,7 +4043,7 @@ function App() {
                                       return (
                                         <button
                                           disabled={!canDelete}
-                                          className={`inline-flex items-center justify-center text-[24px] ${canDelete ? 'text-blue-300 hover:text-blue-200' : 'text-gray-400'}`}
+                                          className={`inline-flex items-center justify-center text-[24px] buttonHoverEffect ${canDelete ? 'text-blue-300 hover:text-blue-200' : 'text-gray-400'}`}
                                           style={{ width: '60px', height: '60px', borderRadius: '9999px', backgroundColor: canDelete ? 'rgba(241, 91, 21, 0.62)' : 'rgba(148,163,184,0.35)', cursor: canDelete ? 'pointer' : 'default', pointerEvents: canDelete ? 'auto' : 'none' }}
                                           onClick={() => { if (!canDelete) return; const items = weeklyGoals.items.filter(x => x !== row); setWeeklyGoals({ ...weeklyGoals, items }); }}>
                                           🗑️
@@ -4046,7 +4070,7 @@ function App() {
                     <div className="mt-3 border-t border-white/10" />
                     <div className="text-neutral-200 font-semibold text-[32px] text-center">Hedef Ayrıntısı</div>
                     <div className="mt-3 border-t border-white/10" />
-                    <div className="mt-6 bg-white/5 rounded p-8" style={{ paddingLeft: '15px', paddingRight: '15px' }}>
+                    <div className="mt-6 bg-white/5 rounded p-8" style={{ paddingLeft: '10px', paddingRight: '10px' }}>
                       {(() => {
                         const items = Array.isArray(weeklyGoals.items) ? weeklyGoals.items : [];
                         const plannedItems = items.filter(x => !x.is_unplanned);
@@ -4072,7 +4096,8 @@ function App() {
                         const tip = `Kesinti/Bonus Detayı\n\n🔴 CEZALAR:\nAçık Cezası (P1): -${p1}%\nKullanılmayan Süre Cezası (EASA): -${peasa}%\nTamamlanmama Cezası: -${incCap}%\n\n🟢 BONUSLAR:\nHız/Tasarruf Bonusu: +${bonus}%\nMesai Bonusu: +${overtimeBonus}% (${overtimeUsed} dk mesai, 1.5x çarpan)\n\n📊 TOPLAM:\nCezalar: -${totalPenalties.toFixed(2)}%\nBonuslar: +${totalBonuses.toFixed(2)}%\nNet: ${net >= 0 ? '+' : ''}${net.toFixed(2)}%\n\nPerformans Sonucu: ${weeklyLive.finalScore}%`;
 
                         return (
-                          <div className="grid grid-cols-[auto_auto_auto_auto_auto_auto] gap-x-6 gap-y-3 text-[20px] items-center">
+                          <div className="grid grid-cols-[5%_13%_20%_13%_20%_13%_15%_5%] gap-x-8 gap-y-3 text-[20px] items-center">
+                            <div className="flex flex-col gap-3"></div>
                             {/* İlk Sütun - Label'lar */}
                             <div className="flex flex-col gap-3">
                               <div className="text-white/70 whitespace-nowrap">İzin Süresi:</div>
@@ -4130,6 +4155,7 @@ function App() {
                                 {getPerformanceGrade(weeklyLive.finalScore).description}
                               </div>
                             </div>
+                            <div className="flex flex-col gap-3"></div>
                           </div>
                         );
                       })()}
@@ -4509,7 +4535,7 @@ function App() {
                       </button>
                       <button onClick={() => toggleSort('due_date')} className="flex items-center justify-center px-2">
                         <span>Bitiş</span>
-                      </button>                      
+                      </button>
                       <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
                         <span>Dosyalar</span>
                       </button>
@@ -4578,7 +4604,7 @@ function App() {
                         </div>
                         <div className="px-2 text-xs xs:text-sm text-gray-900">
                           {task.due_date ? formatDateOnly(task.due_date) : '-'}
-                        </div>                        
+                        </div>
                         <div className="px-2 text-xs xs:text-sm text-gray-900">
                           {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
                         </div>
@@ -4598,7 +4624,7 @@ function App() {
                                 e.stopPropagation();
                                 handlePermanentDelete(task.id);
                               }}
-                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
+                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
                               style={{ width: '40px', height: '40px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
                               title="Görevi kalıcı olarak sil"
                             >
@@ -4634,13 +4660,10 @@ function App() {
             <div className="fixed inset-0 z-[999996]" style={{ pointerEvents: 'auto' }}>
               <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} style={{ pointerEvents: 'auto' }} />
               <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'auto' }}>
-                <div
-                  className="
-                fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
-                w-[95vw] max-w-[1400px]
-                max-h-[90vh] rounded-2xl border border-white/10 box-border
-                shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
-              "
+                <div className="fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px]
+                  h-[80vh] rounded-2xl border border-white/10 box-border
+                  shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
+                "
                   style={{ backgroundColor: '#111827', color: '#e5e7eb', pointerEvents: 'auto' }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -5024,11 +5047,11 @@ function App() {
                           </div>
                         </div>
                         <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center ">
+                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-top ">
                           <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                             Dosyalar
                           </label>
-                          <div className="w-full !text-[18px] p-3 sm:p-4 bg-white" style={{ minHeight: '18px', height: 'fit-content' }}>
+                          <div className="w-full !text-[18px] p-3 sm:p-4 bg-white" style={{ minHeight: '24px', height: 'fit-content' }}>
                             {uploadProgress && (
                               <div className="mb-3">
                                 <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
@@ -5043,42 +5066,42 @@ function App() {
                               </div>
                             )}
                             {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || (Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.some(u => (typeof u === 'object' ? u.id : u) === user?.id))) ? (
-                              <div className="space-y-3 !text-[18px]">
-                                <input
-                                  type="file"
-                                  multiple
-                                  accept={[
-                                    'image/*',
-                                    '.pdf',
-                                    '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-                                    '.zip', '.rar', '.7z',
-                                    '.sldprt', '.sldasm', '.slddrw',
-                                    '.step', '.stp', '.iges', '.igs',
-                                    '.x_t', '.x_b', '.stl', '.3mf',
-                                    '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
-                                  ].join(',')}
-                                  onChange={async (e) => {
-                                    const files = Array.from(e.target.files || []);
-                                    if (files.length === 0) return;
-                                    try {
-                                      setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
-                                      await Tasks.uploadAttachments(selectedTask.id, files, (p) => {
-                                        setUploadProgress({ percent: p, label: 'Dosyalar yükleniyor' });
-                                      });
-                                      const t = await Tasks.get(selectedTask.id);
-                                      setSelectedTask(t.task || t);
-                                      addNotification('Dosyalar yüklendi', 'success');
-                                    } catch {
-                                      addNotification('Yükleme başarısız', 'error');
-                                    } finally {
-                                      setUploadProgress(null);
-                                      e.target.value = '';
-                                    }
-                                  }}
-                                  className="w-full !text-[18px] sm:!text-[16px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[18px] sm:file:text-[16px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
-                                />
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                              <div className="!text-[18px]">
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept={[
+                                      'image/*',
+                                      '.pdf',
+                                      '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                                      '.zip', '.rar', '.7z',
+                                      '.sldprt', '.sldasm', '.slddrw',
+                                      '.step', '.stp', '.iges', '.igs',
+                                      '.x_t', '.x_b', '.stl', '.3mf',
+                                      '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
+                                    ].join(',')}
+                                    onChange={async (e) => {
+                                      const files = Array.from(e.target.files || []);
+                                      if (files.length === 0) return;
+                                      try {
+                                        setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
+                                        await Tasks.uploadAttachments(selectedTask.id, files, (p) => {
+                                          setUploadProgress({ percent: p, label: 'Dosyalar yükleniyor' });
+                                        });
+                                        const t = await Tasks.get(selectedTask.id);
+                                        setSelectedTask(t.task || t);
+                                        addNotification('Dosyalar yüklendi', 'success');
+                                      } catch {
+                                        addNotification('Yükleme başarısız', 'error');
+                                      } finally {
+                                        setUploadProgress(null);
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                    className="w-[150px] !text-[18px] sm:!text-[16px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[18px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+                                  />
+                                  <div className="flex items-center justify-between bg-gray-50 rounded px-3 py-2 flex-1">
                                     <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
                                     {(selectedTask.attachments || []).length > 0 && (
                                       <button
@@ -5090,67 +5113,67 @@ function App() {
                                       </button>
                                     )}
                                   </div>
-                                  {attachmentsExpanded && (selectedTask.attachments || []).length > 0 && (
-                                    <div className="space-y-1">
-                                      {(selectedTask.attachments || []).map(a => (
-                                        <div key={a.id} className="flex items-center justify-between bg-gray-50 border-gray-200 rounded px-2 py-1" style={{ paddingTop: '10px', paddingLeft: '10px' }}>
-                                          <div className="flex-1 min-w-0">
-                                            <a
-                                              href={(() => {
-                                                // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
-                                                if (a.download_url) {
-                                                  const url = a.download_url;
-                                                  return url.startsWith('http') ? url : `${apiOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
-                                                }
-                                                // Fallback: direct storage URL (eğer public storage varsa)
-                                                if (a.url) return a.url;
-                                                if (a.path) return `${apiOrigin}/storage/${a.path}`;
-                                                return '#';
-                                              })()}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              download={a.original_name || a.name || 'dosya'}
-                                              className="text-blue-600 hover:underline text-[16px] truncate block"
-                                              title={a.original_name || 'Dosya'}
-                                            >
-                                              {a.original_name || a.name || 'Dosya'}
-                                            </a>
-                                            {a.size && (
-                                              <div className="text-xs text-gray-500 mt-1">
-                                                {(a.size / 1024 / 1024).toFixed(2)} MB
-                                              </div>
-                                            )}
-                                          </div>
-                                          {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
-                                            <button
-                                              onClick={async () => {
-                                                try {
-                                                  await Tasks.deleteAttachment(a.id);
-                                                  const t = await Tasks.get(selectedTask.id);
-                                                  setSelectedTask(t.task || t);
-                                                  addNotification('Dosya silindi', 'success');
-                                                } catch (err) {
-                                                  console.error('Delete attachment error:', err);
-                                                  addNotification('Silinemedi', 'error');
-                                                }
-                                              }}
-                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
-                                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
-                                              title="Dosyayı sil"
-                                            >
-                                              🗑️
-                                            </button>
+                                </div>
+                                {attachmentsExpanded && (selectedTask.attachments || []).length > 0 && (
+                                  <div className="space-y-1">
+                                    {(selectedTask.attachments || []).map(a => (
+                                      <div key={a.id} className="flex items-center justify-between bg-gray-50 border-gray-200 rounded px-2 py-1" style={{ paddingTop: '10px', paddingLeft: '10px' }}>
+                                        <div className="flex-1 min-w-0">
+                                          <a
+                                            href={(() => {
+                                              // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
+                                              if (a.download_url) {
+                                                const url = a.download_url;
+                                                return url.startsWith('http') ? url : `${apiOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
+                                              }
+                                              // Fallback: direct storage URL (eğer public storage varsa)
+                                              if (a.url) return a.url;
+                                              if (a.path) return `${apiOrigin}/storage/${a.path}`;
+                                              return '#';
+                                            })()}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            download={a.original_name || a.name || 'dosya'}
+                                            className="text-blue-600 hover:underline text-[16px] truncate block"
+                                            title={a.original_name || 'Dosya'}
+                                          >
+                                            {a.original_name || a.name || 'Dosya'}
+                                          </a>
+                                          {a.size && (
+                                            <div className="text-xs text-gray-500 mt-1">
+                                              {(a.size / 1024 / 1024).toFixed(2)} MB
+                                            </div>
                                           )}
                                         </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                        {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                await Tasks.deleteAttachment(a.id);
+                                                const t = await Tasks.get(selectedTask.id);
+                                                setSelectedTask(t.task || t);
+                                                addNotification('Dosya silindi', 'success');
+                                              } catch (err) {
+                                                console.error('Delete attachment error:', err);
+                                                addNotification('Silinemedi', 'error');
+                                              }
+                                            }}
+                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
+                                            style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                            title="Dosyayı sil"
+                                          >
+                                            🗑️
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2">
-                                  <div className="text-gray-800">Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                                  <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
                                   {(selectedTask.attachments || []).length > 0 && (
                                     <button
                                       type="button"
@@ -5265,21 +5288,21 @@ function App() {
                                   setDescDraft(e.target.value);
                                 }}
                                 placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
+                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
                               />
                             ) : (
                               <textarea
                                 readOnly
                                 value={selectedTask.description ?? ''}
                                 placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
+                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
                               />
                             )}
                           </div>
                         </div>
                         {/* Sistem Durumları (Sabit Alt Butonlar) - Sadece Admin, Takım Lideri ve Sorumlu */}
                         {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
-                          <div className="bottom-0 left-0 right-0 bg-[#0f172a] p-4 z-[100200]" style={{ alignItems: 'center', paddingBottom: '10px' }}>
+                          <div className="bottom-0 left-0 right-0 bg-[#0f172a] p-4 z-[100200]" style={{ alignItems: 'center', paddingTop: '3%', paddingBottom: '1%' }}>
                             <div className="flex gap-2 justify-center max-w-[1400px] mx-auto">
                               {getSystemTaskStatuses().map(status => (
                                 <button
@@ -5325,7 +5348,7 @@ function App() {
                           {user?.role === 'admin' && (
                             <button
                               onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
-                              className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'} inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]`}
+                              className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'} inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect`}
                               style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
                               title={user?.role === 'admin' ? (historyDeleteMode ? 'Silme modunu kapat' : 'Silme modunu aç') : 'Sadece admin'}
                             >🗑️</button>)}
@@ -5527,8 +5550,8 @@ function App() {
                                 {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
                                   <button
                                     onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); setTaskHistories(prev => ({ ...prev, [selectedTask.id]: Array.isArray(h2) ? h2 : [] })); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
-                                    className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
-                                    style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                    className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
+                                    style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginRight: '3px', marginTop: '3px' }}
                                     title="Yorumu sil"
                                   >🗑️</button>
                                 )}
@@ -5721,7 +5744,7 @@ function App() {
               <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
                 <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
                 <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
                     style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
                     <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -5882,7 +5905,7 @@ function App() {
                                     className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
                                     style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
                                   >
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between" style={{ paddingRight: '5px' }}>
                                       <div className="min-w-0 flex text-[16px] items-center gap-3">
                                         <input
                                           type="checkbox"
@@ -5932,7 +5955,6 @@ function App() {
                                           </select>
                                         )}
                                         <button
-                                          className="text-xs rounded px-3 py-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
                                           onClick={async () => {
                                             if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
 
@@ -5948,9 +5970,11 @@ function App() {
                                               setLoading(false);
                                             }
                                           }}
-                                          style={{ marginLeft: '10px' }}
+                                          className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px] buttonHoverEffect"
+                                          style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                          title='Şifreyi "123456" olarak sıfırla'
                                         >
-                                          ⟳
+                                          ↺
                                         </button>
                                         <div className="flex items-center gap-2">
                                           <select
@@ -5966,8 +5990,8 @@ function App() {
                                             <option value="observer">Gözlemci</option>
                                           </select>
                                         </div>
-                                        <button className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px]"
-                                          style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                        <button className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px] buttonHoverEffect"
+                                          style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '10px' }}
                                           onClick={async () => {
                                             if (!confirm('Silinsin mi?')) return; try {
                                               await deleteUserAdmin(u.id);
@@ -6022,7 +6046,7 @@ function App() {
               <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
                 <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
                 <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[100vw] max-w-[1485px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
                     style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
                     <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
                       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -6125,15 +6149,15 @@ function App() {
                                             <>
                                               <button
                                                 onClick={() => handleEditTaskType(taskType)}
-                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
+                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
                                                 style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
                                               >
                                                 Düzenle
                                               </button>
                                               <button
                                                 onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
-                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
-                                                style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
+                                                style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '5px' }}
                                               >
                                                 🗑️
                                               </button>
@@ -6305,15 +6329,15 @@ function App() {
                                           <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
                                             <button
                                               onClick={() => handleEditTaskStatus(status)}
-                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
+                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
                                               style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
                                             >
                                               Düzenle
                                             </button>
                                             <button
                                               onClick={() => handleDeleteTaskStatus(status.id || status.key)}
-                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
-                                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
+                                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '5px' }}
                                             >
                                               🗑️
                                             </button>
@@ -6344,9 +6368,11 @@ function App() {
 
           {
             error && (
-              <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50">
-                {error}
-                <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">✕</button>
+              <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50" style={{ width: '1440px', maxWidth: 'calc(100vw - 32px)' }}>
+                <div className="flex items-center justify-between">
+                  <span>{error}</span>
+                  <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">✕</button>
+                </div>
               </div>
             )
           }
@@ -6360,7 +6386,9 @@ function App() {
           {/* Sol Logo */}
           <div className="flex items-center space-x-3">
             <div className="text-left">
-              <img src={logo} alt="VADEN LOGO" className="h-10" style={{ minHeight: '60px' }} />
+              <a href="https://vaden.com.tr" target="_blank" rel="noopener noreferrer">
+                <img src={logo} alt="VADEN LOGO" className="h-10 app-footer__logo" style={{ minHeight: '60px' }} />
+              </a>
             </div>
           </div>
 

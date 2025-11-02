@@ -446,7 +446,8 @@ class TaskController extends Controller
                 ], 422);
             }
         }
-        if ($user->role === 'team_leader') {
+        // Takım lideri kontrolü - ancak sorumlu ise tüm alanları değiştirebilir
+        if ($user->role === 'team_leader' && $user->id !== $task->responsible_id) {
             $allowedFields = ['due_date', 'status', 'comment', 'attachments'];
             $requestFields = array_keys($request->all());
 
