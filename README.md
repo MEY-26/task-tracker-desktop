@@ -400,7 +400,14 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.0 - Footer ve Otomatik Guncelleme Sistemi (Son Guncelleme)
+### v2.10.1 - Sorumlu Takim Lideri Izinleri ve UI Iyilestirmeleri (Son Guncelleme)
+- ✅ **Sorumlu Takim Lideri NO Alani**: Sorumlu olan takim liderleri NO alanini degistirebilir
+- ✅ **Modal Boyut Optimizasyonu**: Gorev Detayı penceresi sabit boyutta kaliyor
+- ✅ **Hata Mesaji Hizzalamasi**: Hata mesajlari ana icerikle ayni genislik ve hizalanmis
+- ✅ **Backend Izin Duzeltmesi**: TaskController takim lideri kontrolunde sorumlu durumu eklendi
+- ✅ **Frontend Modal Yukseklik**: max-h yerine h kullanilarak sabit boyut saglandi
+
+### v2.10.0 - Footer ve Otomatik Guncelleme Sistemi
 - ✅ **Footer Bar Eklendi**: Sayfanin altinda VADEN logo, tasarim bilgisi, iletisim ve sosyal medya linkleri
 - ✅ **Otomatik Guncelleme Betigi**: Windows icin PowerShell tabanli haftalik otomatik guncelleme sistemi
 - ✅ **Izın Sistemleri Iyilestirildi**: Dosya silme yetkisi Admin/Takim Lideri/Sorumlu ile sinirlandirildi
