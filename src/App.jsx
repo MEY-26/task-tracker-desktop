@@ -3046,11 +3046,6 @@ function App() {
     });
   }
 
-  function sortIndicator(key) {
-    if (sortConfig.key !== key) return '';
-    return sortConfig.dir === 'asc' ? '▲' : '▼';
-  }
-
   if (!user && !loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4 z-[999800]">
