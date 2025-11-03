@@ -54,7 +54,7 @@ const PriorityLabelWithTooltip = ({ htmlFor }) => {
       </label>
       {visible && (
         <div
-          className="absolute top-full left-0 z-[9999] mt-3 w-[620px] translate-x-[80px] transform rounded-xl border border-white/10 bg-[#111827] p-4 text-sm text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-md text-left"
+          className="absolute top-full left-0 z-[9999] mt-3 w-[700px] translate-x-[80px] transform rounded-xl border border-white/10 bg-[#111827] p-4 text-sm text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-md text-left"
           onMouseEnter={() => setVisible(true)}
           onMouseLeave={() => setVisible(false)}
         >
@@ -74,7 +74,7 @@ const PriorityLabelWithTooltip = ({ htmlFor }) => {
                   }}
                   aria-hidden="true"
                 />
-                <span className="text-sm font-medium text-white leading-5">{level.label}:{level.description}</span>
+                <span className="text-sm font-medium text-white leading-5">{level.label} : {level.description}</span>
               </li>
             ))}
           </ul>
@@ -4982,9 +4982,7 @@ function App() {
                     </div>
                     <br />
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                        Öncelik
-                      </label>
+                      <PriorityLabelWithTooltip htmlFor="new-task-priority" />
                       {user?.role === 'admin' ? (
                         <select
                           value={detailDraft?.priority || 'medium'}
