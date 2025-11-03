@@ -108,18 +108,18 @@ function Stop-ApplicationProcesses {
         $netstatOutput = netstat -ano | Select-String ":(5173|8000)"
         foreach ($line in $netstatOutput) {
             if ($line -match '\s+(\d+)$') {
-                $pid = $matches[1]
-                if ($pid -ne $currentProcessId -and $pid -ne 0) {
+                $portProcessId = [int]$matches[1]
+                if ($portProcessId -ne $currentProcessId -and $portProcessId -ne 0) {
                     try {
-                        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                        $proc = Get-Process -Id $portProcessId -ErrorAction SilentlyContinue
                         if ($proc) {
-                            Write-Log "Stopping process using port (PID: $pid, Name: $($proc.Name))"
-                            Stop-Process -Id $pid -Force -ErrorAction Stop
+                            Write-Log "Stopping process using port (PID: $portProcessId, Name: $($proc.Name))"
+                            Stop-Process -Id $portProcessId -Force -ErrorAction Stop
                             Start-Sleep -Milliseconds 500
                         }
                     }
                     catch {
-                        Write-Log "WARNING: Could not stop process with PID $pid: $($_.Exception.Message)"
+                        Write-Log "WARNING: Could not stop process with PID ${portProcessId}: $($_.Exception.Message)"
                     }
                 }
             }
