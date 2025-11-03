@@ -27,6 +27,114 @@ function Write-Log {
     Write-Host $entry
 }
 
+function Stop-ApplicationProcesses {
+    Write-Log "Stopping application processes..."
+    
+    # Bu script'in process ID'sini al (kendini kapatmamak için)
+    $currentProcessId = $PID
+    
+    # Kapatılacak process isimleri
+    $processNames = @("node", "php", "electron", "vite", "concurrently")
+    
+    foreach ($processName in $processNames) {
+        try {
+            $processes = Get-Process -Name $processName -ErrorAction SilentlyContinue
+            foreach ($process in $processes) {
+                # Kendi process'imizi atla
+                if ($process.Id -ne $currentProcessId) {
+                    Write-Log "Stopping process: $($process.Name) (PID: $($process.Id))"
+                    try {
+                        Stop-Process -Id $process.Id -Force -ErrorAction Stop
+                        Write-Log "Successfully stopped $($process.Name) (PID: $($process.Id))"
+                        Start-Sleep -Milliseconds 500
+                    }
+                    catch {
+                        Write-Log "WARNING: Could not stop $($process.Name) (PID: $($process.Id)): $($_.Exception.Message)"
+                    }
+                }
+            }
+        }
+        catch {
+            Write-Log "WARNING: Could not find processes named '$processName': $($_.Exception.Message)"
+        }
+    }
+    
+    # PowerShell ve CMD pencerelerini kapat (bu script'in penceresi hariç)
+    # Sadece bu repo dizininde çalışan pencereleri kapatmaya çalış
+    Write-Log "Checking PowerShell and CMD windows in repository directory..."
+    try {
+        # Get-CimInstance ile process'lerin command line'ını kontrol edebiliriz
+        $powerShellProcesses = Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe' OR Name = 'pwsh.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $currentProcessId }
+        $cmdProcesses = Get-CimInstance Win32_Process -Filter "Name = 'cmd.exe'" -ErrorAction SilentlyContinue
+        
+        foreach ($proc in ($powerShellProcesses + $cmdProcesses)) {
+            $commandLine = $proc.CommandLine
+            $processId = $proc.ProcessId
+            
+            # Eğer command line'da repo path'i varsa veya netstat'ta port kullanıyorsa kapat
+            if ($commandLine -and ($commandLine -like "*$RepoPath*" -or $commandLine -like "*start:network*" -or $commandLine -like "*api:serve*" -or $commandLine -like "*vite*")) {
+                Write-Log "Stopping related process: $($proc.Name) (PID: $processId, Command: $commandLine)"
+                try {
+                    Stop-Process -Id $processId -Force -ErrorAction Stop
+                    Write-Log "Successfully stopped $($proc.Name) (PID: $processId)"
+                    Start-Sleep -Milliseconds 500
+                }
+                catch {
+                    Write-Log "WARNING: Could not stop $($proc.Name) (PID: $processId): $($_.Exception.Message)"
+                }
+            }
+        }
+    }
+    catch {
+        Write-Log "WARNING: Could not check PowerShell/CMD windows: $($_.Exception.Message)"
+        # Fallback: Sadece bu script'in parent process'ini kontrol et
+        try {
+            $parentProcess = (Get-CimInstance Win32_Process -Filter "ProcessId = $currentProcessId" -ErrorAction SilentlyContinue).ParentProcessId
+            if ($parentProcess) {
+                $parent = Get-Process -Id $parentProcess -ErrorAction SilentlyContinue
+                if ($parent -and ($parent.Name -eq "powershell" -or $parent.Name -eq "cmd")) {
+                    Write-Log "Parent process is PowerShell/CMD, skipping closure to avoid closing this script's window."
+                }
+            }
+        }
+        catch {
+            Write-Log "WARNING: Could not check parent process: $($_.Exception.Message)"
+        }
+    }
+    
+    # Port'ları kullanan process'leri de kontrol et (5173, 8000)
+    Write-Log "Checking ports 5173 and 8000..."
+    try {
+        $netstatOutput = netstat -ano | Select-String ":(5173|8000)"
+        foreach ($line in $netstatOutput) {
+            if ($line -match '\s+(\d+)$') {
+                $pid = $matches[1]
+                if ($pid -ne $currentProcessId -and $pid -ne 0) {
+                    try {
+                        $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+                        if ($proc) {
+                            Write-Log "Stopping process using port (PID: $pid, Name: $($proc.Name))"
+                            Stop-Process -Id $pid -Force -ErrorAction Stop
+                            Start-Sleep -Milliseconds 500
+                        }
+                    }
+                    catch {
+                        Write-Log "WARNING: Could not stop process with PID $pid: $($_.Exception.Message)"
+                    }
+                }
+            }
+        }
+    }
+    catch {
+        Write-Log "WARNING: Could not check ports: $($_.Exception.Message)"
+    }
+    
+    # Biraz bekle ki process'ler tamamen kapansın
+    Start-Sleep -Seconds 2
+    
+    Write-Log "Process cleanup completed."
+}
+
 function Invoke-GitCommand {
     param(
         [string[]]$Arguments,
@@ -79,6 +187,9 @@ try {
 
     Write-Log "----- Auto update started -----"
     Write-Log "Force mode: $Force"
+
+    # Uygulama process'lerini kapat (güncelleme öncesi)
+    Stop-ApplicationProcesses
 
     # Git kontrolü
     $gitExists = Get-Command git -ErrorAction SilentlyContinue
@@ -231,11 +342,58 @@ try {
     }
 
     Write-Log "----- Auto update finished successfully -----"
-    Write-Log "Application is ready. Please restart the Electron app if it's running."
+    
+    # Uygulamayı otomatik başlat
+    Write-Log "Starting application with 'npm run start:network:restart'..."
+    try {
+        $startScript = @"
+cd `"$RepoPath`"
+npm run start:network:restart
+"@
+        
+        # Yeni bir PowerShell penceresinde başlat (konsol penceresi görünür olsun)
+        $psStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $psStartInfo.FileName = "powershell.exe"
+        $psStartInfo.Arguments = "-NoExit -ExecutionPolicy Bypass -Command $startScript"
+        $psStartInfo.WorkingDirectory = $RepoPath
+        $psStartInfo.UseShellExecute = $true
+        $psStartInfo.CreateNoWindow = $false
+        
+        $process = [System.Diagnostics.Process]::Start($psStartInfo)
+        Write-Log "Application started in new PowerShell window (PID: $($process.Id))"
+        Write-Log "Application is ready and running."
+    }
+    catch {
+        Write-Log "ERROR: Could not start application: $($_.Exception.Message)"
+        Write-Log "Please manually run: npm run start:network:restart"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)"
+    }
+    
     exit 0
 }
 catch {
     Write-Log "ERROR: Auto update failed: $($_.Exception.Message)"
     Write-Log "Stack trace: $($_.ScriptStackTrace)"
+    
+    # Hata olsa bile uygulamayı başlatmayı dene
+    Write-Log "Attempting to start application despite errors..."
+    try {
+        $startScript = @"
+cd `"$RepoPath`"
+npm run start:network:restart
+"@
+        $psStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $psStartInfo.FileName = "powershell.exe"
+        $psStartInfo.Arguments = "-NoExit -ExecutionPolicy Bypass -Command $startScript"
+        $psStartInfo.WorkingDirectory = $RepoPath
+        $psStartInfo.UseShellExecute = $true
+        $psStartInfo.CreateNoWindow = $false
+        $process = [System.Diagnostics.Process]::Start($psStartInfo)
+        Write-Log "Application started in new PowerShell window (PID: $($process.Id))"
+    }
+    catch {
+        Write-Log "ERROR: Could not start application: $($_.Exception.Message)"
+    }
+    
     exit 5
 }
