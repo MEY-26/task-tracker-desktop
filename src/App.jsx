@@ -10,6 +10,83 @@ import { computeWeeklyScore } from './utils/computeWeeklyScore';
 
 const WEEKLY_BASE_MINUTES = 2700;
 
+const PRIORITY_LEVELS = [
+  {
+    label: 'Düşük',
+    description: 'Süreci aksatmayan, geliştirme/iyileştirme amaçlı görevler.',
+    color: '#10b981'
+  },
+  {
+    label: 'Orta',
+    description: 'Stoklu ürün; sipariş stok altına inse bile acil üretim/sevkiyat gerekmiyor.',
+    color: '#eab308'
+  },
+  {
+    label: 'Yüksek',
+    description: 'Belirli bir ürünün üretim/sevkiyatını tamamen ya da kısmen aksatabilir.',
+    color: '#f97316'
+  },
+  {
+    label: 'Kritik',
+    description: 'Tüm üretimi/sevkiyatı tamamen/kısmen durdurma riski var.',
+    color: '#ef4444'
+  }
+];
+
+// Priority info tooltip shown when hovering over priority label
+const PriorityLabelWithTooltip = ({ htmlFor }) => {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div
+      className="relative flex items-center gap-2 cursor-help"
+      style={{ justifySelf: 'start' }}
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => setVisible(true)}
+      onBlur={() => setVisible(false)}
+    >
+      <label
+        htmlFor={htmlFor}
+        className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left"
+      >
+        Öncelik
+      </label>
+      {visible && (
+        <div
+          className="absolute top-full left-0 z-[9999] mt-3 w-[620px] translate-x-[80px] transform rounded-xl border border-white/10 bg-[#111827] p-4 text-sm text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-md text-left"
+          onMouseEnter={() => setVisible(true)}
+          onMouseLeave={() => setVisible(false)}
+        >
+          <div className="text-sm font-semibold text-white">
+            Öncelik seçimi (gereksiz yere "Yüksek" / "Kritik" seçmeyin)
+          </div>
+          <ul className="mt-3 space-y-2">
+            {PRIORITY_LEVELS.map((level) => (
+              <li key={level.label} className="flex items-center gap-[10px]">
+                <span
+                  className="inline-block h-3 w-3 flex-shrink-0 rounded-full shadow"
+                  style={{
+                    backgroundColor: level.color,
+                    minWidth: '12px',
+                    minHeight: '12px',
+                    border: '1px solid rgba(255,255,255,0.15)'
+                  }}
+                  aria-hidden="true"
+                />
+                <span className="text-sm font-medium text-white leading-5">{level.label}:{level.description}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm font-semibold text-white">
+            Not: Önceliği işin gerçek etkisine göre belirleyin; gereksiz yükseltmeler ekip planını olumsuz etkiler.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Tooltip component with dynamic positioning using fixed positioning
 const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, formatDateOnly, getLastAddedDescription }) => {
   const [tooltipPosition, setTooltipPosition] = useState({ visible: false, top: 0, left: 0, arrowPosition: 'bottom', arrowLeft: 0 });
@@ -3511,8 +3588,9 @@ function App() {
                 </div>
                 <br />
                 <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Öncelik</label>
+                  <PriorityLabelWithTooltip htmlFor="new-task-priority" />
                   <select
+                    id="new-task-priority"
                     value={newTask.priority}
                     onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
                     className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3569,7 +3647,7 @@ function App() {
                       </div>
                     )}
 
-                    <div className="relative z-[2147483647] assignee-dropdown-container">
+                    <div className="relative assignee-dropdown-container">
                       <input
                         type="text"
                         placeholder="Kullanıcı atayın..."
