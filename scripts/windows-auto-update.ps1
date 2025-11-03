@@ -314,31 +314,58 @@ try {
 
     # Backend (Laravel API) güncelleme
     $apiPath = Join-Path $RepoPath "task-tracker-api"
+    Write-Log "Checking API path: $apiPath"
     if (Test-Path $apiPath) {
-        Write-Log "Updating backend API..."
+        Write-Log "API path exists. Updating backend API..."
         
         # Composer install
+        Write-Log "Running composer install in task-tracker-api directory..."
         try {
-            Invoke-ExternalCommand -Command "composer" -Arguments @("install", "--no-interaction", "--prefer-dist", "--no-dev") -WorkingDirectory $apiPath -StepName "composer install"
-            Write-Log "composer install completed."
+            Push-Location $apiPath
+            try {
+                Write-Log "Current directory: $(Get-Location)"
+                $composerOutput = & composer install --no-interaction --prefer-dist --no-dev 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    throw "composer install exited with code $LASTEXITCODE. Output: $composerOutput"
+                }
+                Write-Log "composer install completed successfully."
+                Write-Log "Composer output: $composerOutput"
+            }
+            finally {
+                Pop-Location
+            }
         }
         catch {
-            Write-Log "WARNING: composer install failed: $($_.Exception.Message)"
-            Write-Log "Attempting to continue..."
+            Write-Log "ERROR: composer install failed: $($_.Exception.Message)"
+            Write-Log "Stack trace: $($_.ScriptStackTrace)"
+            Write-Log "Attempting to continue with migrations..."
         }
 
         # Artisan migrate
+        Write-Log "Running php artisan migrate in task-tracker-api directory..."
         try {
-            Invoke-ExternalCommand -Command "php" -Arguments @("artisan", "migrate", "--force") -WorkingDirectory $apiPath -StepName "php artisan migrate"
-            Write-Log "Database migrations completed."
+            Push-Location $apiPath
+            try {
+                Write-Log "Current directory: $(Get-Location)"
+                $migrateOutput = & php artisan migrate --force 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    throw "php artisan migrate exited with code $LASTEXITCODE. Output: $migrateOutput"
+                }
+                Write-Log "Database migrations completed successfully."
+                Write-Log "Migration output: $migrateOutput"
+            }
+            finally {
+                Pop-Location
+            }
         }
         catch {
-            Write-Log "WARNING: artisan migrate failed: $($_.Exception.Message)"
+            Write-Log "ERROR: artisan migrate failed: $($_.Exception.Message)"
+            Write-Log "Stack trace: $($_.ScriptStackTrace)"
             Write-Log "Attempting to continue..."
         }
     }
     else {
-        Write-Log "API path '$apiPath' not found. Skipping backend updates."
+        Write-Log "WARNING: API path '$apiPath' does not exist. Skipping backend updates."
     }
 
     Write-Log "----- Auto update finished successfully -----"
