@@ -24,25 +24,61 @@ class TaskStatusController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $request->validate([
-            'task_type_id' => 'required|exists:task_types,id',
+        $validated = $request->validate([
+            'task_type_id' => 'required',
             'name' => 'required|string|max:255',
             'color' => 'required|string|regex:/^#[0-9A-Fa-f]{6}$/'
         ]);
 
+        // Eğer task_type_id string ise (örn: 'development'), sistem türünü bul veya oluştur
+        $taskTypeId = $validated['task_type_id'];
+        if (!is_numeric($taskTypeId)) {
+            // Sistem türünü bul
+            $systemType = TaskType::where('is_system', true)
+                ->where('name', 'Geliştirme')
+                ->first();
+            
+            // Eğer sistem türü yoksa oluştur
+            if (!$systemType) {
+                $systemType = TaskType::create([
+                    'name' => 'Geliştirme',
+                    'color' => '#f59e0b',
+                    'is_system' => true,
+                    'is_permanent' => true
+                ]);
+            }
+            
+            $taskTypeId = $systemType->id;
+        } else {
+            $taskTypeId = (int)$taskTypeId;
+        }
+
+        // TaskType'u kontrol et
+        $taskType = TaskType::find($taskTypeId);
+        if (!$taskType) {
+            return response()->json([
+                'message' => 'Görev türü bulunamadı',
+                'errors' => ['task_type_id' => ['Seçilen görev türü geçersiz']]
+            ], 422);
+        }
+
+        // Sistem türüne de durum eklenebilir, sadece isim tekrarı kontrolü yapılır
         // Aynı task type için aynı isimde status olup olmadığını kontrol et
-        $existingStatus = TaskStatus::where('task_type_id', $request->task_type_id)
-            ->where('name', $request->name)
+        $existingStatus = TaskStatus::where('task_type_id', $taskTypeId)
+            ->where('name', $validated['name'])
             ->first();
 
         if ($existingStatus) {
-            return response()->json(['message' => 'Bu tür için aynı isimde durum zaten mevcut'], 422);
+            return response()->json([
+                'message' => 'Bu tür için aynı isimde durum zaten mevcut',
+                'errors' => ['name' => ['Bu isimde bir durum zaten mevcut']]
+            ], 422);
         }
 
         $taskStatus = TaskStatus::create([
-            'task_type_id' => $request->task_type_id,
-            'name' => $request->name,
-            'color' => $request->color,
+            'task_type_id' => $taskTypeId,
+            'name' => $validated['name'],
+            'color' => $validated['color'],
             'is_system' => false,
             'is_default' => false
         ]);

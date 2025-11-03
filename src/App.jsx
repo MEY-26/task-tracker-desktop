@@ -186,6 +186,7 @@ function App() {
   const [newStatusColor, setNewStatusColor] = useState('#ef4444');
   const [customTaskTypes, setCustomTaskTypes] = useState([]);
   const [customTaskStatuses, setCustomTaskStatuses] = useState({});
+  const [allTaskTypesFromAPI, setAllTaskTypesFromAPI] = useState([]); // Tüm task types (sistem + custom)
 
   // Edit mode states
   const [editingTaskTypeId, setEditingTaskTypeId] = useState(null);
@@ -590,25 +591,25 @@ function App() {
 
       // Admin için kapasite kontrollerini bypass et
       if (user?.role !== 'admin') {
-        if ((weeklyLive?.totalTarget || 0) > availableMinutes) {
-          addNotification('Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.', 'error');
-          setWeeklySaveState('idle');
-          return;
-        }
-        if (availableMinutes === 0 && (weeklyLive?.totalTarget || 0) > 0) {
-          addNotification('İzin sonrası kullanılabilir süre 0 dakika, planlı hedef ekleyemezsiniz.', 'error');
-          setWeeklySaveState('idle');
-          return;
-        }
+      if ((weeklyLive?.totalTarget || 0) > availableMinutes) {
+        addNotification('Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.', 'error');
+        setWeeklySaveState('idle');
+        return;
+      }
+      if (availableMinutes === 0 && (weeklyLive?.totalTarget || 0) > 0) {
+        addNotification('İzin sonrası kullanılabilir süre 0 dakika, planlı hedef ekleyemezsiniz.', 'error');
+        setWeeklySaveState('idle');
+        return;
+      }
 
-        // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
-        const totalActual = weeklyLive?.totalActual || 0;
+      // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
+      const totalActual = weeklyLive?.totalActual || 0;
 
-        if (totalActual > availableMinutes) {
-          const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
-          addNotification(errorMsg, 'error');
-          setWeeklySaveState('idle');
-          return;
+      if (totalActual > availableMinutes) {
+        const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
+        addNotification(errorMsg, 'error');
+        setWeeklySaveState('idle');
+        return;
         }
       }
 
@@ -1741,31 +1742,31 @@ function App() {
           }
         } else {
           // Admin, Sorumlu veya diğer roller için tüm alanlar
-          // Description (admin only in UI, but backend will validate anyway)
-          if ((descDraft ?? '') !== (selectedTask.description ?? '')) {
-            updates.description = descDraft ?? '';
-          }
+        // Description (admin only in UI, but backend will validate anyway)
+        if ((descDraft ?? '') !== (selectedTask.description ?? '')) {
+          updates.description = descDraft ?? '';
+        }
 
-          // Drafted selectable fields
-          if (detailDraft) {
+        // Drafted selectable fields
+        if (detailDraft) {
             // NO alanı sadece Admin veya Sorumlu tarafından değiştirilebilir
             if (isAdmin || isResponsible) {
               if ((detailDraft.no || '') !== (selectedTask.no || '')) {
                 updates.no = detailDraft.no || '';
               }
             }
-            if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
-              updates.status = detailDraft.status || 'waiting';
-            }
-            if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
-              updates.priority = detailDraft.priority || 'medium';
-            }
-            if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
-              updates.task_type = detailDraft.task_type || 'development';
-            }
-            const currentResponsibleId = selectedTask.responsible?.id || null;
-            if ((detailDraft.responsible_id || null) !== currentResponsibleId) {
-              updates.responsible_id = detailDraft.responsible_id || null;
+          if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
+            updates.status = detailDraft.status || 'waiting';
+          }
+          if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
+            updates.priority = detailDraft.priority || 'medium';
+          }
+          if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
+            updates.task_type = detailDraft.task_type || 'development';
+          }
+          const currentResponsibleId = selectedTask.responsible?.id || null;
+          if ((detailDraft.responsible_id || null) !== currentResponsibleId) {
+            updates.responsible_id = detailDraft.responsible_id || null;
 
               // Eğer sorumlu değiştiyse, önceki liderin ekibini kaldır ve yeni liderin ekibini ekle
               const newResponsibleId = detailDraft.responsible_id || null;
@@ -1806,24 +1807,24 @@ function App() {
 
             // Eğer sorumlu değişmediyse, sadece atananları kontrol et
             if (!updates.assigned_users) {
-              const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
-              const afterIds = Array.isArray(detailDraft.assigned_user_ids) ? detailDraft.assigned_user_ids : beforeIds;
-              const sameLength = beforeIds.length === afterIds.length;
-              const sameSet = sameLength && beforeIds.every(id => afterIds.includes(id));
-              if (!sameSet) {
-                updates.assigned_users = afterIds;
+          const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
+          const afterIds = Array.isArray(detailDraft.assigned_user_ids) ? detailDraft.assigned_user_ids : beforeIds;
+          const sameLength = beforeIds.length === afterIds.length;
+          const sameSet = sameLength && beforeIds.every(id => afterIds.includes(id));
+          if (!sameSet) {
+            updates.assigned_users = afterIds;
               }
-            }
           }
+        }
 
-          // Dates (from editingDates)
-          const curStart = selectedTask.start_date ? selectedTask.start_date.slice(0, 10) : '';
-          const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
-          if ((editingDates.start_date || '') !== curStart) {
-            updates.start_date = editingDates.start_date || null;
-          }
-          if ((editingDates.due_date || '') !== curDue) {
-            updates.due_date = editingDates.due_date || null;
+        // Dates (from editingDates)
+        const curStart = selectedTask.start_date ? selectedTask.start_date.slice(0, 10) : '';
+        const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
+        if ((editingDates.start_date || '') !== curStart) {
+          updates.start_date = editingDates.start_date || null;
+        }
+        if ((editingDates.due_date || '') !== curDue) {
+          updates.due_date = editingDates.due_date || null;
           }
         }
 
@@ -2035,16 +2036,38 @@ function App() {
     }
 
     try {
+      // Sistem türü için ID'yi bul (eğer string ise)
+      let taskTypeId = selectedTaskTypeForStatuses;
+      
+      // Eğer selectedTaskTypeForStatuses string ise (örneğin 'development'), 
+      // backend'e string olarak gönder (backend sistem türünü bulup/oluşturacak)
+      if (typeof selectedTaskTypeForStatuses === 'string' && selectedTaskTypeForStatuses === 'development') {
+        // Backend'e string olarak gönder - backend sistem türünü bulup/oluşturacak
+        taskTypeId = 'development';
+      } else {
+        // Diğer durumlarda integer ID kullan
+        taskTypeId = selectedTaskTypeForStatuses;
+      }
+
       const newStatus = await TaskStatuses.create({
-        task_type_id: selectedTaskTypeForStatuses,
+        task_type_id: taskTypeId,
         name: newStatusName.trim(),
         color: newStatusColor
       });
 
-      setCustomTaskStatuses(prev => ({
-        ...prev,
-        [selectedTaskTypeForStatuses]: [
-          ...(prev[selectedTaskTypeForStatuses] || []),
+      // Backend'den dönen response'taki task_type_id'yi kullan (gerçek integer ID)
+      const actualTaskTypeId = newStatus.task_type_id || taskTypeId;
+      
+      // Hem integer ID hem de string ID için güncelle (sistem türü için)
+      setCustomTaskStatuses(prev => {
+        const updated = { ...prev };
+        
+        // Integer ID ile güncelle (backend'den dönen gerçek ID)
+        if (!updated[actualTaskTypeId]) {
+          updated[actualTaskTypeId] = [];
+        }
+        updated[actualTaskTypeId] = [
+          ...updated[actualTaskTypeId],
           {
             id: newStatus.id,
             key: newStatus.id,
@@ -2053,8 +2076,32 @@ function App() {
             color: newStatus.color,
             isCustom: true
           }
-        ]
-      }));
+        ];
+        
+        // Sistem türü için string ID ile de güncelle (dropdown ile eşleşmesi için)
+        if (selectedTaskTypeForStatuses === 'development') {
+          if (!updated['development']) {
+            updated['development'] = [];
+          }
+          // Zaten eklenmiş mi kontrol et
+          const exists = updated['development'].some(s => s.id === newStatus.id);
+          if (!exists) {
+            updated['development'] = [
+              ...updated['development'],
+              {
+                id: newStatus.id,
+                key: newStatus.id,
+                name: newStatus.name,
+                label: newStatus.name,
+                color: newStatus.color,
+                isCustom: true
+              }
+            ];
+          }
+        }
+        
+        return updated;
+      });
 
       setNewStatusName('');
       setNewStatusColor('#ef4444');
@@ -2270,6 +2317,9 @@ function App() {
         TaskStatuses.list()
       ]);
 
+      // Tüm task types'ı (sistem + custom) kaydet
+      setAllTaskTypesFromAPI(taskTypes);
+
       // Task types'ı formatla
       const customTypes = taskTypes
         .filter(type => !type.is_system)
@@ -2287,10 +2337,13 @@ function App() {
       // Task statuses'ı formatla
       const statusesByType = {};
       taskStatuses.forEach(status => {
-        if (!statusesByType[status.task_type_id]) {
-          statusesByType[status.task_type_id] = [];
+        const taskTypeId = status.task_type_id;
+        
+        // Integer ID ile kaydet
+        if (!statusesByType[taskTypeId]) {
+          statusesByType[taskTypeId] = [];
         }
-        statusesByType[status.task_type_id].push({
+        statusesByType[taskTypeId].push({
           id: status.id,
           key: status.id,
           name: status.name,
@@ -2298,6 +2351,23 @@ function App() {
           color: status.color,
           isCustom: !status.is_system
         });
+        
+        // Sistem türü için string ID ile de kaydet (dropdown ile eşleşmesi için)
+        const taskType = taskTypes.find(t => t.id === taskTypeId && t.is_system);
+        if (taskType && taskType.name === 'Geliştirme') {
+          const stringKey = 'development';
+          if (!statusesByType[stringKey]) {
+            statusesByType[stringKey] = [];
+          }
+          statusesByType[stringKey].push({
+            id: status.id,
+            key: status.id,
+            name: status.name,
+            label: status.name,
+            color: status.color,
+            isCustom: !status.is_system
+          });
+        }
       });
       setCustomTaskStatuses(statusesByType);
     } catch (error) {
@@ -3177,580 +3247,580 @@ function App() {
   return (
     <div className="app-shell bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden no-scrollbar">
       <main className="main-content">
-        <div className="bg-white shadow-lg w-full">
+      <div className="bg-white shadow-lg w-full">
           <div className="bg-white shadow-lg w-full AppContent">
-            <div className="flex justify-between w-full max-w-7xl mx-auto px-4" style={{ maxWidth: '1440px' }}>
-              <img
-                src={logo}
-                alt="Vaden Logo"
-                style={{ width: '300px', height: '100px' }}
-                className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'block';
+        <div className="flex justify-between w-full max-w-7xl mx-auto px-4" style={{ maxWidth: '1440px' }}>
+          <img
+            src={logo}
+            alt="Vaden Logo"
+            style={{ width: '300px', height: '100px' }}
+            className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'block';
+            }}
+          />
+          <h2 className="text-[42px] font-semibold text-gray-900">
+            Görev Takip Sistemi
+          </h2>
+          <div className="flex items-center">
+            {user?.role !== 'observer' && (
+              <button
+                onClick={() => {
+                  resetNewTask();
+                  setShowAddForm(!showAddForm);
                 }}
-              />
-              <h2 className="text-[42px] font-semibold text-gray-900">
-                Görev Takip Sistemi
-              </h2>
-              <div className="flex items-center">
-                {user?.role !== 'observer' && (
-                  <button
-                    onClick={() => {
-                      resetNewTask();
-                      setShowAddForm(!showAddForm);
-                    }}
                     className="add-task-button bg-[#0f172a] from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
                     style={{ marginRight: '5px' }}
-                  >
-                    <span className="add-icon">➕</span>
-                  </button>
-                )}
+              >
+                <span className="add-icon">➕</span>
+              </button>
+            )}
 
-                <div className="relative profile-menu">
-                  <button
-                    onClick={() => setShowProfileMenu(!showProfileMenu)}
+            <div className="relative profile-menu">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
                     className="profile-icon text-xs sm:text-sm font-medium text-white bg-[#0f172a] hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
-                    title={user?.email || ''}
+                title={user?.email || ''}
                     style={{ marginRight: '5px' }}
-                  >
-                    <span className="user-icon">👤</span>
-                    <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
-                    <span className="text-xs hidden sm:inline">▼</span>
-                  </button>
+              >
+                <span className="user-icon">👤</span>
+                <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
+                <span className="text-xs hidden sm:inline">▼</span>
+              </button>
 
-                  {showProfileMenu && (
-                    <div
+              {showProfileMenu && (
+                <div
                       className="absolute right-0 top-full mt-2 w-48 !bg-[#0f172a] rounded-lg shadow-xl border border-red-600 py-1 z-[9999]"
                       style={{ display: 'block', padding: '5px' }}
-                    >
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false);
-                          setShowUserProfile(true);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                        style={{ padding: '10px' }}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span>👤</span>
-                          <span>Profil</span>
-                        </span>
-                      </button>
-                      {user?.role === 'admin' && (
-                        <button
-                          onClick={() => {
-                            setShowProfileMenu(false);
-                            setShowTaskSettings(true);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                          style={{ padding: '10px' }}
-                        >
-                          <span className="flex items-center gap-2">
-                            <span>📋</span>
-                            <span>Görev Ayarları</span>
-                          </span>
-                        </button>
-                      )}
-                      {user?.role === 'team_leader' && (
-                        <button
-                          onClick={async () => {
-                            setShowProfileMenu(false);
-                            await loadTeamMembers(user?.id);
-                            setShowTeamModal(true);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                          style={{ padding: '10px' }}
-                        >
-                          <span className="flex items-center gap-2 whitespace-nowrap">
-                            <span>👥</span>
-                            <span>Takım</span>
-                          </span>
-                        </button>
-                      )}
-
-                      {user?.role === 'admin' && (
-                        <button
-                          onClick={() => {
-                            setShowProfileMenu(false);
-                            setShowUserPanel(true);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                          style={{ padding: '10px' }}
-                        >
-                          <span className="flex items-center gap-2 whitespace-nowrap">
-                            <span>⚙️</span>
-                            <span>Kullanıcı Yönetimi</span>
-                          </span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false);
-                          handleLogout();
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                        style={{ padding: '10px' }}
-                      >
-                        <span className="flex items-center gap-2 whitespace-nowrap">
-                          <span>🚪</span>
-                          <span>Çıkış Yap</span>
-                        </span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="relative">
+                >
                   <button
-                    ref={bellRef}
-                    onClick={async () => {
-                      const next = !showNotifications;
-                      if (next) await loadNotifications();
-                      setShowNotifications(next);
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      setShowUserProfile(true);
                     }}
-                    className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
-                    aria-label="Bildirimler"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
+                    style={{ padding: '10px' }}
                   >
-                    {badgeCount > 0 && (
-                      <span className="notification-badge">
-                        {badgeCount > 99 ? '99+' : badgeCount}
+                    <span className="flex items-center gap-2">
+                      <span>👤</span>
+                      <span>Profil</span>
+                    </span>
+                  </button>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setShowTaskSettings(true);
+                      }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
+                      style={{ padding: '10px' }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>📋</span>
+                        <span>Görev Ayarları</span>
                       </span>
-                    )}
+                    </button>
+                  )}
+                  {user?.role === 'team_leader' && (
+                    <button
+                      onClick={async () => {
+                        setShowProfileMenu(false);
+                        await loadTeamMembers(user?.id);
+                        setShowTeamModal(true);
+                      }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
+                      style={{ padding: '10px' }}
+                    >
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <span>👥</span>
+                        <span>Takım</span>
+                      </span>
+                    </button>
+                  )}
 
-                    <span>🔔</span>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setShowUserPanel(true);
+                      }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
+                      style={{ padding: '10px' }}
+                    >
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <span>⚙️</span>
+                        <span>Kullanıcı Yönetimi</span>
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      handleLogout();
+                    }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
+                    style={{ padding: '10px' }}
+                  >
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      <span>🚪</span>
+                      <span>Çıkış Yap</span>
+                    </span>
                   </button>
                 </div>
-                {showNotifications && createPortal(
-                  <>
-                    <div className="fixed inset-0 z-[999992] bg-black/80"
-                      onClick={() => setShowNotifications(false)} style={{ pointerEvents: 'auto' }} />
+              )}
+            </div>
+            <div className="relative">
+              <button
+                ref={bellRef}
+                onClick={async () => {
+                  const next = !showNotifications;
+                  if (next) await loadNotifications();
+                  setShowNotifications(next);
+                }}
+                    className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
+                aria-label="Bildirimler"
+              >
+                {badgeCount > 0 && (
+                  <span className="notification-badge">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
 
-                    <div
-                      ref={notifPanelRef}
-                      className="fixed z-[99999] p-3"
-                      style={{
-                        top: `${notifPos.top}px`,
-                        right: `${notifPos.right}px`,
-                        opacity: 1,
-                        backdropFilter: 'none',
-                        WebkitBackdropFilter: 'none',
-                      }}
-                    >
-                      <div
-                        className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
-                        style={{ pointerEvents: 'auto' }}
+                <span>🔔</span>
+              </button>
+            </div>
+            {showNotifications && createPortal(
+              <>
+                <div className="fixed inset-0 z-[999992] bg-black/80"
+                  onClick={() => setShowNotifications(false)} style={{ pointerEvents: 'auto' }} />
+
+                <div
+                  ref={notifPanelRef}
+                  className="fixed z-[99999] p-3"
+                  style={{
+                    top: `${notifPos.top}px`,
+                    right: `${notifPos.right}px`,
+                    opacity: 1,
+                    backdropFilter: 'none',
+                    WebkitBackdropFilter: 'none',
+                  }}
+                >
+                  <div
+                    className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                    style={{ pointerEvents: 'auto' }}
+                  >
+
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
+                      <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                      <button
+                        onClick={markAllNotificationsAsRead}
+                        disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
+                        className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       >
-
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
-                          <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
-                          <button
-                            onClick={markAllNotificationsAsRead}
-                            disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
-                            className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            Tümünü Oku
-                          </button>
-                        </div>
+                        Tümünü Oku
+                      </button>
+                    </div>
 
                         <div className="overflow-y-auto no-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
-                          {(!Array.isArray(notifications) || notifications.length === 0) ? (
-                            <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
-                          ) : (
-                            notifications.map(n => (
-                              <div
-                                key={n.id}
-                                className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
-                                onClick={() => handleNotificationClick(n)}
-                              >
-                                <div className="flex items-start">
-                                  <div className="flex-1">
-                                    <p className="text-sm text-white">{n.message}</p>
-                                    <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
-                                  </div>
-                                </div>
+                      {(!Array.isArray(notifications) || notifications.length === 0) ? (
+                        <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div
+                            key={n.id}
+                            className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
+                            onClick={() => handleNotificationClick(n)}
+                          >
+                            <div className="flex items-start">
+                              <div className="flex-1">
+                                <p className="text-sm text-white">{n.message}</p>
+                                <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
                               </div>
-                            ))
-                          )}
-                        </div>
-
-                      </div>
-
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  </>,
-                  document.body
+
+                  </div>
+
+                </div>
+              </>,
+              document.body
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showAddForm && (
+        <div className="fixed inset-0 z-[999999]" style={{ pointerEvents: 'auto' }}>
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 1)', pointerEvents: 'auto' }}
+            onClick={() => {
+              setShowAddForm(false);
+              resetNewTask();
+            }}
+          />
+          <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'auto' }}>
+                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }} onClick={(e) => e.stopPropagation()}>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
+                <div></div>
+                <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
+                <div className="justify-self-end">
+                  <button onClick={() => {
+                    setShowAddForm(false);
+                    resetNewTask();
+                  }} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
+                </div>
+              </div>
+                  <div className="overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
+                    {error}
+                  </div>
                 )}
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Başlık</label>
+                  <input
+                    type="text"
+                    placeholder="Görev başlığını girin..."
+                    value={newTask.title}
+                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                    className="rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border shadow-sm"
+                    style={{ minHeight: '48px' }}
+                  />
+                </div>
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Görev Türü</label>
+                  <select
+                    value={newTask.task_type}
+                    onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ minHeight: '48px' }}
+                  >
+                    {getAllTaskTypes().map(taskType => (
+                      <option key={taskType.value} value={taskType.value}>
+                        {taskType.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Öncelik</label>
+                  <select
+                    value={newTask.priority}
+                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ minHeight: '48px' }}
+                  >
+                    <option value="low">Düşük</option>
+                    <option value="medium">Orta</option>
+                    <option value="high">Yüksek</option>
+                    <option value="critical">Kritik</option>
+                  </select>
+                </div>
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Sorumlu</label>
+                  <select
+                    value={newTask.responsible_id || ''}
+                    onChange={(e) => setNewTask({ ...newTask, responsible_id: e.target.value ? parseInt(e.target.value) : null })}
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ minHeight: '48px' }}
+                  >
+                    <option value="">Sorumlu Seçin</option>
+                    {getEligibleResponsibleUsers().length > 0 ? (
+                      getEligibleResponsibleUsers().map(u => <option key={u.id} value={u.id}>{u.name}</option>)
+                    ) : (
+                      <option value="" disabled>Uygun kullanıcı bulunamadı</option>
+                    )}
+                  </select>
+                </div>
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Atananlar</label>
+                  <div className="rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
+                    {newTask.assigned_users.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {newTask.assigned_users.map((userId) => {
+                          const user = users.find(u => u.id === userId);
+                          return (
+                            <span key={userId} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                              {user?.name || 'Bilinmeyen Kullanıcı'}
+                              <button
+                                type="button"
+                                aria-label="Atananı kaldır"
+                                onClick={() => setNewTask({
+                                  ...newTask,
+                                  assigned_users: newTask.assigned_users.filter(id => id !== userId)
+                                })}
+                                className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="relative z-[2147483647] assignee-dropdown-container">
+                      <input
+                        type="text"
+                        placeholder="Kullanıcı atayın..."
+                        value={assigneeSearch}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ minHeight: '48px' }}
+                        onChange={(e) => {
+                          setAssigneeSearch(e.target.value);
+                          setShowAssigneeDropdown(true);
+                        }}
+                        onFocus={() => setShowAssigneeDropdown(true)}
+                        onBlur={() => {
+                          setTimeout(() => setShowAssigneeDropdown(false), 200);
+                        }}
+                      />
+
+                      {showAssigneeDropdown && users && users.length > 0 && (
+                        <div
+                          className="absolute w-full mt-1 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
+                          style={{
+                            backgroundColor: '#1f2937',
+                            opacity: 1,
+                            zIndex: 2147483647,
+                            filter: 'none',
+                            backdropFilter: 'none',
+                            WebkitBackdropFilter: 'none',
+                            mixBlendMode: 'normal',
+                            isolation: 'isolate',
+                            pointerEvents: 'auto'
+                          }}
+                        >
+                          {getEligibleAssignedUsers(newTask.responsible_id)
+                            .filter(u =>
+                              u.name.toLowerCase().includes(assigneeSearch.toLowerCase()) &&
+                              !newTask.assigned_users.includes(u.id)
+                            )
+                            .map(u => (
+                              <div
+                                key={u.id}
+                                className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-gray-200 last:border-b-0 text-left"
+                                style={{ backgroundColor: '#1f2937' }}
+                                onClick={() => {
+                                  setNewTask({
+                                    ...newTask,
+                                    assigned_users: [...newTask.assigned_users, u.id]
+                                  });
+                                  setAssigneeSearch('');
+                                  setShowAssigneeDropdown(false);
+                                }}
+                              >
+                                {u.name}
+                              </div>
+                            ))}
+                          {getEligibleAssignedUsers(newTask.responsible_id).filter(u =>
+                            u.name.toLowerCase().includes(assigneeSearch.toLowerCase()) &&
+                            !newTask.assigned_users.includes(u.id)
+                          ).length === 0 && (
+                              <div
+                                className="px-3 sm:px-4 py-2 sm:py-3 text-gray-500 text-[16px] sm:text-[24px] border-b border-gray-200"
+                                style={{ backgroundColor: 'gray' }}
+                              >
+                                Kullanıcı bulunamadı
+                              </div>
+                            )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                  <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Tarihler</label>
+                  <div className="flex flex-row gap-2 sm:gap-4">
+                    <div className="flex-1">
+                      <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
+                      <input
+                        type="date"
+                        value={newTask.start_date}
+                        onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ minHeight: '48px' }}
+                      />
+                    </div>
+                    <span className="w-[20px]"></span>
+                    <div className="flex-1">
+                      <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
+                      <input
+                        type="date"
+                        value={newTask.due_date}
+                        onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        style={{ minHeight: '48px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
+                  <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Dosyalar</label>
+                  <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '24px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '5px' }}>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files);
+                        setNewTask({
+                          ...newTask,
+                          attachments: [...newTask.attachments, ...files]
+                        });
+                      }}
+                      className="w-full !text-[24px] sm:!text-[24px] text-gray-600"
+                    />
+                    {newTask.attachments.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="!text-[24px] font-medium text-gray-700 text-left">Seçilen Dosyalar:</p>
+                        {newTask.attachments.map((file, index) => (
+                          <div key={index} className="!flex !items-center !justify-between !px-2 !py-2 !bg-gray-50 !rounded !border !border-gray-200">
+                            <div className="flex-1 min-w-0">
+                              <div className="!text-[24px] sm:!text-[20px] text-gray-700 text-left truncate">
+                                {file.name || 'Dosya'}
+                              </div>
+                              {file.size && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setNewTask({
+                                ...newTask,
+                                attachments: newTask.attachments.filter((_, i) => i !== index)
+                              })}
+                              className="text-red-600 hover:text-red-800 ml-2 px-2 py-1 rounded hover:bg-red-50"
+                              title="Dosyayı kaldır"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <br />
+                <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
+                  <label className="!text-[24px] font-medium text-slate-200 text-left">Görev Açıklaması</label>
+                  <textarea
+                    placeholder="Görev açıklamasını girin..."
+                    value={newTask.description}
+                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                    className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
+                  />
+                </div>
+                <br />
+                <div className="mt-4 sm:mt-6 mb-4">
+                  <button
+                    onClick={handleAddTask}
+                    disabled={addingTask || !newTask.title}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
+                  >
+                    {addingTask ? 'Ekleniyor...' : 'Ekle'}
+                  </button>
+                </div>
+
               </div>
             </div>
           </div>
+        </div>
+      )}
 
-          {showAddForm && (
-            <div className="fixed inset-0 z-[999999]" style={{ pointerEvents: 'auto' }}>
-              <div
-                className="absolute inset-0"
-                style={{ backgroundColor: 'rgba(0, 0, 0, 1)', pointerEvents: 'auto' }}
-                onClick={() => {
-                  setShowAddForm(false);
-                  resetNewTask();
-                }}
-              />
-              <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'auto' }}>
-                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }} onClick={(e) => e.stopPropagation()}>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
-                    <div></div>
-                    <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
-                    <div className="justify-self-end">
-                      <button onClick={() => {
-                        setShowAddForm(false);
-                        resetNewTask();
-                      }} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
-                    </div>
-                  </div>
-                  <div className="overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
-                    {error && (
-                      <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
-                        {error}
-                      </div>
-                    )}
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Başlık</label>
-                      <input
-                        type="text"
-                        placeholder="Görev başlığını girin..."
-                        value={newTask.title}
-                        onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                        className="rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border shadow-sm"
-                        style={{ minHeight: '48px' }}
-                      />
-                    </div>
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Görev Türü</label>
-                      <select
-                        value={newTask.task_type}
-                        onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
-                      >
-                        {getAllTaskTypes().map(taskType => (
-                          <option key={taskType.value} value={taskType.value}>
-                            {taskType.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Öncelik</label>
-                      <select
-                        value={newTask.priority}
-                        onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
-                      >
-                        <option value="low">Düşük</option>
-                        <option value="medium">Orta</option>
-                        <option value="high">Yüksek</option>
-                        <option value="critical">Kritik</option>
-                      </select>
-                    </div>
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Sorumlu</label>
-                      <select
-                        value={newTask.responsible_id || ''}
-                        onChange={(e) => setNewTask({ ...newTask, responsible_id: e.target.value ? parseInt(e.target.value) : null })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
-                      >
-                        <option value="">Sorumlu Seçin</option>
-                        {getEligibleResponsibleUsers().length > 0 ? (
-                          getEligibleResponsibleUsers().map(u => <option key={u.id} value={u.id}>{u.name}</option>)
+      {showWeeklyGoals && createPortal(
+        <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+                <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+              style={{ paddingBottom: '10px', pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
+                <div className="flex-1">
+                  {weeklyUserId && Array.isArray(users) ? (
+                    <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
+                      {(() => {
+                        const targetUser = users.find(u => u.id === weeklyUserId);
+                        return targetUser ? (
+                          <>
+                            {targetUser.name} <br /> {targetUser.email}
+                          </>
                         ) : (
-                          <option value="" disabled>Uygun kullanıcı bulunamadı</option>
-                        )}
-                      </select>
+                          'Bilinmeyen Kullanıcı'
+                        )
+                      })()}
                     </div>
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Atananlar</label>
-                      <div className="rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
-                        {newTask.assigned_users.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mb-3">
-                            {newTask.assigned_users.map((userId) => {
-                              const user = users.find(u => u.id === userId);
-                              return (
-                                <span key={userId} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                                  {user?.name || 'Bilinmeyen Kullanıcı'}
-                                  <button
-                                    type="button"
-                                    aria-label="Atananı kaldır"
-                                    onClick={() => setNewTask({
-                                      ...newTask,
-                                      assigned_users: newTask.assigned_users.filter(id => id !== userId)
-                                    })}
-                                    className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        <div className="relative z-[2147483647] assignee-dropdown-container">
-                          <input
-                            type="text"
-                            placeholder="Kullanıcı atayın..."
-                            value={assigneeSearch}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ minHeight: '48px' }}
-                            onChange={(e) => {
-                              setAssigneeSearch(e.target.value);
-                              setShowAssigneeDropdown(true);
-                            }}
-                            onFocus={() => setShowAssigneeDropdown(true)}
-                            onBlur={() => {
-                              setTimeout(() => setShowAssigneeDropdown(false), 200);
-                            }}
-                          />
-
-                          {showAssigneeDropdown && users && users.length > 0 && (
-                            <div
-                              className="absolute w-full mt-1 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
-                              style={{
-                                backgroundColor: '#1f2937',
-                                opacity: 1,
-                                zIndex: 2147483647,
-                                filter: 'none',
-                                backdropFilter: 'none',
-                                WebkitBackdropFilter: 'none',
-                                mixBlendMode: 'normal',
-                                isolation: 'isolate',
-                                pointerEvents: 'auto'
-                              }}
-                            >
-                              {getEligibleAssignedUsers(newTask.responsible_id)
-                                .filter(u =>
-                                  u.name.toLowerCase().includes(assigneeSearch.toLowerCase()) &&
-                                  !newTask.assigned_users.includes(u.id)
-                                )
-                                .map(u => (
-                                  <div
-                                    key={u.id}
-                                    className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-gray-200 last:border-b-0 text-left"
-                                    style={{ backgroundColor: '#1f2937' }}
-                                    onClick={() => {
-                                      setNewTask({
-                                        ...newTask,
-                                        assigned_users: [...newTask.assigned_users, u.id]
-                                      });
-                                      setAssigneeSearch('');
-                                      setShowAssigneeDropdown(false);
-                                    }}
-                                  >
-                                    {u.name}
-                                  </div>
-                                ))}
-                              {getEligibleAssignedUsers(newTask.responsible_id).filter(u =>
-                                u.name.toLowerCase().includes(assigneeSearch.toLowerCase()) &&
-                                !newTask.assigned_users.includes(u.id)
-                              ).length === 0 && (
-                                  <div
-                                    className="px-3 sm:px-4 py-2 sm:py-3 text-gray-500 text-[16px] sm:text-[24px] border-b border-gray-200"
-                                    style={{ backgroundColor: 'gray' }}
-                                  >
-                                    Kullanıcı bulunamadı
-                                  </div>
-                                )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                  ) : (
+                    <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
+                      {user?.name} <br /> {user?.email}
                     </div>
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Tarihler</label>
-                      <div className="flex flex-row gap-2 sm:gap-4">
-                        <div className="flex-1">
-                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
-                          <input
-                            type="date"
-                            value={newTask.start_date}
-                            onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ minHeight: '48px' }}
-                          />
-                        </div>
-                        <span className="w-[20px]"></span>
-                        <div className="flex-1">
-                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
-                          <input
-                            type="date"
-                            value={newTask.due_date}
-                            onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ minHeight: '48px' }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Dosyalar</label>
-                      <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '24px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '5px' }}>
-                        <input
-                          type="file"
-                          multiple
-                          onChange={(e) => {
-                            const files = Array.from(e.target.files);
-                            setNewTask({
-                              ...newTask,
-                              attachments: [...newTask.attachments, ...files]
-                            });
-                          }}
-                          className="w-full !text-[24px] sm:!text-[24px] text-gray-600"
-                        />
-                        {newTask.attachments.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            <p className="!text-[24px] font-medium text-gray-700 text-left">Seçilen Dosyalar:</p>
-                            {newTask.attachments.map((file, index) => (
-                              <div key={index} className="!flex !items-center !justify-between !px-2 !py-2 !bg-gray-50 !rounded !border !border-gray-200">
-                                <div className="flex-1 min-w-0">
-                                  <div className="!text-[24px] sm:!text-[20px] text-gray-700 text-left truncate">
-                                    {file.name || 'Dosya'}
-                                  </div>
-                                  {file.size && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                                    </div>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={() => setNewTask({
-                                    ...newTask,
-                                    attachments: newTask.attachments.filter((_, i) => i !== index)
-                                  })}
-                                  className="text-red-600 hover:text-red-800 ml-2 px-2 py-1 rounded hover:bg-red-50"
-                                  title="Dosyayı kaldır"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <br />
-                    <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                      <label className="!text-[24px] font-medium text-slate-200 text-left">Görev Açıklaması</label>
-                      <textarea
-                        placeholder="Görev açıklamasını girin..."
-                        value={newTask.description}
-                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
-                      />
-                    </div>
-                    <br />
-                    <div className="mt-4 sm:mt-6 mb-4">
-                      <button
-                        onClick={handleAddTask}
-                        disabled={addingTask || !newTask.title}
-                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
-                      >
-                        {addingTask ? 'Ekleniyor...' : 'Ekle'}
-                      </button>
-                    </div>
-
+                  )}
+                </div>
+                <div className="flex-1 text-center">
+                  <h3 className="!text-[24px] font-semibold">Haftalık Hedefler</h3>
+                </div>
+                <div className="flex-1 flex justify-end">
+                  <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
+                    <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
+                    <span
+                      className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
+                      title={
+                        'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 10:00’a kadar içinde bulunulan haftanın hedefleri açık, 10:00’dan sonra hedefler kapalı. \nGerçekleşme Pazartesi 10:00’dan sonra açık.'
+                      }
+                    >
+                      ℹ️
+                    </span>
                   </div>
+                  <button onClick={() => setShowWeeklyGoals(false)} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">
+                    ✕
+                  </button>
                 </div>
               </div>
-            </div>
-          )}
-
-          {showWeeklyGoals && createPortal(
-            <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
-              <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} style={{ pointerEvents: 'auto' }} />
-              <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-                  style={{ paddingBottom: '10px', pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
-                    <div className="flex-1">
-                      {weeklyUserId && Array.isArray(users) ? (
-                        <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
-                          {(() => {
-                            const targetUser = users.find(u => u.id === weeklyUserId);
-                            return targetUser ? (
-                              <>
-                                {targetUser.name} <br /> {targetUser.email}
-                              </>
-                            ) : (
-                              'Bilinmeyen Kullanıcı'
-                            )
-                          })()}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
-                          {user?.name} <br /> {user?.email}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 text-center">
-                      <h3 className="!text-[24px] font-semibold">Haftalık Hedefler</h3>
-                    </div>
-                    <div className="flex-1 flex justify-end">
-                      <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
-                        <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
-                        <span
-                          className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
-                          title={
-                            'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 10:00’a kadar içinde bulunulan haftanın hedefleri açık, 10:00’dan sonra hedefler kapalı. \nGerçekleşme Pazartesi 10:00’dan sonra açık.'
-                          }
-                        >
-                          ℹ️
-                        </span>
-                      </div>
-                      <button onClick={() => setShowWeeklyGoals(false)} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">
-                        ✕
-                      </button>
-                    </div>
-                  </div>
                   <div className="p-6 space-y-5 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
                     <div className="flex items-center gap-3 flex-wrap" style={{ paddingBottom: '10px' }}>
-                      <span className="w-[10px]"></span>
-                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20"
-                        onClick={() => {
-                          const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() - 7);
-                          loadWeeklyGoals(fmtYMD(getMonday(base)));
-                        }}>◀ Önceki</button><span className="w-[10px]"></span>
-                      <div>
-                        <input type="date" className="ml-2 rounded bg-white/10 border border-white/20 px-2 py-1 text-[24px]" value={weeklyWeekStart} onChange={(e) => loadWeeklyGoals(e.target.value)} />
-                      </div>
-                      <span className="w-[10px]"></span>
-                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20" onClick={() => { const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() + 7); loadWeeklyGoals(fmtYMD(getMonday(base))); }}>Sonraki ▶</button>
-                      <div className="text-sm text-neutral-300 text-[24px]" style={{ paddingLeft: '30px' }}>
-                        {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
-                      </div>
-                      <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]">
-                        <label className="whitespace-nowrap text-[24px]">İzin (dk)</label>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          step="5"
-                          min="0"
-                          max={WEEKLY_BASE_MINUTES}
-                          value={weeklyLeaveMinutesInput}
-                          onChange={handleWeeklyLeaveMinutesChange}
-                          onBlur={handleWeeklyLeaveMinutesBlur}
-                          disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
-                          className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
-                          placeholder="0"
-                          title="Planlanan hafta için izinli olacağınız toplam dakika"
-                          style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
-                        />
+                  <span className="w-[10px]"></span>
+                  <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20"
+                    onClick={() => {
+                      const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() - 7);
+                      loadWeeklyGoals(fmtYMD(getMonday(base)));
+                    }}>◀ Önceki</button><span className="w-[10px]"></span>
+                  <div>
+                    <input type="date" className="ml-2 rounded bg-white/10 border border-white/20 px-2 py-1 text-[24px]" value={weeklyWeekStart} onChange={(e) => loadWeeklyGoals(e.target.value)} />
+                  </div>
+                  <span className="w-[10px]"></span>
+                  <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20" onClick={() => { const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() + 7); loadWeeklyGoals(fmtYMD(getMonday(base))); }}>Sonraki ▶</button>
+                  <div className="text-sm text-neutral-300 text-[24px]" style={{ paddingLeft: '30px' }}>
+                    {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
+                  </div>
+                  <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]">
+                    <label className="whitespace-nowrap text-[24px]">İzin (dk)</label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      step="5"
+                      min="0"
+                      max={WEEKLY_BASE_MINUTES}
+                      value={weeklyLeaveMinutesInput}
+                      onChange={handleWeeklyLeaveMinutesChange}
+                      onBlur={handleWeeklyLeaveMinutesBlur}
+                      disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                      className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
+                      placeholder="0"
+                      title="Planlanan hafta için izinli olacağınız toplam dakika"
+                      style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
+                    />
                         <label className="whitespace-nowrap text-[24px]" style={{ marginLeft: '20px' }}>Mesai (dk)</label>
                         <input
                           type="number"
@@ -3766,16 +3836,16 @@ function App() {
                           title="Mesaiye kalma durumunda 2700 dakikayı aşmak için mesai süresi"
                           style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
                         />
-                      </div>
-                    </div>
+                  </div>
+                </div>
                     <div className="mt-3 border-t border-white/10" />
                     <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Planlı İşler</div>
                     <div className="mt-3 border-t border-white/10" />
                     <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px' }}>
-                      <div className="overflow-x-auto">
+                <div className="overflow-x-auto">
                         <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 8px' }}>
-                          <thead className="bg-white/10">
-                            <tr>
+                    <thead className="bg-white/10">
+                      <tr>
                               <th className="px-2 py-2 text-left text-[14px]" style={{ width: '20%' }}>Başlık</th>
                               <th className="px-2 py-2 text-left text-[14px]" style={{ width: '30%' }}>Aksiyon Planları</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef(dk)</th>
@@ -3785,16 +3855,16 @@ function App() {
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Tamamlandı</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Açıklama</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Sil</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
-                              const lockedTargets = combinedLocks.targets_locked && user?.role !== 'admin';
-                              const lockedActuals = combinedLocks.actuals_locked && user?.role !== 'admin';
-                              const t = Math.max(0, Number(row.target_minutes || 0));
-                              const a = Math.max(0, Number(row.actual_minutes || 0));
-                              const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
-                              const w = capacity > 0 ? (t / capacity) * 100 : 0; // satır ağırlığı
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
+                        const lockedTargets = combinedLocks.targets_locked && user?.role !== 'admin';
+                        const lockedActuals = combinedLocks.actuals_locked && user?.role !== 'admin';
+                        const t = Math.max(0, Number(row.target_minutes || 0));
+                        const a = Math.max(0, Number(row.actual_minutes || 0));
+                        const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
+                        const w = capacity > 0 ? (t / capacity) * 100 : 0; // satır ağırlığı
                               const isCompleted = row.is_completed === true;
 
                               // Ceza hesaplaması ile verimlilik
@@ -3822,47 +3892,47 @@ function App() {
                               }
 
                               const eff = effectiveActual > 0 ? (t / effectiveActual) : 0; // ceza ile verimlilik
-                              const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
-                              return (
-                                <tr key={row.id || `p-${idx}`} className="odd:bg-white/[0.02]">
+                        const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
+                        return (
+                          <tr key={row.id || `p-${idx}`} className="odd:bg-white/[0.02]">
                                   <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
                                     <textarea
-                                      disabled={lockedTargets || user?.role === 'observer'}
-                                      value={row.title || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
+                                disabled={lockedTargets || user?.role === 'observer'}
+                                value={row.title || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
                                       className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
-                                      placeholder="Başlık girin..."
+                                placeholder="Başlık girin..."
                                       style={{ overflow: 'auto', wordWrap: 'break-word' }}
-                                    />
-                                  </td>
+                              />
+                            </td>
                                   <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
-                                    <textarea
-                                      disabled={lockedTargets || user?.role === 'observer'}
-                                      value={row.action_plan || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
+                              <textarea
+                                disabled={lockedTargets || user?.role === 'observer'}
+                                value={row.action_plan || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
                                       className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[60px] min-w-[250px] text-[16px] resize-y"
-                                      placeholder="Aksiyon planı girin..."
-                                    />
-                                  </td>
+                                placeholder="Aksiyon planı girin..."
+                              />
+                            </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
-                                    <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).target_minutes = Number(e.target.value || 0);
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
+                              <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).target_minutes = Number(e.target.value || 0);
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
                                       style={{ width: '60px', height: '60px', textAlign: 'center' }}
-                                    />
-                                  </td>
+                              />
+                            </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={capacity > 0 ? ((t / capacity) * 100).toFixed(1) : '0.0'}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
@@ -3870,8 +3940,8 @@ function App() {
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
-                                    <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
-                                      onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
+                              <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
+                                onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
                                       style={{ width: '60px', height: '60px', textAlign: 'center' }}
                                     />
@@ -3883,38 +3953,38 @@ function App() {
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top' }}>
-                                    <input
-                                      type="checkbox"
-                                      checked={!!row.is_completed}
-                                      disabled={lockedActuals || user?.role === 'observer'}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
-                                      className="w-6 h-6 cursor-pointer"
+                              <input
+                                type="checkbox"
+                                checked={!!row.is_completed}
+                                disabled={lockedActuals || user?.role === 'observer'}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
+                                className="w-6 h-6 cursor-pointer"
                                       style={{ width: '60px', height: '60px', cursor: 'pointer' }}
-                                      title="İş tamamlandı mı?"
-                                    />
-                                  </td>
+                                title="İş tamamlandı mı?"
+                              />
+                            </td>
                                   <td className="px-3 py-2 align-middle text-center align-middle">
-                                    <button
+                                <button
                                       className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[24px] transition-colors buttonHoverEffect"
-                                      style={{
+                                  style={{
                                         backgroundColor: row.description?.trim() ? 'rgba(237, 241, 21, 0.62)' : 'rgba(8, 87, 234, 0.4)',
                                         width: '60px',
                                         height: '60px',
                                         borderRadius: '9999px'
-                                      }}
-                                      onClick={() => {
-                                        setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
-                                        setGoalDescription(row.description || '');
-                                        setShowGoalDescription(true);
-                                      }}
-                                      title="Açıklama Ekle/Düzenle"
-                                    >
-                                      🔍
-                                    </button>
+                                  }}
+                                  onClick={() => {
+                                    setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
+                                    setGoalDescription(row.description || '');
+                                    setShowGoalDescription(true);
+                                  }}
+                                  title="Açıklama Ekle/Düzenle"
+                                >
+                                  🔍
+                                </button>
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center align-middle">
                                     {(() => {
@@ -3926,92 +3996,92 @@ function App() {
                                           style={{ width: '60px', height: '60px', borderRadius: '9999px', backgroundColor: canDelete ? 'rgba(241, 91, 21, 0.62)' : 'rgba(148,163,184,0.35)', cursor: canDelete ? 'pointer' : 'default', pointerEvents: canDelete ? 'auto' : 'none' }}
                                           onClick={() => {
                                             if (!canDelete) return;
-                                            const items = weeklyGoals.items.filter(x => x !== row);
-                                            setWeeklyGoals({ ...weeklyGoals, items });
+                                    const items = weeklyGoals.items.filter(x => x !== row);
+                                    setWeeklyGoals({ ...weeklyGoals, items });
                                           }}
                                         >
                                           🗑️
                                         </button>
                                       );
                                     })()}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                       </div>
-                      {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
+                  {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
                         <div className="mt-2" style={{ paddingBottom: '10px' }}>
                           <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px]"
-                            disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
-                            onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
-                          >
+                        disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
+                        onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
+                      >
                             İş Ekle</button>
-                        </div>
-                      )}
                     </div>
+                  )}
+                </div>
                     <div className="mt-3 border-t border-white/10" />
                     <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Plana Dahil Olmayan İşler</div>
                     <div className="mt-3 border-t border-white/10" />
                     <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px' }}>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
-                          <thead className="bg-white/10">
-                            <tr>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
+                      <thead className="bg-white/10">
+                        <tr>
                               <th className="px-2 py-2 text-left text-[14px]" colSpan="2" style={{ width: '30%' }}>Başlık</th>
                               <th className="px-2 py-2 text-left text-[14px]" colSpan="3" style={{ width: '40%' }}>İş Ayrıntısı</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Süre(dk)</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Ağırlık(%)</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Açıklama</th>
                               <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Sil</th>
-                            </tr>
-                          </thead>
-                          <tbody>
+                        </tr>
+                      </thead>
+                      <tbody>
                             {(weeklyGoals.items || []).filter(x => x.is_unplanned).map((row, idx) => {
                               const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
                               const a = Math.max(0, Number(row.actual_minutes || 0));
                               const weightPercent = capacity > 0 ? (a / capacity) * 100 : 0;
                               return (
-                                <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
+                          <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
                                   <td className="px-3 py-2 align-top" colSpan="2" style={{ verticalAlign: 'top' }}>
                                     <textarea
-                                      disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
-                                      value={row.title || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
+                                disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
+                                value={row.title || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
                                       className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
                                       style={{ overflow: 'auto', wordWrap: 'break-word' }}
-                                      placeholder="Başlık girin..."
-                                    />
-                                  </td>
+                                placeholder="Başlık girin..."
+                              />
+                            </td>
                                   <td className="px-3 py-2 align-top" colSpan="3" style={{ verticalAlign: 'top' }}>
-                                    <textarea
-                                      disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
-                                      value={row.action_plan || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
+                              <textarea
+                                disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
+                                value={row.action_plan || ''}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
                                       className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
                                       style={{ overflow: 'auto', wordWrap: 'break-word' }}
                                       placeholder="İş ayrıntısı girin..."
-                                    />
-                                  </td>
+                              />
+                            </td>
                                   <td className="px-3 py-2 text-center align-top">
-                                    <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
+                              <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
+                                onChange={e => {
+                                  const items = [...weeklyGoals.items];
+                                  items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
+                                  setWeeklyGoals({ ...weeklyGoals, items });
+                                }}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
                                       style={{ width: '60px', height: '60px', textAlign: 'center' }} />
-                                  </td>
+                            </td>
                                   <td className="px-3 py-2 text-center align-top">
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={weightPercent.toFixed(1)}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
@@ -4019,23 +4089,23 @@ function App() {
                                     />
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
-                                    <button
+                                <button
                                       className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] transition-colors buttonHoverEffect"
-                                      style={{
+                                  style={{
                                         backgroundColor: row.description?.trim() ? 'rgba(237, 241, 21, 0.62)' : 'rgba(8, 87, 234, 0.4)',
                                         width: '60px',
                                         height: '60px',
                                         borderRadius: '9999px'
-                                      }}
-                                      onClick={() => {
-                                        setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
-                                        setGoalDescription(row.description || '');
-                                        setShowGoalDescription(true);
-                                      }}
-                                      title="Açıklama Ekle/Düzenle"
-                                    >
-                                      🔍
-                                    </button>
+                                  }}
+                                  onClick={() => {
+                                    setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
+                                    setGoalDescription(row.description || '');
+                                    setShowGoalDescription(true);
+                                  }}
+                                  title="Açıklama Ekle/Düzenle"
+                                >
+                                  🔍
+                                </button>
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
                                     {(() => {
@@ -4050,12 +4120,12 @@ function App() {
                                         </button>
                                       );
                                     })()}
-                                  </td>
-                                </tr>
+                            </td>
+                          </tr>
                               );
                             })}
-                          </tbody>
-                        </table>
+                      </tbody>
+                    </table>
                       </div>
                       {user?.role !== 'observer' && (!combinedLocks.actuals_locked || user?.role === 'admin') && (
                         <div className="mt-2" style={{ paddingBottom: '10px' }}>
@@ -4064,9 +4134,9 @@ function App() {
                             onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true, is_completed: false }] }); }}
                           >
                             İş Ekle</button>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
+                  </div>
                     <div className="mt-3 border-t border-white/10" />
                     <div className="text-neutral-200 font-semibold text-[32px] text-center">Hedef Ayrıntısı</div>
                     <div className="mt-3 border-t border-white/10" />
@@ -4105,7 +4175,7 @@ function App() {
                               <div className="text-white/70 whitespace-nowrap">Kullanılabilir Süre:</div>
                               <div className="text-white/70 whitespace-nowrap">Planlı Süre:</div>
                               <div className="text-white/70 whitespace-nowrap">Plandışı Süre:</div>
-                            </div>
+                    </div>
 
                             {/* İkinci Sütun - Değerler (sola yaslı) */}
                             <div className="flex flex-col gap-3">
@@ -4114,7 +4184,7 @@ function App() {
                               <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.availableMinutes} dk</div>
                               <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}</div>
                               <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.unplannedMinutes} dk</div>
-                            </div>
+                      </div>
 
                             {/* Üçüncü Sütun - Label'lar */}
                             <div className="flex flex-col gap-3 ml-4">
@@ -4149,466 +4219,466 @@ function App() {
                               <div className="font-semibold text-white whitespace-nowrap text-left">{Number(weeklyLive.unplannedPercent || 0)}%</div>
                               <div className={`font-semibold whitespace-nowrap text-left ${net >= 0 ? 'text-green-400' : 'text-red-400'}`} title={tip}>
                                 {net >= 0 ? '+' : ''}{net.toFixed(2)}%
-                              </div>
+                      </div>
                               <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.finalScore}%</div>
                               <div className="font-bold whitespace-nowrap text-left" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
-                                {getPerformanceGrade(weeklyLive.finalScore).description}
-                              </div>
-                            </div>
+                        {getPerformanceGrade(weeklyLive.finalScore).description}
+                      </div>
+                    </div>
                             <div className="flex flex-col gap-3"></div>
-                          </div>
+                  </div>
                         );
                       })()}
-                    </div>
+                </div>
                     <div className="mt-3 border-t border-white/10" />
                     <div className="flex items-center gap-3 w-[98%]" style={{ marginTop: '10px', marginLeft: '16px', marginRight: '16px', marginBottom: '12px' }}>
-                      <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
-                      <span className="w-[10px]"></span>
-                      {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_lead') && (
-                        <button
-                          className={`flex-1 rounded px-4 py-2 transition-colors ${weeklySaveState === 'saving'
-                            ? 'bg-blue-500 cursor-wait'
-                            : weeklySaveState === 'saved'
-                              ? 'bg-emerald-600 hover:bg-emerald-700'
-                              : 'bg-green-600 hover:bg-green-700'
-                            } disabled:bg-gray-600 disabled:cursor-not-allowed`}
-                          disabled={
+                  <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
+                  <span className="w-[10px]"></span>
+                  {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_lead') && (
+                    <button
+                      className={`flex-1 rounded px-4 py-2 transition-colors ${weeklySaveState === 'saving'
+                        ? 'bg-blue-500 cursor-wait'
+                        : weeklySaveState === 'saved'
+                          ? 'bg-emerald-600 hover:bg-emerald-700'
+                          : 'bg-green-600 hover:bg-green-700'
+                        } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                      disabled={
                             // Admin için kapasite kontrollerini bypass et
                             (user?.role !== 'admin' && (
-                              weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) ||
+                        weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) ||
                               weeklyLive.overActualCapacity
                             )) ||
-                            weeklySaveState === 'saving'
-                          }
-                          onClick={saveWeeklyGoals}
-                        >
-                          {weeklySaveState === 'saving' ? 'Kaydediliyor...' : weeklySaveState === 'saved' ? 'Kaydedildi ✓' : 'Kaydet'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                        weeklySaveState === 'saving'
+                      }
+                      onClick={saveWeeklyGoals}
+                    >
+                      {weeklySaveState === 'saving' ? 'Kaydediliyor...' : weeklySaveState === 'saved' ? 'Kaydedildi ✓' : 'Kaydet'}
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>,
-            document.body
-          )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
-          {showGoalDescription && createPortal(
-            <div className="fixed inset-0 z-[999998]" style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
+      {showGoalDescription && createPortal(
+        <div className="fixed inset-0 z-[999998]" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: 'auto'
+        }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowGoalDescription(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+            style={{
+              maxHeight: '80vh',
+              transform: 'translate(0, 0)',
+              margin: 'auto',
+              paddingRight: '5px',
               pointerEvents: 'auto'
-            }}>
-              <div className="absolute inset-0 bg-black/60" onClick={() => setShowGoalDescription(false)} style={{ pointerEvents: 'auto' }} />
-              <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-                style={{
-                  maxHeight: '80vh',
-                  transform: 'translate(0, 0)',
-                  margin: 'auto',
-                  paddingRight: '5px',
-                  pointerEvents: 'auto'
-                }} onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
-                  <div className="flex-1"></div>
-                  <div className="flex-1 text-center">
+            }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
+              <div className="flex-1"></div>
+              <div className="flex-1 text-center">
                     <h3 className="text-xl font-semibold">Ek Açıklama</h3>
-                  </div>
-                  <div className="flex-1 flex justify-end">
-                    <button
-                      onClick={() => setShowGoalDescription(false)}
-                      className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
+              </div>
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={() => setShowGoalDescription(false)}
+                  className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
 
                 <div className="p-8" style={{ maxHeight: 'calc(80vh - 80px)', paddingLeft: '10px', paddingRight: '10px', paddingBottom: '10px' }}>
-                  <div className="flex-1 gap-3 mb-6 p-6 bg-white/5 rounded-lg">
-                    {weeklyGoals.items[selectedGoalIndex].title && (
+              <div className="flex-1 gap-3 mb-6 p-6 bg-white/5 rounded-lg">
+                {weeklyGoals.items[selectedGoalIndex].title && (
                       <h3 className="text-xl font-medium text-blue-300 mb-3">Hedef: {weeklyGoals.items[selectedGoalIndex].title || 'Başlık belirtilmemiş'}</h3>
-                    )}
-                    {weeklyGoals.items[selectedGoalIndex].action_plan && (
+                )}
+                {weeklyGoals.items[selectedGoalIndex].action_plan && (
                       <h3 className="text-xl font-medium text-blue-300 mb-3">Aksiyon Planı: {weeklyGoals.items[selectedGoalIndex].action_plan}</h3>
-                    )}
-                  </div>
-                  <div className="mb-6">
+                )}
+              </div>
+              <div className="mb-6">
                     <h3 className="text-xl font-medium text-blue-300 mb-3">Açıklama:</h3>
-                    <textarea
-                      value={goalDescription}
-                      onChange={(e) => setGoalDescription(e.target.value)}
+                <textarea
+                  value={goalDescription}
+                  onChange={(e) => setGoalDescription(e.target.value)}
                       className="w-full !h-[200px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-none text-base"
                       placeholder="Ek açıklamalarınızı buraya yazabilirsiniz..."
-                      disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                  disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                />
+              </div>
+              <div className="flex justify-end gap-4 pt-4">
+                <button
+                  onClick={() => setShowGoalDescription(false)}
+                  className="w-full px-6 py-3 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-lg font-medium"
+                >
+                  İptal
+                </button>
+                <span className="w-[20px]"></span>
+                {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
+                  <button
+                    onClick={async () => {
+                      if (selectedGoalIndex !== null) {
+                        const items = [...weeklyGoals.items];
+                        items[selectedGoalIndex].description = goalDescription;
+                        setWeeklyGoals({ ...weeklyGoals, items });
+                        setShowGoalDescription(false);
+
+                        // Backend'e kaydet (arka planda)
+                        try {
+                          await saveWeeklyGoals();
+                          addNotification('Açıklama başarıyla kaydedildi.', 'success');
+                        } catch (error) {
+                          console.warn('Goal description save failed:', error);
+                          addNotification('Açıklama kaydedilemedi ama yerel olarak saklandı.', 'warning');
+                        }
+                      }
+                    }}
+                    className="w-full px-6 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors text-lg font-medium"
+                  >
+                    Kaydet
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      <div className="bg-white">
+        {showWeeklyOverview ? (
+          <div className="flex justify-center">
+            <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
+              <div className="space-y-4" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
+                <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ paddingBottom: '10px' }}>
+                  <button
+                    onClick={() => {
+                      setShowWeeklyOverview(false);
+                      setWeeklyOverviewError(null);
+                    }}
+                    className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    Görev Listesine Dön
+                  </button>
+                  <span className="w-[10px]"></span>
+                  <button
+                    className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
+                    onClick={() => {
+                      const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
+                      base.setDate(base.getDate() - 7);
+                      loadWeeklyOverview(fmtYMD(getMonday(base)));
+                    }}
+                  >
+                    ◀ Önceki
+                  </button>
+                  <span className="w-[10px]"></span>
+                  <input
+                    type="date"
+                    className="rounded border border-gray-300 bg-white px-3 py-1 text-[24px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={effectiveWeeklyOverviewWeekStart}
+                    onChange={(e) => loadWeeklyOverview(e.target.value)}
+                  />
+                  <span className="w-[10px]"></span>
+                  <button
+                    className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
+                    onClick={() => {
+                      const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
+                      base.setDate(base.getDate() + 7);
+                      loadWeeklyOverview(fmtYMD(getMonday(base)));
+                    }}
+                  >
+                    Sonraki ▶
+                  </button>
+                  <div className="ml-auto text-sm text-gray-500 whitespace-nowrap">
+                    {(() => {
+                      const cur = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
+                      const next = new Date(cur);
+                      next.setDate(next.getDate() + 7);
+                      return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`;
+                    })()}
+                  </div>
+                </div>
+                {weeklyOverviewError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    {weeklyOverviewError}
+                  </div>
+                )}
+                <div className="bg-[#1f2937] rounded-lg shadow-lg overflow-hidden">
+                  {weeklyOverviewLoading ? (
+                    <div className="py-12 text-center text-gray-500 text-sm">
+                      Haftalık hedef listesi yükleniyor...
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-white/10 text-[16px] cursor-pointer">
+                        <thead className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white text-[18px]">
+                          <tr>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('name')} role="button">Kullanıcı</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('leader_name')} role="button">Lider</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_target_minutes')} role="button">Hedef (dk)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Gerçekleşme (dk)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_minutes')} role="button">Plandışı (dk)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('planned_score')} role="button">Planlı (%)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_bonus')} role="button">Plandışı (%)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('final_score')} role="button">Final Skor (%)</th>
+                            <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Toplam Süre (DK)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-white">
+                          {weeklyOverview.items.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="px-4 py-6 text-center text-gray-500 text-sm">
+                                Listelenecek kullanıcı bulunamadı.
+                              </td>
+                            </tr>
+                          ) : (
+                            sortedWeeklyOverview.map((item, index) => {
+                              const grade = getPerformanceGrade(Number(item.final_score || 0));
+                              const targetWeek = weeklyOverview.week_start || effectiveWeeklyOverviewWeekStart;
+                              const baseBg = index % 2 === 0 ? 'rgba(55, 65, 81, 0.92)' : 'rgba(75, 85, 99, 0.88)';
+                              return (
+                                <tr
+                                  key={item.user_id}
+                                  onClick={() => {
+                                    setShowWeeklyGoals(true);
+                                    loadWeeklyGoals(targetWeek, item.user_id);
+                                  }}
+                                  className="transition-colors"
+                                  style={{ backgroundColor: baseBg, height: '50px' }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(129, 140, 248, 0.45)'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = baseBg; }}
+                                >
+                                  <td className="px-4 py-3 text-sm text-left text-white text-indigo-400">{item.name}</td>
+                                  <td className="px-4 py-3 text-sm text-left text-white">{item.leader_name || '-'}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_target_minutes || 0).toLocaleString('tr-TR')}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_actual_minutes || 0).toLocaleString('tr-TR')}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_minutes || 0).toLocaleString('tr-TR')}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.planned_score || 0).toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_bonus || 0).toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-sm text-center font-semibold" style={{ color: grade.color }}>{Number(item.final_score || 0).toFixed(1)}</td>
+                                  <td className="px-4 py-3 text-sm text-center text-white">{Number((item.total_actual_minutes || 0) + (item.unplanned_minutes || 0))}</td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-center">
+              <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
+                <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
+                  {user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setShowWeeklyOverview(true);
+                        loadWeeklyOverview(null);
+                      }}
+                      className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                      style={{ marginRight: '5px' }}
+                    >
+                      <span className="flex items-center gap-2 whitespace-nowrap">
+                        <span>🎯</span>
+                        <span>Haftalık Hedef</span>
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setActiveTab('active')}
+                    className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                      }`}
+                  >
+                    Aktif ({taskCounts.active})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
+                      ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                      }`}
+                    style={{ marginLeft: '5px' }}
+                  >
+                    Tamamlanan ({taskCounts.completed})
+                  </button>
+                      {user?.role === 'admin' && (
+                  <button
+                    onClick={() => setActiveTab('deleted')}
+                    className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
+                      ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
+                      }`}
+                    style={{ marginLeft: '5px' }}
+                  >
+                    İptal ({taskCounts.deleted})
+                  </button>
+                      )}
+                  <div className="relative" style={{ marginLeft: '5px' }}>
+                    <select
+                      value={selectedTaskType}
+                      onChange={(e) => setSelectedTaskType(e.target.value)}
+                      className="px-3 xs:px-4 sm:px-4 py-2.5 text-[16px] xs:text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
+                      style={{ height: '40px', minWidth: '140px' }}
+                    >
+                      <option value="all">Tüm Türler</option>
+                      {getAllTaskTypes().map(taskType => (
+                        <option key={taskType.value} value={taskType.value}>
+                          {taskType.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
+                    <input
+                      type="text"
+                      placeholder="Görev ara..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                      style={{ height: '30px', fontSize: '16px' }}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      data-lpignore="true"
+                      data-form-type="other"
+                      name="search"
+                      id="task-search"
+                      onFocus={(e) => {
+                        e.target.setAttribute('autocomplete', 'off');
+                        e.target.setAttribute('autocorrect', 'off');
+                        e.target.setAttribute('autocapitalize', 'off');
+                        e.target.setAttribute('spellcheck', 'false');
+                      }}
+                      onInput={(e) => {
+                        if (e.target.value && !e.isTrusted) {
+                          e.target.value = '';
+                          setSearchTerm('');
+                        }
+                      }}
                     />
                   </div>
-                  <div className="flex justify-end gap-4 pt-4">
-                    <button
-                      onClick={() => setShowGoalDescription(false)}
-                      className="w-full px-6 py-3 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-lg font-medium"
-                    >
-                      İptal
-                    </button>
-                    <span className="w-[20px]"></span>
-                    {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
-                      <button
-                        onClick={async () => {
-                          if (selectedGoalIndex !== null) {
-                            const items = [...weeklyGoals.items];
-                            items[selectedGoalIndex].description = goalDescription;
-                            setWeeklyGoals({ ...weeklyGoals, items });
-                            setShowGoalDescription(false);
-
-                            // Backend'e kaydet (arka planda)
-                            try {
-                              await saveWeeklyGoals();
-                              addNotification('Açıklama başarıyla kaydedildi.', 'success');
-                            } catch (error) {
-                              console.warn('Goal description save failed:', error);
-                              addNotification('Açıklama kaydedilemedi ama yerel olarak saklandı.', 'warning');
-                            }
-                          }
-                        }}
-                        className="w-full px-6 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors text-lg font-medium"
-                      >
-                        Kaydet
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
-            </div>,
-            document.body
-          )}
-          <div className="bg-white">
-            {showWeeklyOverview ? (
-              <div className="flex justify-center">
-                <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
-                  <div className="space-y-4" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
-                    <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ paddingBottom: '10px' }}>
-                      <button
-                        onClick={() => {
-                          setShowWeeklyOverview(false);
-                          setWeeklyOverviewError(null);
-                        }}
-                        className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      >
-                        Görev Listesine Dön
-                      </button>
-                      <span className="w-[10px]"></span>
-                      <button
-                        className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
-                        onClick={() => {
-                          const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
-                          base.setDate(base.getDate() - 7);
-                          loadWeeklyOverview(fmtYMD(getMonday(base)));
-                        }}
-                      >
-                        ◀ Önceki
-                      </button>
-                      <span className="w-[10px]"></span>
-                      <input
-                        type="date"
-                        className="rounded border border-gray-300 bg-white px-3 py-1 text-[24px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        value={effectiveWeeklyOverviewWeekStart}
-                        onChange={(e) => loadWeeklyOverview(e.target.value)}
-                      />
-                      <span className="w-[10px]"></span>
-                      <button
-                        className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
-                        onClick={() => {
-                          const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
-                          base.setDate(base.getDate() + 7);
-                          loadWeeklyOverview(fmtYMD(getMonday(base)));
-                        }}
-                      >
-                        Sonraki ▶
-                      </button>
-                      <div className="ml-auto text-sm text-gray-500 whitespace-nowrap">
-                        {(() => {
-                          const cur = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
-                          const next = new Date(cur);
-                          next.setDate(next.getDate() + 7);
-                          return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`;
-                        })()}
-                      </div>
-                    </div>
-                    {weeklyOverviewError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                        {weeklyOverviewError}
-                      </div>
-                    )}
-                    <div className="bg-[#1f2937] rounded-lg shadow-lg overflow-hidden">
-                      {weeklyOverviewLoading ? (
-                        <div className="py-12 text-center text-gray-500 text-sm">
-                          Haftalık hedef listesi yükleniyor...
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-white/10 text-[16px] cursor-pointer">
-                            <thead className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white text-[18px]">
-                              <tr>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('name')} role="button">Kullanıcı</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('leader_name')} role="button">Lider</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_target_minutes')} role="button">Hedef (dk)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Gerçekleşme (dk)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_minutes')} role="button">Plandışı (dk)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('planned_score')} role="button">Planlı (%)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_bonus')} role="button">Plandışı (%)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('final_score')} role="button">Final Skor (%)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Toplam Süre (DK)</th>
-                              </tr>
-                            </thead>
-                            <tbody className="text-white">
-                              {weeklyOverview.items.length === 0 ? (
-                                <tr>
-                                  <td colSpan={9} className="px-4 py-6 text-center text-gray-500 text-sm">
-                                    Listelenecek kullanıcı bulunamadı.
-                                  </td>
-                                </tr>
-                              ) : (
-                                sortedWeeklyOverview.map((item, index) => {
-                                  const grade = getPerformanceGrade(Number(item.final_score || 0));
-                                  const targetWeek = weeklyOverview.week_start || effectiveWeeklyOverviewWeekStart;
-                                  const baseBg = index % 2 === 0 ? 'rgba(55, 65, 81, 0.92)' : 'rgba(75, 85, 99, 0.88)';
-                                  return (
-                                    <tr
-                                      key={item.user_id}
-                                      onClick={() => {
-                                        setShowWeeklyGoals(true);
-                                        loadWeeklyGoals(targetWeek, item.user_id);
-                                      }}
-                                      className="transition-colors"
-                                      style={{ backgroundColor: baseBg, height: '50px' }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(129, 140, 248, 0.45)'; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = baseBg; }}
-                                    >
-                                      <td className="px-4 py-3 text-sm text-left text-white text-indigo-400">{item.name}</td>
-                                      <td className="px-4 py-3 text-sm text-left text-white">{item.leader_name || '-'}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_target_minutes || 0).toLocaleString('tr-TR')}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_actual_minutes || 0).toLocaleString('tr-TR')}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_minutes || 0).toLocaleString('tr-TR')}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.planned_score || 0).toFixed(1)}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_bonus || 0).toFixed(1)}</td>
-                                      <td className="px-4 py-3 text-sm text-center font-semibold" style={{ color: grade.color }}>{Number(item.final_score || 0).toFixed(1)}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number((item.total_actual_minutes || 0) + (item.unplanned_minutes || 0))}</td>
-                                    </tr>
-                                  );
-                                })
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-center">
-                  <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
-                    <div className="flex items-center space-x-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
-                      {user?.role === 'admin' && (
-                        <button
-                          onClick={() => {
-                            setShowProfileMenu(false);
-                            setShowWeeklyOverview(true);
-                            loadWeeklyOverview(null);
-                          }}
-                          className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
-                          style={{ marginRight: '5px' }}
-                        >
-                          <span className="flex items-center gap-2 whitespace-nowrap">
-                            <span>🎯</span>
-                            <span>Haftalık Hedef</span>
-                          </span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setActiveTab('active')}
-                        className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
-                          ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                          }`}
-                      >
-                        Aktif ({taskCounts.active})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('completed')}
-                        className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
-                          ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                          }`}
-                        style={{ marginLeft: '5px' }}
-                      >
-                        Tamamlanan ({taskCounts.completed})
-                      </button>
-                      {user?.role === 'admin' && (
-                        <button
-                          onClick={() => setActiveTab('deleted')}
-                          className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
-                            ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                            }`}
-                          style={{ marginLeft: '5px' }}
-                        >
-                          İptal ({taskCounts.deleted})
-                        </button>
-                      )}
-                      <div className="relative" style={{ marginLeft: '5px' }}>
-                        <select
-                          value={selectedTaskType}
-                          onChange={(e) => setSelectedTaskType(e.target.value)}
-                          className="px-3 xs:px-4 sm:px-4 py-2.5 text-[16px] xs:text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
-                          style={{ height: '40px', minWidth: '140px' }}
-                        >
-                          <option value="all">Tüm Türler</option>
-                          {getAllTaskTypes().map(taskType => (
-                            <option key={taskType.value} value={taskType.value}>
-                              {taskType.label}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="relative flex-shrink-0 items-center" style={{ marginLeft: 'auto' }}>
-                        <input
-                          type="text"
-                          placeholder="Görev ara..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                          style={{ height: '30px', fontSize: '16px' }}
-                          autoComplete="off"
-                          autoCorrect="off"
-                          autoCapitalize="off"
-                          spellCheck="false"
-                          data-lpignore="true"
-                          data-form-type="other"
-                          name="search"
-                          id="task-search"
-                          onFocus={(e) => {
-                            e.target.setAttribute('autocomplete', 'off');
-                            e.target.setAttribute('autocorrect', 'off');
-                            e.target.setAttribute('autocapitalize', 'off');
-                            e.target.setAttribute('spellcheck', 'false');
-                          }}
-                          onInput={(e) => {
-                            if (e.target.value && !e.isTrusted) {
-                              e.target.value = '';
-                              setSearchTerm('');
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-center">
-                  <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
+            </div>
+            <div className="flex justify-center">
+              <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
                     <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider grid-cols-[120px_460px_160px_160px_120px_120px_120px_180px]`}>
                       <button onClick={() => toggleSort('no')} className="flex items-center justify-center px-2">
                         <span>NO</span>
                       </button>
-                      <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
+                  <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
                         <span>Başlık</span>
-                      </button>
-                      <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
+                  </button>
+                  <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
                         <span>Öncelik</span>
-                      </button>
-                      <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
+                  </button>
+                  <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
                         <span>Tür</span>
-                      </button>
-                      <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
+                  </button>
+                  <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
                         <span>Başlangıç</span>
-                      </button>
+                  </button>
                       <button onClick={() => toggleSort('due_date')} className="flex items-center justify-center px-2">
                         <span>Bitiş</span>
-                      </button>
-                      <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
+                  </button>
+                  <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
                         <span>Dosyalar</span>
-                      </button>
+                  </button>
                       {activeTab === 'active' || activeTab === 'completed' ? (
-                        <button className="flex items-center justify-center px-2">
-                          <span>Güncel Durum</span>
-                        </button>
-                      ) : (
-                        <div className="flex items-center justify-center px-2 select-none cursor-default">
-                          <span>Eylem</span>
-                        </div>
-                      )}
+                    <button className="flex items-center justify-center px-2">
+                      <span>Güncel Durum</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-center px-2 select-none cursor-default">
+                      <span>Eylem</span>
                     </div>
-                  </div>
+                  )}
                 </div>
+              </div>
+            </div>
 
-                <div className="flex justify-center">
-                  <div style={{ width: '1440px' }}>
-                    {filteredTasks.map((task) => (
-                      <div
-                        key={task.id}
-                        onClick={() => handleTaskClick(task)}
+            <div className="flex justify-center">
+              <div style={{ width: '1440px' }}>
+                {filteredTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() => handleTaskClick(task)}
                         className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 grid-cols-[120px_460px_160px_160px_120px_120px_120px_180px]`}
-                        style={{ paddingTop: '10px', paddingBottom: '10px' }}
-                      >
+                    style={{ paddingTop: '10px', paddingBottom: '10px' }}
+                  >
                         <div className="px-2 text-xs xs:text-sm text-gray-900 text-center">
                           {task.no || `-`}
                         </div>
                         <div className="px-2 text-left">
                           <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap overflow-hidden text-ellipsis">
-                            {task.title || `Görev ${task.id}`}
-                          </div>
-                        </div>
-                        <div className="px-2">
-                          <span
-                            className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
-                            style={{
-                              backgroundColor: getPriorityColor(task.priority) + '20',
-                              color: getPriorityColor(task.priority),
-                              paddingBottom: '5px',
-                              paddingTop: '5px',
-                              paddingLeft: '5px',
-                              paddingRight: '5px'
-                            }}
-                          >
-                            {getPriorityText(task.priority)}
-                          </span>
-                        </div>
-                        <div className="px-2">
-                          <span
-                            className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
-                            style={{
-                              backgroundColor: getTaskTypeColor(task.task_type, task) + '20',
-                              color: getTaskTypeColor(task.task_type, task),
-                              paddingBottom: '5px',
-                              paddingTop: '5px',
-                              paddingLeft: '5px',
-                              paddingRight: '5px'
-                            }}
-                          >
-                            {getTaskTypeText(task.task_type, task)}
-                          </span>
-                        </div>
-                        <div className="px-2 text-xs xs:text-sm text-gray-900">
+                        {task.title || `Görev ${task.id}`}
+                      </div>
+                    </div>
+                    <div className="px-2">
+                      <span
+                        className="inline-flex items-center px-1 xs:px-1.5 py-0.5 xs:py-1 rounded-full text-xs xs:text-sm font-medium"
+                        style={{
+                          backgroundColor: getPriorityColor(task.priority) + '20',
+                          color: getPriorityColor(task.priority),
+                          paddingBottom: '5px',
+                          paddingTop: '5px',
+                          paddingLeft: '5px',
+                          paddingRight: '5px'
+                        }}
+                      >
+                        {getPriorityText(task.priority)}
+                      </span>
+                    </div>
+                    <div className="px-2">
+                      <span
+                        className="inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: getTaskTypeColor(task.task_type, task) + '20',
+                          color: getTaskTypeColor(task.task_type, task),
+                          paddingBottom: '5px',
+                          paddingTop: '5px',
+                          paddingLeft: '5px',
+                          paddingRight: '5px'
+                        }}
+                      >
+                        {getTaskTypeText(task.task_type, task)}
+                      </span>
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
                           {task.start_date ? formatDateOnly(task.start_date) : '-'}
-                        </div>
-                        <div className="px-2 text-xs xs:text-sm text-gray-900">
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
                           {task.due_date ? formatDateOnly(task.due_date) : '-'}
-                        </div>
-                        <div className="px-2 text-xs xs:text-sm text-gray-900">
-                          {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
-                        </div>
-                        <div className="px-2 flex justify-center items-center">
+                    </div>
+                    <div className="px-2 text-xs xs:text-sm text-gray-900">
+                      {task.attachments?.length > 0 ? `${task.attachments.length} dosya` : '-'}
+                    </div>
+                    <div className="px-2 flex justify-center items-center">
                           {activeTab === 'active' || activeTab === 'completed' ? (
                             <TooltipStatus
                               task={task}
@@ -4618,84 +4688,84 @@ function App() {
                               formatDateOnly={formatDateOnly}
                               getLastAddedDescription={() => getLastAddedDescription(taskHistories[task.id] || [])}
                             />
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePermanentDelete(task.id);
-                              }}
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePermanentDelete(task.id);
+                          }}
                               className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
                               style={{ width: '40px', height: '40px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
-                              title="Görevi kalıcı olarak sil"
-                            >
-                              🗑️
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {filteredTasks.length === 0 && (
-                    <div className="flex justify-center">
-                      <div className="text-center py-6 xs:py-8 sm:py-10 lg:py-12" style={{ width: '1440px' }}>
-                        <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
-                          {activeTab === 'active' && 'Aktif görev bulunamadı'}
-                          {activeTab === 'completed' && 'Tamamlanan görev bulunamadı'}
-                          {activeTab === 'deleted' && 'İptal edilen görev bulunamadı'}
-                        </div>
-                        <div className="text-gray-400 text-xs mt-2">
-                          {searchTerm ? 'Aramayı temizlemeyi deneyin' :
-                            (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
-                        </div>
-                      </div>
+                          title="Görevi kalıcı olarak sil"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                  </div>
+                ))}
+              </div>
 
-          {showDetailModal && selectedTask && createPortal(
-            <div className="fixed inset-0 z-[999996]" style={{ pointerEvents: 'auto' }}>
-              <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} style={{ pointerEvents: 'auto' }} />
-              <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'auto' }}>
+              {filteredTasks.length === 0 && (
+                <div className="flex justify-center">
+                  <div className="text-center py-6 xs:py-8 sm:py-10 lg:py-12" style={{ width: '1440px' }}>
+                    <div className="text-gray-500 text-sm xs:text-base sm:text-lg">
+                      {activeTab === 'active' && 'Aktif görev bulunamadı'}
+                      {activeTab === 'completed' && 'Tamamlanan görev bulunamadı'}
+                      {activeTab === 'deleted' && 'İptal edilen görev bulunamadı'}
+                    </div>
+                    <div className="text-gray-400 text-xs mt-2">
+                      {searchTerm ? 'Aramayı temizlemeyi deneyin' :
+                        (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {showDetailModal && selectedTask && createPortal(
+        <div className="fixed inset-0 z-[999996]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'auto' }}>
                 <div className="fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px]
                   h-[80vh] rounded-2xl border border-white/10 box-border
-                  shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
-                "
-                  style={{ backgroundColor: '#111827', color: '#e5e7eb', pointerEvents: 'auto' }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div
-                    className="border-b flex-none"
-                    style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}
-                  >
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                      <div className="justify-self-start">
+                shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
+              "
+              style={{ backgroundColor: '#111827', color: '#e5e7eb', pointerEvents: 'auto' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="border-b flex-none"
+                style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}
+              >
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <div className="justify-self-start">
 
-                      </div>
-                      <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Detayı</h2>
-                      <div className="justify-self-end">
-                        <button
-                          onClick={handleCloseModal}
-                          className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
-                          aria-label="Kapat"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    </div>
                   </div>
+                  <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Detayı</h2>
+                  <div className="justify-self-end">
+                    <button
+                      onClick={handleCloseModal}
+                      className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                      aria-label="Kapat"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-                  <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden divide-x divide-white/10">
+              <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden divide-x divide-white/10">
                     <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar" style={{ padding: '0px 24px' }}>
                       <div className="py-6 flex flex-col gap-4 sm:gap-6">
-                        {error && (
-                          <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
-                            {error}
-                          </div>
-                        )}
+                    {error && (
+                      <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
+                        {error}
+                      </div>
+                    )}
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                           <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
@@ -4716,155 +4786,155 @@ function App() {
                             </div>
                           )}
                         </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Başlık
-                          </label>
-                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
-                            {selectedTask.title ?? ""}
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Başlık
+                      </label>
+                      <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                        {selectedTask.title ?? ""}
+                      </div>
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Görev Türü
+                      </label>
+                      {user?.role === 'admin' ? (
+                        <select
+                          value={detailDraft?.task_type || 'development'}
+                          onChange={(e) => {
+                            const newTaskType = e.target.value;
+                            setDetailDraft(prev => ({
+                              ...(prev || {}),
+                              task_type: newTaskType,
+                              status: 'waiting' // Görev türü değiştiğinde durumu Bekliyor'a reset et
+                            }));
+                          }}
+                          className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ height: '40px' }}
+                        >
+                          {getAllTaskTypes().map(taskType => (
+                            <option key={taskType.value} value={taskType.value}>
+                              {taskType.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                          {getTaskTypeText(selectedTask.task_type)}
+                        </div>
+                      )}
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Durum
+                      </label>
+                          {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || user?.role === 'admin' || (Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.some(u => (typeof u === 'object' ? u.id : u) === user?.id)))) ? (
+                        <div className="space-y-3">
+                          {/* Durum Geçiş Butonları ve Select */}
+                          <div className="flex items-center space-x-2">
+                            {/* Önceki Durum Butonu */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentStatus = detailDraft?.status || '';
+                                const taskType = detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development';
+                                const customStatuses = getAllTaskStatuses(taskType);
+                                const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
+                                if (currentIndex > 0) {
+                                  const prevStatus = customStatuses[currentIndex - 1];
+                                  setDetailDraft(prev => ({ ...(prev || {}), status: prevStatus.value }));
+                                }
+                              }}
+                              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                              title="Önceki özel durum"
+                              disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
+                            >
+                              ←
+                            </button>
+                            {/* Durum Select - Sadece Özel Durumlar */}
+                            {getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length > 0 ? (
+                              <select
+                                value={detailDraft?.status || ''}
+                                onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), status: e.target.value }))}
+                                className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                style={{ height: '40px' }}
+                              >
+                                <option value="">Durum seçin...</option>
+                                {getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').map(status => (
+                                  <option key={status.value} value={status.value}>
+                                    {status.label}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-gray-100 text-gray-500 flex items-center" style={{ height: '40px' }}>
+                                Durum yok
+                              </div>
+                            )}
+
+                            {/* Sonraki Durum Butonu */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentStatus = detailDraft?.status || '';
+                                const taskType = detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development';
+                                const customStatuses = getAllTaskStatuses(taskType);
+                                const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
+                                if (currentIndex < customStatuses.length - 1) {
+                                  const nextStatus = customStatuses[currentIndex + 1];
+                                  setDetailDraft(prev => ({ ...(prev || {}), status: nextStatus.value }));
+                                }
+                              }}
+                              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                              title="Sonraki özel durum"
+                              disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
+                            >
+                              →
+                            </button>
                           </div>
                         </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Görev Türü
-                          </label>
-                          {user?.role === 'admin' ? (
-                            <select
-                              value={detailDraft?.task_type || 'development'}
-                              onChange={(e) => {
-                                const newTaskType = e.target.value;
-                                setDetailDraft(prev => ({
-                                  ...(prev || {}),
-                                  task_type: newTaskType,
-                                  status: 'waiting' // Görev türü değiştiğinde durumu Bekliyor'a reset et
-                                }));
-                              }}
-                              className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              style={{ height: '40px' }}
-                            >
-                              {getAllTaskTypes().map(taskType => (
-                                <option key={taskType.value} value={taskType.value}>
-                                  {taskType.label}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
-                              {getTaskTypeText(selectedTask.task_type)}
-                            </div>
-                          )}
+                      ) : (
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                          {getStatusText(selectedTask.status, selectedTask)}
                         </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Durum
-                          </label>
-                          {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || user?.role === 'admin' || (Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.some(u => (typeof u === 'object' ? u.id : u) === user?.id)))) ? (
-                            <div className="space-y-3">
-                              {/* Durum Geçiş Butonları ve Select */}
-                              <div className="flex items-center space-x-2">
-                                {/* Önceki Durum Butonu */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const currentStatus = detailDraft?.status || '';
-                                    const taskType = detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development';
-                                    const customStatuses = getAllTaskStatuses(taskType);
-                                    const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
-                                    if (currentIndex > 0) {
-                                      const prevStatus = customStatuses[currentIndex - 1];
-                                      setDetailDraft(prev => ({ ...(prev || {}), status: prevStatus.value }));
-                                    }
-                                  }}
-                                  className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
-                                  title="Önceki özel durum"
-                                  disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
-                                >
-                                  ←
-                                </button>
-                                {/* Durum Select - Sadece Özel Durumlar */}
-                                {getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length > 0 ? (
-                                  <select
-                                    value={detailDraft?.status || ''}
-                                    onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), status: e.target.value }))}
-                                    className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    style={{ height: '40px' }}
-                                  >
-                                    <option value="">Durum seçin...</option>
-                                    {getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').map(status => (
-                                      <option key={status.value} value={status.value}>
-                                        {status.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <div className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-gray-100 text-gray-500 flex items-center" style={{ height: '40px' }}>
-                                    Durum yok
-                                  </div>
-                                )}
-
-                                {/* Sonraki Durum Butonu */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const currentStatus = detailDraft?.status || '';
-                                    const taskType = detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development';
-                                    const customStatuses = getAllTaskStatuses(taskType);
-                                    const currentIndex = customStatuses.findIndex(s => s.value === currentStatus);
-                                    if (currentIndex < customStatuses.length - 1) {
-                                      const nextStatus = customStatuses[currentIndex + 1];
-                                      setDetailDraft(prev => ({ ...(prev || {}), status: nextStatus.value }));
-                                    }
-                                  }}
-                                  className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
-                                  title="Sonraki özel durum"
-                                  disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
-                                >
-                                  →
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
-                              {getStatusText(selectedTask.status, selectedTask)}
-                            </div>
-                          )}
+                      )}
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Öncelik
+                      </label>
+                      {user?.role === 'admin' ? (
+                        <select
+                          value={detailDraft?.priority || 'medium'}
+                          onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), priority: e.target.value }))}
+                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ height: '40px' }}
+                        >
+                          <option value="low">Düşük</option>
+                          <option value="medium">Orta</option>
+                          <option value="high">Yüksek</option>
+                          <option value="critical">Kritik</option>
+                        </select>
+                      ) : (
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                          {getPriorityText(selectedTask.priority)}
                         </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Öncelik
-                          </label>
-                          {user?.role === 'admin' ? (
-                            <select
-                              value={detailDraft?.priority || 'medium'}
-                              onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), priority: e.target.value }))}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              style={{ height: '40px' }}
-                            >
-                              <option value="low">Düşük</option>
-                              <option value="medium">Orta</option>
-                              <option value="high">Yüksek</option>
-                              <option value="critical">Kritik</option>
-                            </select>
-                          ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
-                              {getPriorityText(selectedTask.priority)}
-                            </div>
-                          )}
-                        </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Sorumlu
-                          </label>
-                          {(user?.role === 'admin') ? (
-                            <select
-                              value={detailDraft?.responsible_id || ''}
-                              onChange={(e) => {
-                                const rid = e.target.value ? parseInt(e.target.value) : '';
+                      )}
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Sorumlu
+                      </label>
+                      {(user?.role === 'admin') ? (
+                        <select
+                          value={detailDraft?.responsible_id || ''}
+                          onChange={(e) => {
+                            const rid = e.target.value ? parseInt(e.target.value) : '';
                                 const currentAssignedUserIds = detailDraft?.assigned_user_ids || (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
 
                                 // Önceki liderin ekibini kaldır
@@ -4895,299 +4965,230 @@ function App() {
 
                                 // Önceki sorumluyu güncelle
                                 previousResponsibleIdDetailRef.current = rid;
+                          }}
+                          className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          style={{ height: '40px' }}
+                        >
+                          <option value="">Seçin</option>
+                          {getEligibleResponsibleUsers().map(u => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ height: '40px' }}>
+                          {selectedTask.responsible?.name || 'Atanmamış'}
+                        </div>
+                      )}
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Oluşturan
+                      </label>
+                      <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ height: '40px' }}>
+                        {selectedTask.creator?.name || 'Bilinmiyor'}
+                      </div>
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Atananlar
+                      </label>
+                      <div className="w-full rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
+                        {user?.role === 'admin' ? (
+                          <div className="assignee-dropdown-detail-container relative">
+                            {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-2 mb-3 overflow-hidden">
+                                {(detailDraft.assigned_user_ids || []).map((id) => {
+                                  const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
+                                  const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
+                                  return (
+                                    <span key={id} className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 rounded-full text-sm max-w-full px-3 py-1">
+                                      <span className="truncate">{name}</span>
+                                      <button
+                                        type="button"
+                                        aria-label="Atananı kaldır"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const nextIds = (detailDraft?.assigned_user_ids || []).filter(v => v !== id);
+                                          setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
+                                        }}
+                                        className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            <input
+                              ref={assigneeDetailInputRef}
+                              type="text"
+                              placeholder="Kullanıcı atayın..."
+                              value={assigneeSearchDetail}
+                              className="w-[99%] rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              style={{ minHeight: '32px' }}
+                              onChange={(e) => {
+                                setAssigneeSearchDetail(e.target.value);
+                                setShowAssigneeDropdownDetail(true);
                               }}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              style={{ height: '40px' }}
-                            >
-                              <option value="">Seçin</option>
-                              {getEligibleResponsibleUsers().map(u => (
-                                <option key={u.id} value={u.id}>{u.name}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ height: '40px' }}>
-                              {selectedTask.responsible?.name || 'Atanmamış'}
-                            </div>
-                          )}
-                        </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Oluşturan
-                          </label>
-                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ height: '40px' }}>
-                            {selectedTask.creator?.name || 'Bilinmiyor'}
+                              onFocus={() => setShowAssigneeDropdownDetail(true)}
+                              onBlur={() => {
+                                setTimeout(() => setShowAssigneeDropdownDetail(false), 200);
+                              }}
+                            />
+
+                            {showAssigneeDropdownDetail && users && users.length > 0 && (
+                              <div
+                                className="absolute w-full mt-1 border-2 border-gray-400 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
+                                style={{
+                                  backgroundColor: '#1f2937',
+                                  opacity: 1,
+                                  zIndex: 2147483647,
+                                  filter: 'none',
+                                  backdropFilter: 'none',
+                                  WebkitBackdropFilter: 'none',
+                                  mixBlendMode: 'normal',
+                                  isolation: 'isolate',
+                                  pointerEvents: 'auto'
+                                }}
+                              >
+                                {getEligibleAssignedUsers(selectedTask.responsible?.id)
+                                  .filter(u => {
+                                    const q = assigneeSearchDetail.toLowerCase();
+                                    const name = (u.name || '').toLowerCase();
+                                    const email = (u.email || '').toLowerCase();
+                                    const matches = !q || name.includes(q) || email.includes(q);
+                                    const already = (detailDraft?.assigned_user_ids || []).includes(u.id);
+                                    return matches && !already;
+                                  })
+                                  .map(u => (
+                                    <div
+                                      key={u.id}
+                                      className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-b border-gray-200 last:border-b-0 text-left"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={async () => {
+                                        const nextIds = Array.from(new Set([...(detailDraft?.assigned_user_ids || []), u.id]));
+                                        setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
+                                        setAssigneeSearchDetail('');
+                                        setShowAssigneeDropdownDetail(true);
+                                        setTimeout(() => assigneeDetailInputRef.current?.focus(), 0);
+                                      }}
+                                    >
+                                      {u.name}
+                                    </div>
+                                  ))}
+                                {getEligibleAssignedUsers(selectedTask.responsible?.id).filter(u => {
+                                  const q = assigneeSearchDetail.toLowerCase();
+                                  const name = (u.name || '').toLowerCase();
+                                  const email = (u.email || '').toLowerCase();
+                                  const matches = !q || name.includes(q) || email.includes(q);
+                                  const already = (detailDraft?.assigned_user_ids || []).some(id => id === u.id);
+                                  return matches && !already;
+                                }).length === 0 && (
+                                    <div className="px-3 sm:px-4 py-2 sm:py-3 text-gray-500 text-[16px] sm:text-[24px] border-b border-gray-200">
+                                      Kullanıcı bulunamadı
+                                    </div>
+                                  )}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Atananlar
-                          </label>
-                          <div className="w-full rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
-                            {user?.role === 'admin' ? (
-                              <div className="assignee-dropdown-detail-container relative">
-                                {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 && (
-                                  <div className="flex flex-wrap items-center gap-2 mb-3 overflow-hidden">
-                                    {(detailDraft.assigned_user_ids || []).map((id) => {
-                                      const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
-                                      const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
-                                      return (
-                                        <span key={id} className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 rounded-full text-sm max-w-full px-3 py-1">
-                                          <span className="truncate">{name}</span>
-                                          <button
-                                            type="button"
-                                            aria-label="Atananı kaldır"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              const nextIds = (detailDraft?.assigned_user_ids || []).filter(v => v !== id);
-                                              setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
-                                            }}
-                                            className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                          >
-                                            ×
-                                          </button>
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-
-                                <input
-                                  ref={assigneeDetailInputRef}
-                                  type="text"
-                                  placeholder="Kullanıcı atayın..."
-                                  value={assigneeSearchDetail}
-                                  className="w-[99%] rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ minHeight: '32px' }}
-                                  onChange={(e) => {
-                                    setAssigneeSearchDetail(e.target.value);
-                                    setShowAssigneeDropdownDetail(true);
-                                  }}
-                                  onFocus={() => setShowAssigneeDropdownDetail(true)}
-                                  onBlur={() => {
-                                    setTimeout(() => setShowAssigneeDropdownDetail(false), 200);
-                                  }}
-                                />
-
-                                {showAssigneeDropdownDetail && users && users.length > 0 && (
-                                  <div
-                                    className="absolute w-full mt-1 border-2 border-gray-400 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
-                                    style={{
-                                      backgroundColor: '#1f2937',
-                                      opacity: 1,
-                                      zIndex: 2147483647,
-                                      filter: 'none',
-                                      backdropFilter: 'none',
-                                      WebkitBackdropFilter: 'none',
-                                      mixBlendMode: 'normal',
-                                      isolation: 'isolate',
-                                      pointerEvents: 'auto'
-                                    }}
-                                  >
-                                    {getEligibleAssignedUsers(selectedTask.responsible?.id)
-                                      .filter(u => {
-                                        const q = assigneeSearchDetail.toLowerCase();
-                                        const name = (u.name || '').toLowerCase();
-                                        const email = (u.email || '').toLowerCase();
-                                        const matches = !q || name.includes(q) || email.includes(q);
-                                        const already = (detailDraft?.assigned_user_ids || []).includes(u.id);
-                                        return matches && !already;
-                                      })
-                                      .map(u => (
-                                        <div
-                                          key={u.id}
-                                          className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-b border-gray-200 last:border-b-0 text-left"
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={async () => {
-                                            const nextIds = Array.from(new Set([...(detailDraft?.assigned_user_ids || []), u.id]));
-                                            setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
-                                            setAssigneeSearchDetail('');
-                                            setShowAssigneeDropdownDetail(true);
-                                            setTimeout(() => assigneeDetailInputRef.current?.focus(), 0);
-                                          }}
-                                        >
-                                          {u.name}
-                                        </div>
-                                      ))}
-                                    {getEligibleAssignedUsers(selectedTask.responsible?.id).filter(u => {
-                                      const q = assigneeSearchDetail.toLowerCase();
-                                      const name = (u.name || '').toLowerCase();
-                                      const email = (u.email || '').toLowerCase();
-                                      const matches = !q || name.includes(q) || email.includes(q);
-                                      const already = (detailDraft?.assigned_user_ids || []).some(id => id === u.id);
-                                      return matches && !already;
-                                    }).length === 0 && (
-                                        <div className="px-3 sm:px-4 py-2 sm:py-3 text-gray-500 text-[16px] sm:text-[24px] border-b border-gray-200">
-                                          Kullanıcı bulunamadı
-                                        </div>
-                                      )}
-                                  </div>
-                                )}
+                        ) : (
+                          <div>
+                            {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 ? (
+                              <div className="flex flex-wrap items-center gap-2 overflow-hidden">
+                                {(detailDraft.assigned_user_ids || []).map((id) => {
+                                  const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
+                                  const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
+                                  return (
+                                    <span key={id} className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm max-w-[240px]" style={{ paddingRight: '10px' }}>
+                                      <span className="truncate">{name} | </span>
+                                    </span>
+                                  );
+                                })}
                               </div>
                             ) : (
-                              <div>
-                                {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 ? (
-                                  <div className="flex flex-wrap items-center gap-2 overflow-hidden">
-                                    {(detailDraft.assigned_user_ids || []).map((id) => {
-                                      const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
-                                      const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
-                                      return (
-                                        <span key={id} className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm max-w-[240px]" style={{ paddingRight: '10px' }}>
-                                          <span className="truncate">{name} | </span>
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-500">-</span>
-                                )}
-                              </div>
+                              <span className="text-gray-500">-</span>
                             )}
                           </div>
-                        </div>
-                        <br />
+                        )}
+                      </div>
+                    </div>
+                    <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-top ">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Dosyalar
-                          </label>
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Dosyalar
+                      </label>
                           <div className="w-full !text-[18px] p-3 sm:p-4 bg-white" style={{ minHeight: '24px', height: 'fit-content' }}>
-                            {uploadProgress && (
-                              <div className="mb-3">
-                                <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
-                                  <div
-                                    className="h-full bg-blue-600 transition-all duration-150"
-                                    style={{ width: `${Math.max(0, Math.min(100, uploadProgress.percent ?? 10))}%` }}
-                                  />
-                                </div>
-                                <div className="text-right text-xs text-gray-500 mt-1">
-                                  {typeof uploadProgress.percent === 'number' ? `${uploadProgress.percent}%` : '...'}
-                                </div>
-                              </div>
-                            )}
+                        {uploadProgress && (
+                          <div className="mb-3">
+                            <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
+                              <div
+                                className="h-full bg-blue-600 transition-all duration-150"
+                                style={{ width: `${Math.max(0, Math.min(100, uploadProgress.percent ?? 10))}%` }}
+                              />
+                            </div>
+                            <div className="text-right text-xs text-gray-500 mt-1">
+                              {typeof uploadProgress.percent === 'number' ? `${uploadProgress.percent}%` : '...'}
+                            </div>
+                          </div>
+                        )}
                             {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || (Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.some(u => (typeof u === 'object' ? u.id : u) === user?.id))) ? (
                               <div className="!text-[18px]">
                                 <div className="flex items-center gap-4">
-                                  <input
-                                    type="file"
-                                    multiple
-                                    accept={[
-                                      'image/*',
-                                      '.pdf',
-                                      '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-                                      '.zip', '.rar', '.7z',
-                                      '.sldprt', '.sldasm', '.slddrw',
-                                      '.step', '.stp', '.iges', '.igs',
-                                      '.x_t', '.x_b', '.stl', '.3mf',
-                                      '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
-                                    ].join(',')}
-                                    onChange={async (e) => {
-                                      const files = Array.from(e.target.files || []);
-                                      if (files.length === 0) return;
-                                      try {
-                                        setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
-                                        await Tasks.uploadAttachments(selectedTask.id, files, (p) => {
-                                          setUploadProgress({ percent: p, label: 'Dosyalar yükleniyor' });
-                                        });
-                                        const t = await Tasks.get(selectedTask.id);
-                                        setSelectedTask(t.task || t);
-                                        addNotification('Dosyalar yüklendi', 'success');
-                                      } catch {
-                                        addNotification('Yükleme başarısız', 'error');
-                                      } finally {
-                                        setUploadProgress(null);
-                                        e.target.value = '';
-                                      }
-                                    }}
+                            <input
+                              type="file"
+                              multiple
+                              accept={[
+                                'image/*',
+                                '.pdf',
+                                '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                                '.zip', '.rar', '.7z',
+                                '.sldprt', '.sldasm', '.slddrw',
+                                '.step', '.stp', '.iges', '.igs',
+                                '.x_t', '.x_b', '.stl', '.3mf',
+                                '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
+                              ].join(',')}
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (files.length === 0) return;
+                                try {
+                                  setUploadProgress({ percent: 0, label: 'Dosyalar yükleniyor' });
+                                  await Tasks.uploadAttachments(selectedTask.id, files, (p) => {
+                                    setUploadProgress({ percent: p, label: 'Dosyalar yükleniyor' });
+                                  });
+                                  const t = await Tasks.get(selectedTask.id);
+                                  setSelectedTask(t.task || t);
+                                  addNotification('Dosyalar yüklendi', 'success');
+                                } catch {
+                                  addNotification('Yükleme başarısız', 'error');
+                                } finally {
+                                  setUploadProgress(null);
+                                  e.target.value = '';
+                                }
+                              }}
                                     className="w-[150px] !text-[18px] sm:!text-[16px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[18px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
-                                  />
+                            />
                                   <div className="flex items-center justify-between bg-gray-50 rounded px-3 py-2 flex-1">
-                                    <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
-                                    {(selectedTask.attachments || []).length > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => setAttachmentsExpanded(v => !v)}
-                                        className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
-                                      >
-                                        {attachmentsExpanded ? '⮝' : '⮟'}
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                                {attachmentsExpanded && (selectedTask.attachments || []).length > 0 && (
-                                  <div className="space-y-1">
-                                    {(selectedTask.attachments || []).map(a => (
-                                      <div key={a.id} className="flex items-center justify-between bg-gray-50 border-gray-200 rounded px-2 py-1" style={{ paddingTop: '10px', paddingLeft: '10px' }}>
-                                        <div className="flex-1 min-w-0">
-                                          <a
-                                            href={(() => {
-                                              // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
-                                              if (a.download_url) {
-                                                const url = a.download_url;
-                                                return url.startsWith('http') ? url : `${apiOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
-                                              }
-                                              // Fallback: direct storage URL (eğer public storage varsa)
-                                              if (a.url) return a.url;
-                                              if (a.path) return `${apiOrigin}/storage/${a.path}`;
-                                              return '#';
-                                            })()}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            download={a.original_name || a.name || 'dosya'}
-                                            className="text-blue-600 hover:underline text-[16px] truncate block"
-                                            title={a.original_name || 'Dosya'}
-                                          >
-                                            {a.original_name || a.name || 'Dosya'}
-                                          </a>
-                                          {a.size && (
-                                            <div className="text-xs text-gray-500 mt-1">
-                                              {(a.size / 1024 / 1024).toFixed(2)} MB
-                                            </div>
-                                          )}
-                                        </div>
-                                        {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
-                                          <button
-                                            onClick={async () => {
-                                              try {
-                                                await Tasks.deleteAttachment(a.id);
-                                                const t = await Tasks.get(selectedTask.id);
-                                                setSelectedTask(t.task || t);
-                                                addNotification('Dosya silindi', 'success');
-                                              } catch (err) {
-                                                console.error('Delete attachment error:', err);
-                                                addNotification('Silinemedi', 'error');
-                                              }
-                                            }}
-                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
-                                            style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
-                                            title="Dosyayı sil"
-                                          >
-                                            🗑️
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
+                                <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                                {(selectedTask.attachments || []).length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setAttachmentsExpanded(v => !v)}
+                                    className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                  >
+                                    {attachmentsExpanded ? '⮝' : '⮟'}
+                                  </button>
                                 )}
+                                  </div>
                               </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2">
-                                  <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
-                                  {(selectedTask.attachments || []).length > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setAttachmentsExpanded(v => !v)}
-                                      className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
-                                    >
-                                      {attachmentsExpanded ? '⮝' : '⮟'}
-                                    </button>
-                                  )}
-                                </div>
-                                {attachmentsExpanded && (selectedTask.attachments || []).length > 0 ? (
-                                  <div className="space-y-1">
-                                    {(selectedTask.attachments || []).map(a => (
-                                      <div key={a.id} className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                              {attachmentsExpanded && (selectedTask.attachments || []).length > 0 && (
+                                <div className="space-y-1">
+                                  {(selectedTask.attachments || []).map(a => (
+                                    <div key={a.id} className="flex items-center justify-between bg-gray-50 border-gray-200 rounded px-2 py-1" style={{ paddingTop: '10px', paddingLeft: '10px' }}>
+                                      <div className="flex-1 min-w-0">
                                         <a
                                           href={(() => {
                                             // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
@@ -5203,7 +5204,7 @@ function App() {
                                           target="_blank"
                                           rel="noreferrer"
                                           download={a.original_name || a.name || 'dosya'}
-                                          className="text-blue-600 hover:underline text-sm block"
+                                          className="text-blue-600 hover:underline text-[16px] truncate block"
                                           title={a.original_name || 'Dosya'}
                                         >
                                           {a.original_name || a.name || 'Dosya'}
@@ -5214,1170 +5215,1269 @@ function App() {
                                           </div>
                                         )}
                                       </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  (selectedTask.attachments || []).length === 0 && <span className="text-gray-500 text-sm">-</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Tarihler
-                          </label>
-                          <div className="grid grid-cols-2 gap-2 sm:gap-4 min-w-0">
-                            <div className="min-w-0">
-                              <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1">Başlangıç</label>
-                              {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin')) ? (
-                                <input
-                                  type="date"
-                                  value={editingDates.start_date}
-                                  onChange={(e) => {
-                                    setEditingDates(prev => ({
-                                      ...prev,
-                                      start_date: e.target.value
-                                    }));
-                                  }}
-                                  onBlur={(e) => handleDateChange(selectedTask.id, 'start_date', e.target.value)}
-                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ minHeight: '32px' }}
-                                />
-                              ) : (
-                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
-                                  {selectedTask.start_date ? formatDateOnly(selectedTask.start_date) : '-'}
+                                        {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
+                                      <button
+                                        onClick={async () => {
+                                          try {
+                                            await Tasks.deleteAttachment(a.id);
+                                            const t = await Tasks.get(selectedTask.id);
+                                            setSelectedTask(t.task || t);
+                                            addNotification('Dosya silindi', 'success');
+                                          } catch (err) {
+                                            console.error('Delete attachment error:', err);
+                                            addNotification('Silinemedi', 'error');
+                                          }
+                                        }}
+                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
+                                            style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                        title="Dosyayı sil"
+                                      >
+                                        🗑️
+                                      </button>
+                                        )}
+                                    </div>
+                                  ))}
                                 </div>
                               )}
-                            </div>
-                            <div className="min-w-0">
-                              <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1">Bitiş</label>
-                              {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin' || user?.role === 'team_leader')) ? (
-                                <input
-                                  type="date"
-                                  value={editingDates.due_date}
-                                  onChange={(e) => {
-                                    setEditingDates(prev => ({
-                                      ...prev,
-                                      due_date: e.target.value
-                                    }));
-                                  }}
-                                  onBlur={(e) => handleDateChange(selectedTask.id, 'due_date', e.target.value)}
-                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ minHeight: '32px', paddingLeft: '6px' }}
-                                />
-                              ) : (
-                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
-                                  {selectedTask.due_date ? formatDateOnly(selectedTask.due_date) : '-'}
-                                </div>
-                              )}
-                            </div>
                           </div>
-                        </div>
-                        <br />
-                        <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
-                            Görev Açıklaması
-                          </label>
-                          <div className="w-[99%]">
-                            {user?.role === 'admin' ? (
-                              <textarea
-                                value={descDraft}
-                                onChange={(e) => {
-                                  setDescDraft(e.target.value);
-                                }}
-                                placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
-                              />
-                            ) : (
-                              <textarea
-                                readOnly
-                                value={selectedTask.description ?? ''}
-                                placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
-                              />
-                            )}
-                          </div>
-                        </div>
-                        {/* Sistem Durumları (Sabit Alt Butonlar) - Sadece Admin, Takım Lideri ve Sorumlu */}
-                        {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
-                          <div className="bottom-0 left-0 right-0 bg-[#0f172a] p-4 z-[100200]" style={{ alignItems: 'center', paddingTop: '3%', paddingBottom: '1%' }}>
-                            <div className="flex gap-2 justify-center max-w-[1400px] mx-auto">
-                              {getSystemTaskStatuses().map(status => (
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2">
+                                  <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                              {(selectedTask.attachments || []).length > 0 && (
                                 <button
-                                  key={status.value}
                                   type="button"
-                                  onClick={() => setDetailDraft(prev => ({ ...(prev || {}), status: status.value }))}
-                                  className={`px-6 py-3 rounded-md text-sm font-medium transition-colors flex-1 ${(detailDraft?.status || selectedTask.status) === status.value
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                  style={{ backgroundColor: (detailDraft?.status || selectedTask.status) === status.value ? status.color : undefined }}
+                                  onClick={() => setAttachmentsExpanded(v => !v)}
+                                  className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
                                 >
-                                  {status.label}
+                                  {attachmentsExpanded ? '⮝' : '⮟'}
                                 </button>
-                              ))}
+                              )}
                             </div>
+                            {attachmentsExpanded && (selectedTask.attachments || []).length > 0 ? (
+                              <div className="space-y-1">
+                                {(selectedTask.attachments || []).map(a => (
+                                  <div key={a.id} className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                                    <a
+                                      href={(() => {
+                                        // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
+                                        if (a.download_url) {
+                                          const url = a.download_url;
+                                          return url.startsWith('http') ? url : `${apiOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
+                                        }
+                                        // Fallback: direct storage URL (eğer public storage varsa)
+                                        if (a.url) return a.url;
+                                        if (a.path) return `${apiOrigin}/storage/${a.path}`;
+                                        return '#';
+                                      })()}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      download={a.original_name || a.name || 'dosya'}
+                                      className="text-blue-600 hover:underline text-sm block"
+                                      title={a.original_name || 'Dosya'}
+                                    >
+                                      {a.original_name || a.name || 'Dosya'}
+                                    </a>
+                                    {a.size && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {(a.size / 1024 / 1024).toFixed(2)} MB
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              (selectedTask.attachments || []).length === 0 && <span className="text-gray-500 text-sm">-</span>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
-                    <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 bg-[#0f172a] flex flex-col overflow-hidden">
-                      <div className="border-b border-white/10 flex-none" style={{ padding: '10px' }}>
-                        <h3 className="text-lg md:text-xl font-semibold text-white">👁️ Son Görüntüleme</h3>
-                        <div className="mt-3 space-y-2">
-                          {Array.isArray(taskLastViews) && taskLastViews.length > 0 ? (
-                            taskLastViews.map(v => (
-                              <div key={v.user_id} className="flex items-center justify-between text-sm">
-                                <div className="text-neutral-200 truncate mr-3">
-                                  {v.name}
-                                  {v.is_responsible ? <span className="ml-2 text-xs text-blue-300"></span> : null}
-                                </div>
-                                <div className="text-neutral-400 whitespace-nowrap">{v.last_viewed_at ? formatDate(v.last_viewed_at) : '-'}</div>
-                              </div>
-                            ))
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Tarihler
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 sm:gap-4 min-w-0">
+                        <div className="min-w-0">
+                          <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1">Başlangıç</label>
+                          {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin')) ? (
+                            <input
+                              type="date"
+                              value={editingDates.start_date}
+                              onChange={(e) => {
+                                setEditingDates(prev => ({
+                                  ...prev,
+                                  start_date: e.target.value
+                                }));
+                              }}
+                              onBlur={(e) => handleDateChange(selectedTask.id, 'start_date', e.target.value)}
+                              className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              style={{ minHeight: '32px' }}
+                            />
                           ) : (
-                            <div className="text-neutral-400 text-sm">Kayıt bulunamadı</div>
+                            <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
+                              {selectedTask.start_date ? formatDateOnly(selectedTask.start_date) : '-'}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1">Bitiş</label>
+                          {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin' || user?.role === 'team_leader')) ? (
+                            <input
+                              type="date"
+                              value={editingDates.due_date}
+                              onChange={(e) => {
+                                setEditingDates(prev => ({
+                                  ...prev,
+                                  due_date: e.target.value
+                                }));
+                              }}
+                              onBlur={(e) => handleDateChange(selectedTask.id, 'due_date', e.target.value)}
+                              className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              style={{ minHeight: '32px', paddingLeft: '6px' }}
+                            />
+                          ) : (
+                            <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
+                              {selectedTask.due_date ? formatDateOnly(selectedTask.due_date) : '-'}
+                            </div>
                           )}
                         </div>
                       </div>
-                      <div className="border-b border-white/10 flex-none" style={{ padding: '1px' }}>
-                        <div className="flex items-center justify-between" style={{ paddingLeft: '10px', paddingRight: '10px' }}>
-                          <h3 className="text-lg md:text-xl font-semibold text-white">📢 Görev Geçmişi</h3>
-                          {user?.role === 'admin' && (
-                            <button
-                              onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
-                              className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'} inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect`}
-                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
-                              title={user?.role === 'admin' ? (historyDeleteMode ? 'Silme modunu kapat' : 'Silme modunu aç') : 'Sadece admin'}
-                            >🗑️</button>)}
-                        </div>
-                      </div>
-
-                      <div className="flex-1 overflow-y-auto no-scrollbar space-y-4" style={{ padding: '10px' }}>
-                        {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
-                          taskHistory.filter(h => !h.field.includes('_color')).map((h) => (
-                            <div key={h.id} className="relative bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0 max-w-full overflow-hidden pr-8">
-                                  <div className="text-[11px] text-blue-300 mb-1">{formatDateOnly(h.created_at)}</div>
-                                  {h.field === 'comment' ? (
-                                    <div className="text-sm max-w-full overflow-hidden">
-                                      <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
-                                      <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{renderHistoryValue(h.field, h.new_value)}</span>
-                                    </div>
-                                  ) : (h.new_value && typeof h.new_value === 'string' && h.new_value.trim().length > 0 &&
-                                    !h.field.includes('status') && !h.field.includes('priority') &&
-                                    !h.field.includes('task_type') && !h.field.includes('date') &&
-                                    !h.field.includes('attachments') && !h.field.includes('assigned') &&
-                                    !h.field.includes('responsible') && !h.field.includes('assigned_users') &&
-                                    !h.field.includes('_color') && // Renk değişikliklerini gizle
-                                    !h.new_value.toLowerCase().includes('dosya') &&
-                                    !h.new_value.toLowerCase().includes('eklendi') &&
-                                    !h.new_value.toLowerCase().includes('silindi') &&
-                                    !h.new_value.toLowerCase().includes('değiştirildi') &&
-                                    !h.new_value.toLowerCase().includes('→')) ? (
-                                    <div className="text-sm max-w-full overflow-hidden">
-                                      <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
-                                      <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{h.new_value}</span>
-                                    </div>
-                                  ) : h.field === 'attachments' ? (
-                                    <div className="text-sm text-neutral-200">
-                                      {(() => {
-                                        const normalizeToNames = (val) => {
-                                          let arr;
-                                          try {
-                                            const v = typeof val === 'string' ? JSON.parse(val) : val;
-                                            arr = Array.isArray(v) ? v : (v != null ? [v] : []);
-                                          } catch {
-                                            arr = val != null ? [val] : [];
-                                          }
-                                          return arr.map((item) => {
-                                            if (item == null) return '';
-                                            if (typeof item === 'string') return item;
-                                            if (typeof item === 'object') {
-                                              return (
-                                                item.original_name ||
-                                                item.name ||
-                                                item.filename ||
-                                                item.file_name ||
-                                                item.title ||
-                                                item.path ||
-                                                item.url ||
-                                                JSON.stringify(item)
-                                              );
-                                            }
-                                            return String(item);
-                                          });
-                                        };
-                                        const added = normalizeToNames(h.new_value);
-                                        const removed = normalizeToNames(h.old_value);
-                                        const actor = h.user?.name || 'Kullanıcı';
-                                        if (added.length > 0 && removed.length === 0) {
-                                          return (
-                                            <>
-                                              <span className="font-medium text-white">{actor}</span> dosya ekledi.
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
-                                                {added.map((name, idx) => (
-                                                  <li key={`a-${idx}`} className="break-all">{name}</li>
-                                                ))}
-                                              </ul>
-                                            </>
-                                          );
-                                        }
-                                        if (removed.length > 0 && added.length === 0) {
-                                          return (
-                                            <>
-                                              <span className="font-medium text-white">{actor}</span> dosya sildi.
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
-                                                {removed.map((name, idx) => (
-                                                  <li key={`r-${idx}`} className="break-all">{name}</li>
-                                                ))}
-                                              </ul>
-                                            </>
-                                          );
-                                        }
-                                        return (
-                                          <>
-                                            <span className="font-medium text-white">{actor}</span> dosya ekledi/sildi.
-                                            {added.length > 0 && (
-                                              <>
-                                                <div className="mt-1 text-neutral-400">Eklendi:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
-                                                  {added.map((name, idx) => (
-                                                    <li key={`a2-${idx}`} className="break-all">{name}</li>
-                                                  ))}
-                                                </ul>
-                                              </>
-                                            )}
-                                            {removed.length > 0 && (
-                                              <>
-                                                <div className="mt-1 text-neutral-400">Silindi:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
-                                                  {removed.map((name, idx) => (
-                                                    <li key={`r2-${idx}`} className="break-all">{name}</li>
-                                                  ))}
-                                                </ul>
-                                              </>
-                                            )}
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-                                  ) : h.field === 'assigned_users' ? (
-                                    <div className="text-sm">
-                                      {(() => {
-                                        const normalizeToNames = (val) => {
-                                          let arr;
-                                          try {
-                                            const v = typeof val === 'string' ? JSON.parse(val) : val;
-                                            arr = Array.isArray(v) ? v : (v != null ? [v] : []);
-                                          } catch {
-                                            arr = val != null ? [val] : [];
-                                          }
-                                          return arr.map((id) => {
-                                            return resolveUserName(id);
-                                          });
-                                        };
-                                        const oldUsers = normalizeToNames(h.old_value);
-                                        const newUsers = normalizeToNames(h.new_value);
-                                        const added = newUsers.filter(user => !oldUsers.includes(user));
-                                        const removed = oldUsers.filter(user => !newUsers.includes(user));
-
-                                        const actor = h.user?.name || 'Kullanıcı';
-                                        if (added.length > 0 && removed.length === 0) {
-                                          return (
-                                            <>
-                                              <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
-                                              <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
-                                                {added.map((name, idx) => (
-                                                  <li key={`a-${idx}`} className="break-all">{name}</li>
-                                                ))}
-                                              </ul>
-                                            </>
-                                          );
-                                        }
-                                        if (removed.length > 0 && added.length === 0) {
-                                          return (
-                                            <>
-                                              <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
-                                              <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
-                                                {removed.map((name, idx) => (
-                                                  <li key={`r-${idx}`} className="break-all">{name}</li>
-                                                ))}
-                                              </ul>
-                                            </>
-                                          );
-                                        }
-                                        return (
-                                          <>
-                                            <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
-                                            {added.length > 0 && (
-                                              <>
-                                                <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
-                                                  {added.map((name, idx) => (
-                                                    <li key={`a2-${idx}`} className="break-all">{name}</li>
-                                                  ))}
-                                                </ul>
-                                              </>
-                                            )}
-                                            {removed.length > 0 && (
-                                              <>
-                                                <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
-                                                  {removed.map((name, idx) => (
-                                                    <li key={`r2-${idx}`} className="break-all">{name}</li>
-                                                  ))}
-                                                </ul>
-                                              </>
-                                            )}
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-                                  ) : renderFieldLabel(h.field) ? (
-                                    <div className="text-sm">
-                                      <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}</span>{' '}
-                                      {renderFieldLabel(h.field)} değiştirdi <br></br> "<span className="text-neutral-300">{renderHistoryValue(h.field, h.old_value)}</span> →{' '}
-                                      <span className="text-neutral-300">{renderHistoryValue(h.field, h.new_value)}</span>"
-                                    </div>
-                                  ) : null}
-                                </div>
-                                {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
-                                  <button
-                                    onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); setTaskHistories(prev => ({ ...prev, [selectedTask.id]: Array.isArray(h2) ? h2 : [] })); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
-                                    className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
-                                    style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginRight: '3px', marginTop: '3px' }}
-                                    title="Yorumu sil"
-                                  >🗑️</button>
-                                )}
-                              </div>
-                              <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                            </div>
-                          ))
+                    </div>
+                    <br />
+                    <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                        Görev Açıklaması
+                      </label>
+                      <div className="w-[99%]">
+                        {user?.role === 'admin' ? (
+                          <textarea
+                            value={descDraft}
+                            onChange={(e) => {
+                              setDescDraft(e.target.value);
+                            }}
+                            placeholder="Görev açıklamasını girin..."
+                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                          />
                         ) : (
-                          <div className="text-center text-neutral-400 py-4">Henüz görev geçmişi bulunmuyor</div>
+                          <textarea
+                            readOnly
+                            value={selectedTask.description ?? ''}
+                            placeholder="Görev açıklamasını girin..."
+                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                          />
                         )}
-
-                        {Array.isArray(comments) && comments.map((c) => (
-                          <div key={c.id} className="bg-white/5 border border-white/10 p-3 rounded">
-                            <div className="text-[11px] text-neutral-400 mb-1">{formatDate(c.timestamp)}</div>
-                            <div className="text-sm">
-                              <span className="font-medium text-white">{c.author}</span> {c.text}
-                            </div>
-                          </div>
+                      </div>
+                    </div>
+                        {/* Sistem Durumları (Sabit Alt Butonlar) - Sadece Admin, Takım Lideri ve Sorumlu */}
+                        {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
+                          <div className="bottom-0 left-0 right-0 bg-[#0f172a] p-4 z-[100200]" style={{ alignItems: 'center', paddingTop: '3%', paddingBottom: '1%' }}>
+                      <div className="flex gap-2 justify-center max-w-[1400px] mx-auto">
+                        {getSystemTaskStatuses().map(status => (
+                          <button
+                            key={status.value}
+                            type="button"
+                            onClick={() => setDetailDraft(prev => ({ ...(prev || {}), status: status.value }))}
+                            className={`px-6 py-3 rounded-md text-sm font-medium transition-colors flex-1 ${(detailDraft?.status || selectedTask.status) === status.value
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            style={{ backgroundColor: (detailDraft?.status || selectedTask.status) === status.value ? status.color : undefined }}
+                          >
+                            {status.label}
+                          </button>
                         ))}
                       </div>
-                      {user?.role !== 'observer' && (
-                        <div className="border-t border-white/10 flex-none p-4">
-                          <div className="relative flex items-center bg-gray-800 rounded-2xl border-none border-gray-600 py-2">
-                            <textarea
-                              value={newComment}
-                              onChange={(e) => setNewComment(e.target.value)}
-                              placeholder="Yorum yap/Not ekle"
-                              className="flex-1 bg-transparent border-none outline-none px-4 text-white placeholder-gray-400 resize-none"
-                              style={{
-                                height: '80px',
-                                overflowY: 'auto',
-                                fontSize: '16px',
-                                color: 'white',
-                                lineHeight: '1'
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleAddComment();
-                                }
-                              }}
-                            />
-                            <div className="pr-3 flex items-center h-[100%] border-0" style={{ height: '80px', backgroundColor: '#1f2937' }}>
-                              <button
-                                onClick={handleAddComment}
-                                disabled={!newComment.trim()}
-                                className="rounded-full flex items-center justify-center transition-all duration-300"
-                                style={{
-                                  height: '80px',
-                                  backgroundColor: newComment.trim() ? '#10b981' : '#4b5563',
-                                  boxShadow: newComment.trim() ? '0 4px 12px rgba(16, 185, 129, 0.4)' : '0 2px 4px rgba(0, 0, 0, 0.2)',
-                                  transform: newComment.trim() ? 'scale(0.8)' : 'scale(0.8)',
-                                  cursor: newComment.trim() ? 'pointer' : 'not-allowed',
-                                  border: newComment.trim() ? '2px solid rgba(255, 255, 255, 0.2)' : '2px solid rgba(255, 255, 255, 0.1)',
-                                  opacity: newComment.trim() ? '1' : '0.6',
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (newComment.trim()) {
-                                    e.target.style.backgroundColor = '#059669';
-                                    e.target.style.transform = 'scale(0.8)';
-                                    e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.5)';
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  if (newComment.trim()) {
-                                    e.target.style.backgroundColor = '#10b981';
-                                    e.target.style.transform = 'scale(0.8)';
-                                    e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
-                                  }
-                                }}
-                              >
-                                <span className="text-[40px]">⮝</span>
-                              </button>
+                    </div>
+                        )}
+                  </div>
+                </div>
+                <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 bg-[#0f172a] flex flex-col overflow-hidden">
+                  <div className="border-b border-white/10 flex-none" style={{ padding: '10px' }}>
+                    <h3 className="text-lg md:text-xl font-semibold text-white">👁️ Son Görüntüleme</h3>
+                    <div className="mt-3 space-y-2">
+                      {Array.isArray(taskLastViews) && taskLastViews.length > 0 ? (
+                        taskLastViews.map(v => (
+                          <div key={v.user_id} className="flex items-center justify-between text-sm">
+                            <div className="text-neutral-200 truncate mr-3">
+                              {v.name}
+                              {v.is_responsible ? <span className="ml-2 text-xs text-blue-300"></span> : null}
                             </div>
+                            <div className="text-neutral-400 whitespace-nowrap">{v.last_viewed_at ? formatDate(v.last_viewed_at) : '-'}</div>
                           </div>
-                        </div>
+                        ))
+                      ) : (
+                        <div className="text-neutral-400 text-sm">Kayıt bulunamadı</div>
                       )}
                     </div>
                   </div>
+                  <div className="border-b border-white/10 flex-none" style={{ padding: '1px' }}>
+                        <div className="flex items-center justify-between" style={{ paddingLeft: '10px', paddingRight: '10px' }}>
+                      <h3 className="text-lg md:text-xl font-semibold text-white">📢 Görev Geçmişi</h3>
+                          {user?.role === 'admin' && (
+                      <button
+                        onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
+                              className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'} inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect`}
+                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                        title={user?.role === 'admin' ? (historyDeleteMode ? 'Silme modunu kapat' : 'Silme modunu aç') : 'Sadece admin'}
+                            >🗑️</button>)}
+                    </div>
+                  </div>
+
+                      <div className="flex-1 overflow-y-auto no-scrollbar space-y-4" style={{ padding: '10px' }}>
+                    {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
+                      taskHistory.filter(h => !h.field.includes('_color')).map((h) => (
+                        <div key={h.id} className="relative bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0 max-w-full overflow-hidden pr-8">
+                              <div className="text-[11px] text-blue-300 mb-1">{formatDateOnly(h.created_at)}</div>
+                              {h.field === 'comment' ? (
+                                <div className="text-sm max-w-full overflow-hidden">
+                                  <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
+                                  <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{renderHistoryValue(h.field, h.new_value)}</span>
+                                </div>
+                              ) : (h.new_value && typeof h.new_value === 'string' && h.new_value.trim().length > 0 &&
+                                !h.field.includes('status') && !h.field.includes('priority') &&
+                                !h.field.includes('task_type') && !h.field.includes('date') &&
+                                !h.field.includes('attachments') && !h.field.includes('assigned') &&
+                                !h.field.includes('responsible') && !h.field.includes('assigned_users') &&
+                                !h.field.includes('_color') && // Renk değişikliklerini gizle
+                                !h.new_value.toLowerCase().includes('dosya') &&
+                                !h.new_value.toLowerCase().includes('eklendi') &&
+                                !h.new_value.toLowerCase().includes('silindi') &&
+                                !h.new_value.toLowerCase().includes('değiştirildi') &&
+                                !h.new_value.toLowerCase().includes('→')) ? (
+                                <div className="text-sm max-w-full overflow-hidden">
+                                  <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
+                                  <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{h.new_value}</span>
+                                </div>
+                              ) : h.field === 'attachments' ? (
+                                <div className="text-sm text-neutral-200">
+                                  {(() => {
+                                    const normalizeToNames = (val) => {
+                                      let arr;
+                                      try {
+                                        const v = typeof val === 'string' ? JSON.parse(val) : val;
+                                        arr = Array.isArray(v) ? v : (v != null ? [v] : []);
+                                      } catch {
+                                        arr = val != null ? [val] : [];
+                                      }
+                                      return arr.map((item) => {
+                                        if (item == null) return '';
+                                        if (typeof item === 'string') return item;
+                                        if (typeof item === 'object') {
+                                          return (
+                                            item.original_name ||
+                                            item.name ||
+                                            item.filename ||
+                                            item.file_name ||
+                                            item.title ||
+                                            item.path ||
+                                            item.url ||
+                                            JSON.stringify(item)
+                                          );
+                                        }
+                                        return String(item);
+                                      });
+                                    };
+                                    const added = normalizeToNames(h.new_value);
+                                    const removed = normalizeToNames(h.old_value);
+                                    const actor = h.user?.name || 'Kullanıcı';
+                                    if (added.length > 0 && removed.length === 0) {
+                                      return (
+                                        <>
+                                          <span className="font-medium text-white">{actor}</span> dosya ekledi.
+                                          <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                            {added.map((name, idx) => (
+                                              <li key={`a-${idx}`} className="break-all">{name}</li>
+                                            ))}
+                                          </ul>
+                                        </>
+                                      );
+                                    }
+                                    if (removed.length > 0 && added.length === 0) {
+                                      return (
+                                        <>
+                                          <span className="font-medium text-white">{actor}</span> dosya sildi.
+                                          <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                            {removed.map((name, idx) => (
+                                              <li key={`r-${idx}`} className="break-all">{name}</li>
+                                            ))}
+                                          </ul>
+                                        </>
+                                      );
+                                    }
+                                    return (
+                                      <>
+                                        <span className="font-medium text-white">{actor}</span> dosya ekledi/sildi.
+                                        {added.length > 0 && (
+                                          <>
+                                            <div className="mt-1 text-neutral-400">Eklendi:</div>
+                                            <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                              {added.map((name, idx) => (
+                                                <li key={`a2-${idx}`} className="break-all">{name}</li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        )}
+                                        {removed.length > 0 && (
+                                          <>
+                                            <div className="mt-1 text-neutral-400">Silindi:</div>
+                                            <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                              {removed.map((name, idx) => (
+                                                <li key={`r2-${idx}`} className="break-all">{name}</li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              ) : h.field === 'assigned_users' ? (
+                                <div className="text-sm">
+                                  {(() => {
+                                    const normalizeToNames = (val) => {
+                                      let arr;
+                                      try {
+                                        const v = typeof val === 'string' ? JSON.parse(val) : val;
+                                        arr = Array.isArray(v) ? v : (v != null ? [v] : []);
+                                      } catch {
+                                        arr = val != null ? [val] : [];
+                                      }
+                                      return arr.map((id) => {
+                                        return resolveUserName(id);
+                                      });
+                                    };
+                                    const oldUsers = normalizeToNames(h.old_value);
+                                    const newUsers = normalizeToNames(h.new_value);
+                                    const added = newUsers.filter(user => !oldUsers.includes(user));
+                                    const removed = oldUsers.filter(user => !newUsers.includes(user));
+
+                                    const actor = h.user?.name || 'Kullanıcı';
+                                    if (added.length > 0 && removed.length === 0) {
+                                      return (
+                                        <>
+                                          <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
+                                          <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
+                                          <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                            {added.map((name, idx) => (
+                                              <li key={`a-${idx}`} className="break-all">{name}</li>
+                                            ))}
+                                          </ul>
+                                        </>
+                                      );
+                                    }
+                                    if (removed.length > 0 && added.length === 0) {
+                                      return (
+                                        <>
+                                          <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
+                                          <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
+                                          <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                            {removed.map((name, idx) => (
+                                              <li key={`r-${idx}`} className="break-all">{name}</li>
+                                            ))}
+                                          </ul>
+                                        </>
+                                      );
+                                    }
+                                    return (
+                                      <>
+                                        <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
+                                        {added.length > 0 && (
+                                          <>
+                                            <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
+                                            <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                              {added.map((name, idx) => (
+                                                <li key={`a2-${idx}`} className="break-all">{name}</li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        )}
+                                        {removed.length > 0 && (
+                                          <>
+                                            <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
+                                            <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                              {removed.map((name, idx) => (
+                                                <li key={`r2-${idx}`} className="break-all">{name}</li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
+                                </div>
+                              ) : renderFieldLabel(h.field) ? (
+                                <div className="text-sm">
+                                  <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}</span>{' '}
+                                  {renderFieldLabel(h.field)} değiştirdi <br></br> "<span className="text-neutral-300">{renderHistoryValue(h.field, h.old_value)}</span> →{' '}
+                                  <span className="text-neutral-300">{renderHistoryValue(h.field, h.new_value)}</span>"
+                                </div>
+                              ) : null}
+                            </div>
+                            {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
+                              <button
+                                onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); setTaskHistories(prev => ({ ...prev, [selectedTask.id]: Array.isArray(h2) ? h2 : [] })); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
+                                    className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
+                                    style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginRight: '3px', marginTop: '3px' }}
+                                title="Yorumu sil"
+                              >🗑️</button>
+                            )}
+                          </div>
+                          <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-neutral-400 py-4">Henüz görev geçmişi bulunmuyor</div>
+                    )}
+
+                    {Array.isArray(comments) && comments.map((c) => (
+                      <div key={c.id} className="bg-white/5 border border-white/10 p-3 rounded">
+                        <div className="text-[11px] text-neutral-400 mb-1">{formatDate(c.timestamp)}</div>
+                        <div className="text-sm">
+                          <span className="font-medium text-white">{c.author}</span> {c.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {user?.role !== 'observer' && (
+                    <div className="border-t border-white/10 flex-none p-4">
+                      <div className="relative flex items-center bg-gray-800 rounded-2xl border-none border-gray-600 py-2">
+                        <textarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Yorum yap/Not ekle"
+                          className="flex-1 bg-transparent border-none outline-none px-4 text-white placeholder-gray-400 resize-none"
+                          style={{
+                            height: '80px',
+                            overflowY: 'auto',
+                            fontSize: '16px',
+                            color: 'white',
+                            lineHeight: '1'
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleAddComment();
+                            }
+                          }}
+                        />
+                        <div className="pr-3 flex items-center h-[100%] border-0" style={{ height: '80px', backgroundColor: '#1f2937' }}>
+                          <button
+                            onClick={handleAddComment}
+                            disabled={!newComment.trim()}
+                            className="rounded-full flex items-center justify-center transition-all duration-300"
+                            style={{
+                              height: '80px',
+                              backgroundColor: newComment.trim() ? '#10b981' : '#4b5563',
+                              boxShadow: newComment.trim() ? '0 4px 12px rgba(16, 185, 129, 0.4)' : '0 2px 4px rgba(0, 0, 0, 0.2)',
+                              transform: newComment.trim() ? 'scale(0.8)' : 'scale(0.8)',
+                              cursor: newComment.trim() ? 'pointer' : 'not-allowed',
+                              border: newComment.trim() ? '2px solid rgba(255, 255, 255, 0.2)' : '2px solid rgba(255, 255, 255, 0.1)',
+                              opacity: newComment.trim() ? '1' : '0.6',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (newComment.trim()) {
+                                e.target.style.backgroundColor = '#059669';
+                                e.target.style.transform = 'scale(0.8)';
+                                e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.5)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (newComment.trim()) {
+                                e.target.style.backgroundColor = '#10b981';
+                                e.target.style.transform = 'scale(0.8)';
+                                e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                              }
+                            }}
+                          >
+                            <span className="text-[40px]">⮝</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>,
-            document.body
+            </div>
+          </div>
+        </div>,
+        document.body
           )
           }
           {
             showUserProfile && createPortal(
-              <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
-                <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
-                      <div></div>
-                      <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
-                      <div className="justify-self-end">
-                        <button onClick={() => setShowUserProfile(false)}
-                          className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
-                      </div>
-                    </div>
+        <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+            <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
+                <div></div>
+                <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
+                <div className="justify-self-end">
+                  <button onClick={() => setShowUserProfile(false)}
+                    className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
+                </div>
+              </div>
 
                     <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-                      <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
-                        <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
-                          <div>
-                            <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
-                              <div className="text-neutral-300 !text-[18px]">İsim</div>
-                              <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
+                <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
+                  <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
+                    <div>
+                      <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
+                        <div className="text-neutral-300 !text-[18px]">İsim</div>
+                        <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
 
-                              <div className="text-neutral-300 !text-[18px]">E-posta</div>
-                              <div className="!text-[18px] truncate">{user?.email || 'Belirtilmemiş'}</div>
+                        <div className="text-neutral-300 !text-[18px]">E-posta</div>
+                        <div className="!text-[18px] truncate">{user?.email || 'Belirtilmemiş'}</div>
 
-                              <div className="text-neutral-300 !text-[18px]">Rol</div>
-                              <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 !text-[18px]">{getRoleText(user?.role)}</div>
-                            </div>
-                          </div>
-                          <div className="bg-white/5 rounded-xl p-4">
-                            {user?.role !== 'observer' && (
-                              <button
-                                className="w-full h-full rounded px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
-                                onClick={async () => {
-                                  setWeeklyUserId(null); // Kendi hedeflerini göster
-                                  setShowWeeklyGoals(true);
-                                  await loadWeeklyGoals(null, null); // Kendi hedeflerini yükle
-                                }}
-                              >
-                                <span className="!text-[40px]">🎯</span>
-                                <span className="!text-[24px]">Haftalık Hedefler</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
+                        <div className="text-neutral-300 !text-[18px]">Rol</div>
+                        <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 !text-[18px]">{getRoleText(user?.role)}</div>
                       </div>
-                      <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                      <div className="bg-white/5 rounded-xl p-6 mx-4">
-                        <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
-                          🔐 <span className="ml-2">Şifre Değiştir</span>
-                        </div>
-                        <PasswordChangeForm onDone={() => setShowUserProfile(false)} />
-                      </div>
+                    </div>
+                    <div className="bg-white/5 rounded-xl p-4">
+                      {user?.role !== 'observer' && (
+                        <button
+                          className="w-full h-full rounded px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+                          onClick={async () => {
+                            setWeeklyUserId(null); // Kendi hedeflerini göster
+                            setShowWeeklyGoals(true);
+                            await loadWeeklyGoals(null, null); // Kendi hedeflerini yükle
+                          }}
+                        >
+                          <span className="!text-[40px]">🎯</span>
+                          <span className="!text-[24px]">Haftalık Hedefler</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
-              </div>,
-              document.body
+                <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                <div className="bg-white/5 rounded-xl p-6 mx-4">
+                  <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
+                    🔐 <span className="ml-2">Şifre Değiştir</span>
+                  </div>
+                  <PasswordChangeForm onDone={() => setShowUserProfile(false)} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
             )
           }
 
           {
             showTeamModal && createPortal(
-              <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto' }} />
-                <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
-                      <h2 className="font-semibold text-center">Takım</h2>
-                      <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
-                        <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
-                      </button>
-                    </div>
+        <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+            <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
+                <h2 className="font-semibold text-center">Takım</h2>
+                <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
+                  <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
+                </button>
+              </div>
                     <div className="p-4 space-y-3 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(80vh - 120px)' }}>
-                      {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
-                        teamMembers.filter(m => m.role !== 'observer').map(m => (
-                          <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 rounded px-3 py-2"
-                            style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
-                            <div>
-                              <div className="font-medium text-white">{m.name}</div>
-                              <div className="text-sm text-neutral-300">{m.email}</div>
-                            </div>
-                            <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => {
-                              setShowTeamModal(false); setWeeklyUserId(m.id);
-                              setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
-                            }} style={{ height: '70px' }}>Hedefleri Aç</button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-neutral-300">
-                          {bulkLeaderId ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
-                        </div>
-                      )}
+                {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
+                  teamMembers.filter(m => m.role !== 'observer').map(m => (
+                    <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 rounded px-3 py-2"
+                      style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
+                      <div>
+                        <div className="font-medium text-white">{m.name}</div>
+                        <div className="text-sm text-neutral-300">{m.email}</div>
+                      </div>
+                      <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => {
+                        setShowTeamModal(false); setWeeklyUserId(m.id);
+                        setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
+                      }} style={{ height: '70px' }}>Hedefleri Aç</button>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-neutral-300">
+                    {bulkLeaderId ? 'Bu liderin takım üyesi bulunamadı.' : 'Takım üyesi bulunamadı.'}
                   </div>
-                </div>
-              </div>,
-              document.body
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
             )
           }
 
           {
             showUserPanel && createPortal(
-              <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
-                <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+        <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
                   <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-                    style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
-                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                        <div className="justify-self-start"></div>
-                        <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Kullanıcı Yönetimi</h2>
-                        <div className="justify-self-end">
-                          <button
-                            onClick={() => setShowUserPanel(false)}
-                            className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
-                            aria-label="Kapat"
-                          >✕</button>
-                        </div>
-                      </div>
-                    </div>
+              style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <div className="justify-self-start"></div>
+                  <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Kullanıcı Yönetimi</h2>
+                  <div className="justify-self-end">
+                    <button
+                      onClick={() => setShowUserPanel(false)}
+                      className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                      aria-label="Kapat"
+                    >✕</button>
+                  </div>
+                </div>
+              </div>
                     <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)' }}>
-                      <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
-                        {user?.role === 'admin' && (
-                          <div className="pt-4" style={{ paddingTop: '5px' }}>
-                            <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
-                            <AdminCreateUser />
-                          </div>
-                        )}
-                      </div>
+                <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
+                  {user?.role === 'admin' && (
+                    <div className="pt-4" style={{ paddingTop: '5px' }}>
+                      <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
+                      <AdminCreateUser />
+                    </div>
+                  )}
+                </div>
                       <div className="w-3/5 shrink-0 bg-[#0f172a] overflow-y-auto no-scrollbar" style={{ padding: '20px' }}>
-                        <div className="flex text-[24px] font-semibold mb-4 space-y-3" style={{ marginBottom: '10px' }}>
-                          <span>Kullanıcılar</span> <span className="w-[50px]"></span>
-                          <input
-                            type="text"
-                            placeholder="Kullanıcı ara..."
-                            value={userSearchTerm}
-                            onChange={(e) => setUserSearchTerm(e.target.value)}
-                            className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ color: 'black' }}
-                            autoComplete="off"
-                            autoCorrect="off"
-                            autoCapitalize="off"
-                            spellCheck="false"
-                            data-lpignore="true"
-                            data-form-type="other"
-                            name="user-search"
-                            id="user-search"
-                            onFocus={(e) => {
-                              e.target.setAttribute('autocomplete', 'off');
-                              e.target.setAttribute('autocorrect', 'off');
-                              e.target.setAttribute('autocapitalize', 'off');
-                              e.target.setAttribute('spellcheck', 'false');
-                            }}
-                            onInput={(e) => {
-                              if (e.target.value && !e.isTrusted) {
-                                e.target.value = '';
-                                setUserSearchTerm('');
+                  <div className="flex text-[24px] font-semibold mb-4 space-y-3" style={{ marginBottom: '10px' }}>
+                    <span>Kullanıcılar</span> <span className="w-[50px]"></span>
+                    <input
+                      type="text"
+                      placeholder="Kullanıcı ara..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ color: 'black' }}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      data-lpignore="true"
+                      data-form-type="other"
+                      name="user-search"
+                      id="user-search"
+                      onFocus={(e) => {
+                        e.target.setAttribute('autocomplete', 'off');
+                        e.target.setAttribute('autocorrect', 'off');
+                        e.target.setAttribute('autocapitalize', 'off');
+                        e.target.setAttribute('spellcheck', 'false');
+                      }}
+                      onInput={(e) => {
+                        if (e.target.value && !e.isTrusted) {
+                          e.target.value = '';
+                          setUserSearchTerm('');
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="text-[16px] font-semibold mb-4 space-y-3">
+                    <div className="flex items-center gap-3 bg-blue-500/20 border rounded-[20px] !w-[100%] justify-end" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px' }}>
+                      <span className="text-[18px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px' }}>
+                        {selectedUsers.length} kullanıcı seçildi ▶
+                      </span>
+                      <select
+                        value={bulkLeaderId}
+                        onChange={(e) => setBulkLeaderId(e.target.value)}
+                        style={{ paddingLeft: '5px', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !max-w-[250px] !w-[250px] truncate"
+                        title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçin'}
+                      >
+                        <option value="">Lider Seçin</option>
+                        <option value="remove">Lideri Kaldır</option>
+                        {Array.isArray(users) && users
+                          .filter(u => u.role === 'team_leader' || u.role === 'admin')
+                          .map(leader => (
+                            <option key={`bulk-${leader.id}`} value={leader.id} title={`${leader.name} (${getRoleText(leader.role)})`}>
+                              {leader.name} ({getRoleText(leader.role)})
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        onClick={async () => {
+                          if (!bulkLeaderId) return;
+                          const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
+                          const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
+                            users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
+                          if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
+                            return;
+                          }
+                          try {
+                            setLoading(true);
+                            let successCount = 0;
+                            let errorCount = 0;
+
+                            for (const userId of selectedUsers) {
+                              try {
+                                await updateUserAdmin(userId, { leader_id: leaderId });
+                                successCount++;
+                              } catch (err) {
+                                console.error(`User ${userId} update error:`, err);
+                                errorCount++;
                               }
-                            }}
-                          />
-                        </div>
-                        <div className="text-[16px] font-semibold mb-4 space-y-3">
-                          <div className="flex items-center gap-3 bg-blue-500/20 border rounded-[20px] !w-[100%] justify-end" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px' }}>
-                            <span className="text-[18px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px' }}>
-                              {selectedUsers.length} kullanıcı seçildi ▶
-                            </span>
-                            <select
-                              value={bulkLeaderId}
-                              onChange={(e) => setBulkLeaderId(e.target.value)}
-                              style={{ paddingLeft: '5px', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !max-w-[250px] !w-[250px] truncate"
-                              title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçin'}
+                            }
+
+                            if (successCount > 0) {
+                              addNotification(`${successCount} kullanıcı güncellendi`, 'success');
+                              await loadUsers();
+                            }
+                            if (errorCount > 0) {
+                              addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
+                            }
+
+                            setSelectedUsers([]);
+                            setBulkLeaderId('');
+                          } catch (err) {
+                            console.error('Bulk update error:', err);
+                            addNotification('Toplu güncelleme başarısız', 'error');
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={!bulkLeaderId}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
+                        style={{ marginRight: '20px' }}
+                      >
+                        Uygula
+                      </button>
+                      <span className="!px-3"></span>
+                      <button
+                        onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
+                        className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
+                        style={{ marginRight: '20px' }}
+                      >
+                        İptal
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                  {user?.role === 'admin' ? (
+                    <div className="space-y-3">
+                      {Array.isArray(users) && users
+                        .filter(u => {
+                          // Arama terimi filtresi
+                          if (userSearchTerm) {
+                            const searchTerm = userSearchTerm.toLowerCase();
+                            const matchesSearch = (
+                              u.name?.toLowerCase().includes(searchTerm) ||
+                              u.email?.toLowerCase().includes(searchTerm) ||
+                              getRoleText(u.role)?.toLowerCase().includes(searchTerm)
+                            );
+                            if (!matchesSearch) return false;
+                          }
+                          return true;
+                        })
+                        .map((u) => {
+                          const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
+                          return (
+                            <div
+                              key={u.id}
+                              className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
+                              style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
                             >
-                              <option value="">Lider Seçin</option>
-                              <option value="remove">Lideri Kaldır</option>
-                              {Array.isArray(users) && users
-                                .filter(u => u.role === 'team_leader' || u.role === 'admin')
-                                .map(leader => (
-                                  <option key={`bulk-${leader.id}`} value={leader.id} title={`${leader.name} (${getRoleText(leader.role)})`}>
-                                    {leader.name} ({getRoleText(leader.role)})
-                                  </option>
-                                ))}
-                            </select>
-                            <button
-                              onClick={async () => {
-                                if (!bulkLeaderId) return;
-                                const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
-                                const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
-                                  users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
-                                if (!confirm(`${selectedUsers.length} kullanıcıya "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
-                                  return;
-                                }
-                                try {
-                                  setLoading(true);
-                                  let successCount = 0;
-                                  let errorCount = 0;
-
-                                  for (const userId of selectedUsers) {
-                                    try {
-                                      await updateUserAdmin(userId, { leader_id: leaderId });
-                                      successCount++;
-                                    } catch (err) {
-                                      console.error(`User ${userId} update error:`, err);
-                                      errorCount++;
-                                    }
-                                  }
-
-                                  if (successCount > 0) {
-                                    addNotification(`${successCount} kullanıcı güncellendi`, 'success');
-                                    await loadUsers();
-                                  }
-                                  if (errorCount > 0) {
-                                    addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
-                                  }
-
-                                  setSelectedUsers([]);
-                                  setBulkLeaderId('');
-                                } catch (err) {
-                                  console.error('Bulk update error:', err);
-                                  addNotification('Toplu güncelleme başarısız', 'error');
-                                } finally {
-                                  setLoading(false);
-                                }
-                              }}
-                              disabled={!bulkLeaderId}
-                              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-                              style={{ marginRight: '20px' }}
-                            >
-                              Uygula
-                            </button>
-                            <span className="!px-3"></span>
-                            <button
-                              onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
-                              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
-                              style={{ marginRight: '20px' }}
-                            >
-                              İptal
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                        {user?.role === 'admin' ? (
-                          <div className="space-y-3">
-                            {Array.isArray(users) && users
-                              .filter(u => {
-                                // Arama terimi filtresi
-                                if (userSearchTerm) {
-                                  const searchTerm = userSearchTerm.toLowerCase();
-                                  const matchesSearch = (
-                                    u.name?.toLowerCase().includes(searchTerm) ||
-                                    u.email?.toLowerCase().includes(searchTerm) ||
-                                    getRoleText(u.role)?.toLowerCase().includes(searchTerm)
-                                  );
-                                  if (!matchesSearch) return false;
-                                }
-                                return true;
-                              })
-                              .map((u) => {
-                                const hasResetRequest = passwordResetRequests.some(req => req.user_id === u.id);
-                                return (
-                                  <div
-                                    key={u.id}
-                                    className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
-                                    style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
-                                  >
                                     <div className="flex items-center justify-between" style={{ paddingRight: '5px' }}>
-                                      <div className="min-w-0 flex text-[16px] items-center gap-3">
-                                        <input
-                                          type="checkbox"
-                                          checked={selectedUsers.includes(u.id)}
-                                          disabled={u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'}
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              setSelectedUsers(prev => [...prev, u.id]);
-                                            } else {
-                                              setSelectedUsers(prev => prev.filter(id => id !== u.id));
-                                            }
-                                          }}
-                                          className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'
-                                            ? 'opacity-50 cursor-not-allowed'
-                                            : 'cursor-pointer'
-                                            }`}
-                                          style={{ scale: '3', marginLeft: '15px', marginRight: '20px' }}
-                                        />
-                                        <div className="flex-1 min-w-0 max-w-[300px]">
-                                          <div className="text-base font-medium truncate text-white" title={u.name}>{u.name}</div>
-                                          <div className="text-xs text-gray-400 truncate mt-1" title={u.email}>{u.email}</div>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-3 shrink-0">
-                                        {(u.role === 'team_member') && (
-                                          <select
-                                            className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[200px] !w-[200px] truncate"
-                                            value={u.leader_id || ''}
-                                            onChange={async (e) => {
-                                              const val = e.target.value ? parseInt(e.target.value) : null;
-                                              try {
-                                                await updateUserAdmin(u.id, { leader_id: val });
-                                                addNotification('Lider ataması güncellendi', 'success');
-                                                await loadUsers();
-                                              } catch (err) {
-                                                console.error('Leader assign error:', err);
-                                                addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
-                                              }
-                                            }}
-                                            style={{ padding: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                            title={u.leader_id ? users.find(x => x.id === u.leader_id)?.name + ' (' + getRoleText(users.find(x => x.id === u.leader_id)?.role) + ')' : 'Lider Yok'}
-                                          >
-                                            <option value="">Lider Yok</option>
-                                            {Array.isArray(users) && users.filter(x => x.role === 'team_leader' || x.role === 'admin').map(l => (
-                                              <option key={`ldr-${l.id}`} value={l.id} title={`${l.name} (${getRoleText(l.role)})`}>{l.name} ({getRoleText(l.role)})</option>
-                                            ))}
-                                          </select>
-                                        )}
-                                        <button
-                                          onClick={async () => {
-                                            if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
+                                <div className="min-w-0 flex text-[16px] items-center gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedUsers.includes(u.id)}
+                                    disabled={u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedUsers(prev => [...prev, u.id]);
+                                      } else {
+                                        setSelectedUsers(prev => prev.filter(id => id !== u.id));
+                                      }
+                                    }}
+                                    className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'
+                                      ? 'opacity-50 cursor-not-allowed'
+                                      : 'cursor-pointer'
+                                      }`}
+                                    style={{ scale: '3', marginLeft: '15px', marginRight: '20px' }}
+                                  />
+                                  <div className="flex-1 min-w-0 max-w-[300px]">
+                                    <div className="text-base font-medium truncate text-white" title={u.name}>{u.name}</div>
+                                    <div className="text-xs text-gray-400 truncate mt-1" title={u.email}>{u.email}</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  {(u.role === 'team_member') && (
+                                    <select
+                                      className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[200px] !w-[200px] truncate"
+                                      value={u.leader_id || ''}
+                                      onChange={async (e) => {
+                                        const val = e.target.value ? parseInt(e.target.value) : null;
+                                        try {
+                                          await updateUserAdmin(u.id, { leader_id: val });
+                                          addNotification('Lider ataması güncellendi', 'success');
+                                          await loadUsers();
+                                        } catch (err) {
+                                          console.error('Leader assign error:', err);
+                                          addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
+                                        }
+                                      }}
+                                      style={{ padding: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                      title={u.leader_id ? users.find(x => x.id === u.leader_id)?.name + ' (' + getRoleText(users.find(x => x.id === u.leader_id)?.role) + ')' : 'Lider Yok'}
+                                    >
+                                      <option value="">Lider Yok</option>
+                                      {Array.isArray(users) && users.filter(x => x.role === 'team_leader' || x.role === 'admin').map(l => (
+                                        <option key={`ldr-${l.id}`} value={l.id} title={`${l.name} (${getRoleText(l.role)})`}>{l.name} ({getRoleText(l.role)})</option>
+                                      ))}
+                                    </select>
+                                  )}
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
 
-                                            try {
-                                              setLoading(true);
-                                              await PasswordReset.adminResetPassword(u.id, '123456');
-                                              addNotification('Şifre başarıyla "123456" olarak sıfırlandı', 'success');
-                                              await loadPasswordResetRequests();
-                                            } catch (err) {
-                                              console.error('Admin reset password error:', err);
-                                              addNotification(err.response?.data?.message || 'Şifre sıfırlanamadı', 'error');
-                                            } finally {
-                                              setLoading(false);
-                                            }
-                                          }}
+                                      try {
+                                        setLoading(true);
+                                        await PasswordReset.adminResetPassword(u.id, '123456');
+                                        addNotification('Şifre başarıyla "123456" olarak sıfırlandı', 'success');
+                                        await loadPasswordResetRequests();
+                                      } catch (err) {
+                                        console.error('Admin reset password error:', err);
+                                        addNotification(err.response?.data?.message || 'Şifre sıfırlanamadı', 'error');
+                                      } finally {
+                                        setLoading(false);
+                                      }
+                                    }}
                                           className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px] buttonHoverEffect"
                                           style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
                                           title='Şifreyi "123456" olarak sıfırla'
-                                        >
+                                  >
                                           ↺
-                                        </button>
-                                        <div className="flex items-center gap-2">
-                                          <select
-                                            className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[120px] !w-[120px]"
-                                            value={u.role}
-                                            onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
-                                            style={{ padding: '5px', marginLeft: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                                            title={getRoleText(u.role)}
-                                          >
-                                            <option value="admin">Yönetici</option>
-                                            <option value="team_leader">Takım Lideri</option>
-                                            <option value="team_member">Takım Üyesi</option>
-                                            <option value="observer">Gözlemci</option>
-                                          </select>
-                                        </div>
+                                  </button>
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[120px] !w-[120px]"
+                                      value={u.role}
+                                      onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
+                                      style={{ padding: '5px', marginLeft: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                      title={getRoleText(u.role)}
+                                    >
+                                      <option value="admin">Yönetici</option>
+                                      <option value="team_leader">Takım Lideri</option>
+                                      <option value="team_member">Takım Üyesi</option>
+                                      <option value="observer">Gözlemci</option>
+                                    </select>
+                                  </div>
                                         <button className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px] buttonHoverEffect"
                                           style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '10px' }}
-                                          onClick={async () => {
-                                            if (!confirm('Silinsin mi?')) return; try {
-                                              await deleteUserAdmin(u.id);
-                                              addNotification('Kullanıcı silindi', 'success');
-                                              await loadUsers();
-                                            }
-                                            catch (err) {
-                                              console.error('Delete user error:', err);
-                                              addNotification('Silinemedi', 'error');
-                                            }
-                                          }}
-                                        >🗑️</button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-
-                            {Array.isArray(users) && users.filter(u => {
-                              // Arama terimi filtresi
-                              if (userSearchTerm) {
-                                const searchTerm = userSearchTerm.toLowerCase();
-                                const matchesSearch = (
-                                  u.name?.toLowerCase().includes(searchTerm) ||
-                                  u.email?.toLowerCase().includes(searchTerm) ||
-                                  getRoleText(u.role)?.toLowerCase().includes(searchTerm)
-                                );
-                                if (!matchesSearch) return false;
-                              }
-                              // Lider filtresi
-                              return true;
-                            }).length === 0 && userSearchTerm && (
-                                <div className="text-center py-4 text-gray-400">
-                                  {userSearchTerm ? `"${userSearchTerm}" için kullanıcı bulunamadı` : 'Seçilen filtreye uygun kullanıcı bulunamadı'}
+                                    onClick={async () => {
+                                      if (!confirm('Silinsin mi?')) return; try {
+                                        await deleteUserAdmin(u.id);
+                                        addNotification('Kullanıcı silindi', 'success');
+                                        await loadUsers();
+                                      }
+                                      catch (err) {
+                                        console.error('Delete user error:', err);
+                                        addNotification('Silinemedi', 'error');
+                                      }
+                                    }}
+                                  >🗑️</button>
                                 </div>
-                              )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                      {Array.isArray(users) && users.filter(u => {
+                        // Arama terimi filtresi
+                        if (userSearchTerm) {
+                          const searchTerm = userSearchTerm.toLowerCase();
+                          const matchesSearch = (
+                            u.name?.toLowerCase().includes(searchTerm) ||
+                            u.email?.toLowerCase().includes(searchTerm) ||
+                            getRoleText(u.role)?.toLowerCase().includes(searchTerm)
+                          );
+                          if (!matchesSearch) return false;
+                        }
+                        // Lider filtresi
+                        return true;
+                      }).length === 0 && userSearchTerm && (
+                          <div className="text-center py-4 text-gray-400">
+                            {userSearchTerm ? `"${userSearchTerm}" için kullanıcı bulunamadı` : 'Seçilen filtreye uygun kullanıcı bulunamadı'}
                           </div>
-                        ) : (
-                          <div className="text-xs text-neutral-400">Yalnızca admin kullanıcı listesi görüntüler.</div>
                         )}
-                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="text-xs text-neutral-400">Yalnızca admin kullanıcı listesi görüntüler.</div>
+                  )}
                 </div>
-              </div>,
-              document.body
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
             )
           }
 
           {
             showTaskSettings && createPortal(
-              <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
-                <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+        <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
+          <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
                   <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-                    style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
-                      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                        <div className="justify-self-start">
+              style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <div className="justify-self-start">
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Ayarları</h2>
+                  <div className="justify-self-end">
+                    <button
+                      onClick={() => setShowTaskSettings(false)}
+                      className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                      aria-label="Kapat"
+                    >✕</button>
+                  </div>
+                </div>
+              </div>
+                    <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)' }}>
+                <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
+                  <div className="pt-4" style={{ paddingTop: '5px' }}>
+                    <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Türleri</div>
+
+                    {/* Yeni Görev Türü Ekleme */}
+                    <div className="rounded-lg p-4 mb-4">
+                      <label className="text-[18px] font-medium mb-3">Yeni Görev Türü Ekle</label>
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="text"
+                            placeholder="Görev türü adı (örn: Fikstür, Yeni Ürün)"
+                            value={newTaskTypeName}
+                            onChange={(e) => setNewTaskTypeName(e.target.value)}
+                            className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-[16px] text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                            style={{ height: '40px' }}
+                          />
+                          <input
+                            type="color"
+                            value={newTaskTypeColor}
+                            onChange={(e) => setNewTaskTypeColor(e.target.value)}
+                            className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
+                            title="Renk seç"
+                            style={{ height: '40px', width: '40px', backgroundColor: newTaskTypeColor, marginLeft: '5px' }}
+                          />
                         </div>
-                        <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Ayarları</h2>
-                        <div className="justify-self-end">
-                          <button
-                            onClick={() => setShowTaskSettings(false)}
-                            className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
-                            aria-label="Kapat"
-                          >✕</button>
-                        </div>
+                        <button
+                          onClick={handleAddTaskType}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px]"
+                        >
+                          Tür Ekle
+                        </button>
                       </div>
                     </div>
-                    <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)' }}>
-                      <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
-                        <div className="pt-4" style={{ paddingTop: '5px' }}>
-                          <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Türleri</div>
 
-                          {/* Yeni Görev Türü Ekleme */}
-                          <div className="rounded-lg p-4 mb-4">
-                            <label className="text-[18px] font-medium mb-3">Yeni Görev Türü Ekle</label>
-                            <div className="space-y-3">
+                    {/* Mevcut Görev Türleri */}
+                    <div className="space-y-3" style={{ marginTop: '30px' }}>
+                      <label className="text-[18px]">Mevcut Görev Türleri</label>
+                      <div className="space-y-2" style={{ marginTop: '10px' }}>
+                        {getAllTaskTypes().map(taskType => (
+                          <div key={taskType.id || taskType.value} className="rounded-lg p-3 flex items-center justify-between">
+                            <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
+                              {editingTaskTypeId === (taskType.id || taskType.value) ? (
+                                <>
+                                  <input
+                                    type="color"
+                                    value={editingTaskTypeColor}
+                                    onChange={(e) => setEditingTaskTypeColor(e.target.value)}
+                                    className="w-5 h-5 rounded-full cursor-pointer"
+                                    style={{ backgroundColor: taskType.color, width: '24px', height: '24px' }}
+                                    title="Renk seç"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={editingTaskTypeName}
+                                    onChange={(e) => setEditingTaskTypeName(e.target.value)}
+                                    className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                    placeholder="Tür adı"
+                                    style={{ paddingLeft: '5px' }}
+                                  />
+                                  <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
+                                    <button
+                                      onClick={handleSaveTaskType}
+                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
+                                            style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                    >
+                                      Kaydet
+                                    </button>
+                                    <button
+                                      onClick={handleCancelEditTaskType}
+                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
+                                            style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                    >
+                                            X
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
+                                  <span className="text-[18px]" style={{ paddingLeft: '5px' }}>{taskType.label}</span>
+                                  <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
+                                    {taskType.isCustom && !taskType.isPermanent ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleEditTaskType(taskType)}
+                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
+                                                style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                        >
+                                          Düzenle
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
+                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
+                                                style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '5px' }}
+                                        >
+                                                🗑️
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <span className="text-gray-500 text-[16px]">
+                                        {taskType.isPermanent ? 'Sistem Türü' : 'Silinmez'}
+                                      </span>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
+                  <div className="pt-4" style={{ paddingTop: '5px' }}>
+                    <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Durumları</div>
+
+                    {/* Görev Türü Seçimi */}
+                    <div className="mb-4">
+                      <label className="block text-[18px] mb-3">Görev Türü Seçin</label>
+                      <select
+                        value={selectedTaskTypeForStatuses}
+                        onChange={(e) => setSelectedTaskTypeForStatuses(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[18px] focus:outline-none focus:border-blue-500"
+                        style={{ height: '40px' }}
+                      >
+                        {getAllTaskTypes().map(taskType => (
+                          <option key={taskType.value} value={taskType.value}>
+                            {taskType.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Yeni Durum Ekleme */}
+                    <div className="rounded-lg p-4 mb-4">
+                      <label className="text-[18px] mb-3">Yeni Durum Ekle</label>
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="text"
+                            placeholder="Durum adı (örn: Tasarlanacak, Test Edilecek)"
+                            value={newStatusName}
+                            onChange={(e) => setNewStatusName(e.target.value)}
+                            className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[16px] placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                            style={{ height: '40px' }}
+                          />
+                          <input
+                            type="color"
+                            value={newStatusColor}
+                            onChange={(e) => setNewStatusColor(e.target.value)}
+                            className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
+                            title="Renk seç"
+                            style={{ height: '40px', width: '40px', backgroundColor: newStatusColor, marginLeft: '5px' }}
+                          />
+                        </div>
+                        <button
+                          onClick={handleAddTaskStatus}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px] font-medium"
+                        >
+                          Durum Ekle
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Seçilen Tür için Mevcut Durumlar */}
+                    <div className="space-y-3">
+                      <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</div>
+
+                      {/* Sistem Durumları (Sabit) */}
+                      <div className="mb-4">
+                        <div className="space-y-2">
+                          {/* Waiting - Default */}
+                          <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                            <div className="flex items-center justify-between h-full">
                               <div className="flex items-center space-x-3">
-                                <input
-                                  type="text"
-                                  placeholder="Görev türü adı (örn: Fikstür, Yeni Ürün)"
-                                  value={newTaskTypeName}
-                                  onChange={(e) => setNewTaskTypeName(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-[16px] text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                                  style={{ height: '40px' }}
-                                />
-                                <input
-                                  type="color"
-                                  value={newTaskTypeColor}
-                                  onChange={(e) => setNewTaskTypeColor(e.target.value)}
-                                  className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
-                                  title="Renk seç"
-                                  style={{ height: '40px', width: '40px', backgroundColor: newTaskTypeColor, marginLeft: '5px' }}
-                                />
+                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px' }}></div>
+                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Bekliyor</span>
                               </div>
-                              <button
-                                onClick={handleAddTaskType}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px]"
-                              >
-                                Tür Ekle
-                              </button>
+                              <div className="flex items-center space-x-4">
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Varsayılan</span>
+                              </div>
                             </div>
                           </div>
 
-                          {/* Mevcut Görev Türleri */}
-                          <div className="space-y-3" style={{ marginTop: '30px' }}>
-                            <label className="text-[18px]">Mevcut Görev Türleri</label>
-                            <div className="space-y-2" style={{ marginTop: '10px' }}>
-                              {getAllTaskTypes().map(taskType => (
-                                <div key={taskType.id || taskType.value} className="rounded-lg p-3 flex items-center justify-between">
-                                  <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
-                                    {editingTaskTypeId === (taskType.id || taskType.value) ? (
-                                      <>
-                                        <input
-                                          type="color"
-                                          value={editingTaskTypeColor}
-                                          onChange={(e) => setEditingTaskTypeColor(e.target.value)}
-                                          className="w-5 h-5 rounded-full cursor-pointer"
-                                          style={{ backgroundColor: taskType.color, width: '24px', height: '24px' }}
-                                          title="Renk seç"
-                                        />
-                                        <input
-                                          type="text"
-                                          value={editingTaskTypeName}
-                                          onChange={(e) => setEditingTaskTypeName(e.target.value)}
-                                          className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded text-[18px] text-white focus:outline-none focus:border-blue-500"
-                                          placeholder="Tür adı"
-                                          style={{ paddingLeft: '5px' }}
-                                        />
-                                        <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
-                                          <button
-                                            onClick={handleSaveTaskType}
-                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
-                                            style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
-                                          >
-                                            Kaydet
-                                          </button>
-                                          <button
-                                            onClick={handleCancelEditTaskType}
-                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
-                                            style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
-                                          >
-                                            X
-                                          </button>
-                                        </div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
-                                        <span className="text-[18px]" style={{ paddingLeft: '5px' }}>{taskType.label}</span>
-                                        <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
-                                          {taskType.isCustom && !taskType.isPermanent ? (
-                                            <>
-                                              <button
-                                                onClick={() => handleEditTaskType(taskType)}
-                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
-                                                style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
-                                              >
-                                                Düzenle
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
-                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
-                                                style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '5px' }}
-                                              >
-                                                🗑️
-                                              </button>
-                                            </>
-                                          ) : (
-                                            <span className="text-gray-500 text-[16px]">
-                                              {taskType.isPermanent ? 'Sistem Türü' : 'Silinmez'}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
+                          {/* Completed */}
+                          <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                            <div className="flex items-center justify-between h-full">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px' }}></div>
+                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Tamamlandı</span>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Cancelled */}
+                          <div className="bg-[#1f2937] rounded-lg p-3 " style={{ marginBottom: '5px', height: '50px' }}>
+                            <div className="flex items-center justify-between h-full">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px' }}></div>
+                                <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>İptal</span>
+                              </div>
+                              <div className="flex items-center space-x-4">
+                                <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-
-                      <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
-                        <div className="pt-4" style={{ paddingTop: '5px' }}>
-                          <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Durumları</div>
-
-                          {/* Görev Türü Seçimi */}
-                          <div className="mb-4">
-                            <label className="block text-[18px] mb-3">Görev Türü Seçin</label>
-                            <select
-                              value={selectedTaskTypeForStatuses}
-                              onChange={(e) => setSelectedTaskTypeForStatuses(e.target.value)}
-                              className="w-full px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[18px] focus:outline-none focus:border-blue-500"
-                              style={{ height: '40px' }}
-                            >
-                              {getAllTaskTypes().map(taskType => (
-                                <option key={taskType.value} value={taskType.value}>
-                                  {taskType.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Yeni Durum Ekleme */}
-                          <div className="rounded-lg p-4 mb-4">
-                            <label className="text-[18px] mb-3">Yeni Durum Ekle</label>
-                            <div className="space-y-3">
-                              <div className="flex items-center space-x-3">
-                                <input
-                                  type="text"
-                                  placeholder="Durum adı (örn: Tasarlanacak, Test Edilecek)"
-                                  value={newStatusName}
-                                  onChange={(e) => setNewStatusName(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[16px] placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                                  style={{ height: '40px' }}
-                                />
-                                <input
-                                  type="color"
-                                  value={newStatusColor}
-                                  onChange={(e) => setNewStatusColor(e.target.value)}
-                                  className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
-                                  title="Renk seç"
-                                  style={{ height: '40px', width: '40px', backgroundColor: newStatusColor, marginLeft: '5px' }}
-                                />
-                              </div>
-                              <button
-                                onClick={handleAddTaskStatus}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px] font-medium"
-                              >
-                                Durum Ekle
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Seçilen Tür için Mevcut Durumlar */}
-                          <div className="space-y-3">
-                            <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</div>
-
-                            {/* Sistem Durumları (Sabit) */}
-                            <div className="mb-4">
-                              <div className="space-y-2">
-                                {/* Waiting - Default */}
-                                <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
-                                  <div className="flex items-center justify-between h-full">
-                                    <div className="flex items-center space-x-3">
-                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px' }}></div>
-                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Bekliyor</span>
+                      {/* Özel Durumlar (Dinamik) */}
+                      <div>
+                        <div className="space-y-2">
+                                {(() => {
+                                  // Sistem türü için ID'yi bul (hem string hem integer kontrol et)
+                                  let statuses = customTaskStatuses[selectedTaskTypeForStatuses] || [];
+                                  
+                                  // Eğer string ise ve statuses boşsa, integer ID'yi de kontrol et
+                                  if (selectedTaskTypeForStatuses === 'development' && statuses.length === 0) {
+                                    const systemType = allTaskTypesFromAPI.find(type => 
+                                      type.is_system && (type.name === 'Geliştirme' || type.name === 'development')
+                                    );
+                                    if (systemType && systemType.id) {
+                                      statuses = customTaskStatuses[systemType.id] || [];
+                                    }
+                                  }
+                                  
+                                  return statuses.length > 0;
+                                })() ? (
+                                  (() => {
+                                    // Sistem türü için ID'yi bul (hem string hem integer kontrol et)
+                                    let statuses = customTaskStatuses[selectedTaskTypeForStatuses] || [];
+                                    
+                                    // Eğer string ise ve statuses boşsa, integer ID'yi de kontrol et
+                                    if (selectedTaskTypeForStatuses === 'development' && statuses.length === 0) {
+                                      const systemType = allTaskTypesFromAPI.find(type => 
+                                        type.is_system && (type.name === 'Geliştirme' || type.name === 'development')
+                                      );
+                                      if (systemType && systemType.id) {
+                                        statuses = customTaskStatuses[systemType.id] || [];
+                                      }
+                                    }
+                                    
+                                    return statuses;
+                                  })().map(status => (
+                              <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between" style={{ marginBottom: '5px', height: '50px' }}>
+                                {editingTaskStatusId === (status.id || status.key) ? (
+                                  <>
+                                    <div className="flex items-center space-x-3 flex-1">
+                                      <input
+                                        type="color"
+                                        value={editingTaskStatusColor}
+                                        onChange={(e) => setEditingTaskStatusColor(e.target.value)}
+                                        className="w-5 h-5 rounded-full border-2 border-white/20 cursor-pointer"
+                                        style={{ backgroundColor: status.color, width: '24px', height: '24px' }}
+                                        title="Renk seç"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={editingTaskStatusName}
+                                        onChange={(e) => setEditingTaskStatusName(e.target.value)}
+                                        className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded !text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                        placeholder="Durum adı"
+                                        style={{ paddingLeft: '5px' }}
+                                      />
                                     </div>
-                                    <div className="flex items-center space-x-4">
-                                      <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Varsayılan</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Completed */}
-                                <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
-                                  <div className="flex items-center justify-between h-full">
-                                    <div className="flex items-center space-x-3">
-                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px' }}></div>
-                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Tamamlandı</span>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                      <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Cancelled */}
-                                <div className="bg-[#1f2937] rounded-lg p-3 " style={{ marginBottom: '5px', height: '50px' }}>
-                                  <div className="flex items-center justify-between h-full">
-                                    <div className="flex items-center space-x-3">
-                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px' }}></div>
-                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>İptal</span>
-                                    </div>
-                                    <div className="flex items-center space-x-4">
-                                      <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            {/* Özel Durumlar (Dinamik) */}
-                            <div>
-                              <div className="space-y-2">
-                                {customTaskStatuses[selectedTaskTypeForStatuses]?.length > 0 ? (
-                                  customTaskStatuses[selectedTaskTypeForStatuses].map(status => (
-                                    <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between" style={{ marginBottom: '5px', height: '50px' }}>
-                                      {editingTaskStatusId === (status.id || status.key) ? (
-                                        <>
-                                          <div className="flex items-center space-x-3 flex-1">
-                                            <input
-                                              type="color"
-                                              value={editingTaskStatusColor}
-                                              onChange={(e) => setEditingTaskStatusColor(e.target.value)}
-                                              className="w-5 h-5 rounded-full border-2 border-white/20 cursor-pointer"
-                                              style={{ backgroundColor: status.color, width: '24px', height: '24px' }}
-                                              title="Renk seç"
-                                            />
-                                            <input
-                                              type="text"
-                                              value={editingTaskStatusName}
-                                              onChange={(e) => setEditingTaskStatusName(e.target.value)}
-                                              className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded !text-[18px] text-white focus:outline-none focus:border-blue-500"
-                                              placeholder="Durum adı"
-                                              style={{ paddingLeft: '5px' }}
-                                            />
-                                          </div>
-                                          <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
-                                            <button
-                                              onClick={handleSaveTaskStatus}
+                                    <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
+                                      <button
+                                        onClick={handleSaveTaskStatus}
                                               className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
                                               style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
-                                            >
-                                              Kaydet
-                                            </button>
-                                            <button
-                                              onClick={handleCancelEditTaskStatus}
+                                      >
+                                        Kaydet
+                                      </button>
+                                      <button
+                                        onClick={handleCancelEditTaskStatus}
                                               className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
                                               style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
-                                            >
+                                      >
                                               X
-                                            </button>
-                                          </div>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <div className="flex items-center space-x-3">
-                                            <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
-                                            <span className="!text-[18px]" style={{ paddingLeft: '5px' }}>{status.name || status.label}</span>
-                                          </div>
-                                          <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
-                                            <button
-                                              onClick={() => handleEditTaskStatus(status)}
+                                      </button>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center space-x-3">
+                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
+                                      <span className="!text-[18px]" style={{ paddingLeft: '5px' }}>{status.name || status.label}</span>
+                                    </div>
+                                    <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
+                                      <button
+                                        onClick={() => handleEditTaskStatus(status)}
                                               className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
                                               style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
-                                            >
-                                              Düzenle
-                                            </button>
-                                            <button
-                                              onClick={() => handleDeleteTaskStatus(status.id || status.key)}
+                                      >
+                                        Düzenle
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteTaskStatus(status.id || status.key)}
                                               className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
                                               style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '5px' }}
-                                            >
+                                      >
                                               🗑️
-                                            </button>
-                                          </div>
-                                        </>
-                                      )}
+                                      </button>
                                     </div>
-                                  ))
-                                ) : (
-                                  <div className="text-gray-400 text-center text-[18px] py-4 border-2 border-dashed border-gray-600 rounded-lg">
-                                    Bu görev türü için henüz özel durum tanımlanmamış.
-                                    <br />
-                                    Yukarıdan yeni durum ekleyebilirsiniz.
-                                  </div>
+                                  </>
                                 )}
                               </div>
+                            ))
+                          ) : (
+                            <div className="text-gray-400 text-center text-[18px] py-4 border-2 border-dashed border-gray-600 rounded-lg">
+                              Bu görev türü için henüz özel durum tanımlanmamış.
+                              <br />
+                              Yukarıdan yeni durum ekleyebilirsiniz.
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>,
-              document.body
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
             )
           }
 
-          {
-            error && (
+      {
+        error && (
               <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50" style={{ width: '1440px', maxWidth: 'calc(100vw - 32px)' }}>
                 <div className="flex items-center justify-between">
                   <span>{error}</span>
-                  <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">✕</button>
+            <button onClick={() => setError(null)} className="ml-2 text-red-500 hover:text-red-700">✕</button>
                 </div>
-              </div>
-            )
-          }
+          </div>
+        )
+      }
 
-        </div>
+    </div>
       </main>
 
       {/* Footer */}
