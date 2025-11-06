@@ -10,7 +10,7 @@ const getApiBaseURL = () => {
       const trimmed = envUrl.replace(/\/+$/, '');
       return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
     }
-  } catch (_) {
+  } catch {
     // ignore if import.meta is not available
   }
 
