@@ -1,0 +1,8 @@
+v2.10.2 - Linux desteği ve Laravel 12 uyumluluğu eklendi
+
+- Linux için otomatik güncelleme script'i eklendi (scripts/linux-update.sh)
+- Linux kurulum ve güncelleme dokümantasyonu eklendi
+- Laravel 12 log parse hatası düzeltildi
+- start-api.cjs dosyasında output filtreleme eklendi
+- README.md ve CHANGELOG.md güncellendi
+
