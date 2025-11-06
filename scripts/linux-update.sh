@@ -42,12 +42,55 @@ cd "$REPO_PATH"
 log_info "🔄 Task Tracker Desktop - Güncelleme Başlatılıyor..."
 echo ""
 
+# Git durumunu kontrol et
+log_info "🔍 Git durumu kontrol ediliyor..."
+CURRENT_BRANCH=$(git branch --show-current)
+log_info "Mevcut branch: $CURRENT_BRANCH"
+
+# Remote'u kontrol et
+if ! git remote get-url origin &>/dev/null; then
+    log_warning "Remote 'origin' bulunamadı. Ekleniyor..."
+    git remote add origin https://github.com/MEY-26/task-tracker-desktop.git
+fi
+
+# Remote branch'leri güncelle
+log_info "📡 Remote branch'ler güncelleniyor..."
+if ! git fetch origin; then
+    log_error "Git fetch başarısız oldu. İnternet bağlantısını kontrol edin."
+    exit 1
+fi
+
+# main branch'i kullan, yoksa master'ı dene
+REMOTE_BRANCH="main"
+if ! git rev-parse --verify origin/main &>/dev/null; then
+    log_warning "origin/main bulunamadı, origin/master deneniyor..."
+    if git rev-parse --verify origin/master &>/dev/null; then
+        REMOTE_BRANCH="master"
+    else
+        log_error "Ne origin/main ne de origin/master bulunamadı."
+        exit 1
+    fi
+fi
+
+log_info "Kullanılacak remote branch: $REMOTE_BRANCH"
+
+# Eğer local branch farklıysa, doğru branch'e geç
+if [ "$CURRENT_BRANCH" != "$REMOTE_BRANCH" ]; then
+    log_info "🔄 Branch değiştiriliyor: $CURRENT_BRANCH -> $REMOTE_BRANCH"
+    if git show-ref --verify --quiet "refs/heads/$REMOTE_BRANCH"; then
+        git checkout "$REMOTE_BRANCH"
+    else
+        git checkout -b "$REMOTE_BRANCH" "origin/$REMOTE_BRANCH"
+    fi
+fi
+
 # Git'ten güncellemeleri çek
 log_info "📥 Git güncellemeleri çekiliyor..."
-if git pull origin main; then
+if git pull origin "$REMOTE_BRANCH"; then
     log_success "Git güncellemeleri başarıyla çekildi."
 else
     log_error "Git pull başarısız oldu."
+    log_info "💡 İpucu: Local değişiklikler varsa önce 'git stash' çalıştırın."
     exit 1
 fi
 
