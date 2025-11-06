@@ -30,6 +30,28 @@ Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uyg
 ### Database
 - `overtime_minutes` kolonu `weekly_goals` tablosuna eklendi
 
+## [2.10.2] - 2025-11-06
+
+### Added
+- Linux için otomatik güncelleme script'i eklendi (`scripts/linux-update.sh`)
+- Linux kurulum ve güncelleme dokümantasyonu eklendi
+- Laravel 12 log parse hatası için output filtreleme eklendi
+
+### Changed
+- `scripts/start-api.cjs` dosyası Laravel 12 uyumluluğu için güncellendi
+- README.md dosyasına Linux güncelleme bilgileri eklendi
+- API ve Frontend servisleri için systemd desteği eklendi
+
+### Fixed
+- Laravel 12'de `php artisan serve` komutunun log parse hatası düzeltildi
+- "849 Closing" gibi mesajların port numarası olarak parse edilme sorunu çözüldü
+- `start-api.cjs` dosyasında output filtreleme ile parse hataları önlendi
+
+### Technical
+- Laravel 12 uyumluluğu iyileştirildi
+- Linux deployment desteği eklendi
+- Systemd service yapılandırmaları eklendi
+
 ## [Unreleased]
 
 ## [1.0.0] - 2024-01-XX

@@ -400,7 +400,14 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.1 - Sorumlu Takim Lideri Izinleri ve UI Iyilestirmeleri (Son Guncelleme)
+### v2.10.2 - Linux Desteği ve Laravel 12 Uyumluluğu (Son Guncelleme)
+- ✅ **Linux Güncelleme Script'i**: Linux için otomatik güncelleme script'i eklendi (`scripts/linux-update.sh`)
+- ✅ **Linux Dokümantasyonu**: Linux kurulum ve güncelleme dokümantasyonu eklendi
+- ✅ **Laravel 12 Uyumluluğu**: Laravel 12 log parse hatası düzeltildi
+- ✅ **Output Filtreleme**: `start-api.cjs` dosyasında output filtreleme eklendi
+- ✅ **Systemd Desteği**: API ve Frontend servisleri için systemd yapılandırmaları eklendi
+
+### v2.10.1 - Sorumlu Takim Lideri Izinleri ve UI Iyilestirmeleri
 - ✅ **Sorumlu Takim Lideri NO Alani**: Sorumlu olan takim liderleri NO alanini degistirebilir
 - ✅ **Modal Boyut Optimizasyonu**: Gorev Detayı penceresi sabit boyutta kaliyor
 - ✅ **Hata Mesaji Hizzalamasi**: Hata mesajlari ana icerikle ayni genislik ve hizalanmis
@@ -498,6 +505,8 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🔄 Güncellemeler
 
+### Windows
+
 Projeyi güncellemek için:
 ```bash
 git pull origin main
@@ -507,7 +516,34 @@ composer install
 php artisan migrate
 ```
 
-## 🛠️ Otomatik Güncelleme (Windows)
+### Linux
+
+Projeyi güncellemek için:
+```bash
+cd ~/task-tracker-desktop
+git pull origin main
+npm install
+cd task-tracker-api
+composer install --no-interaction
+php artisan migrate --force
+cd ..
+```
+
+**Veya otomatik güncelleme script'ini kullanın:**
+```bash
+# Script'e çalıştırma izni verin
+chmod +x scripts/linux-update.sh
+
+# Güncellemeyi başlatın
+./scripts/linux-update.sh
+
+# Veya farklı bir dizin için:
+./scripts/linux-update.sh /path/to/task-tracker-desktop
+```
+
+## 🛠️ Otomatik Güncelleme
+
+### Windows
 
 Haftalık otomatik güncellemeler için `scripts/windows-auto-update.ps1` kullanılabilir. Betik; git'ten güncel kodu çeker, frontend/backend bağımlılıklarını günceller ve Laravel migrasyonlarını çalıştırır.
 
@@ -542,6 +578,35 @@ powershell -ExecutionPolicy Bypass -File "C:\wamp64\www\task-tracker-desktop\scr
      ```
 6. Sihirbazı bitir. Gerekiyorsa görevin özelliklerinde “Run whether user is logged on or not” ve “Run with highest privileges” seçeneklerini işaretleyin.
 7. Görevi sağ tıklayıp **Run** diyerek test edin. Sonuçlar `logs/auto-update.log` içinde görülür.
+
+### Linux
+
+Linux için otomatik güncelleme script'i `scripts/linux-update.sh` kullanılabilir. Betik; git'ten güncel kodu çeker, frontend/backend bağımlılıklarını günceller ve Laravel migrasyonlarını çalıştırır.
+
+#### Betiğin Yaptıkları
+1. `git pull origin main`
+2. `npm install`
+3. `task-tracker-api` klasöründe `composer install --no-interaction`
+4. `php artisan migrate --force`
+
+#### Manuel Çalıştırma
+```bash
+# Script'e çalıştırma izni verin
+chmod +x scripts/linux-update.sh
+
+# Güncellemeyi başlatın
+./scripts/linux-update.sh
+
+# Veya farklı bir dizin için:
+./scripts/linux-update.sh /path/to/task-tracker-desktop
+```
+
+#### Systemd ile Otomatik Güncelleme (Opsiyonel)
+Linux'ta haftalık otomatik güncellemeler için systemd timer kullanabilirsiniz:
+
+1. Timer dosyası oluşturun: `/etc/systemd/system/task-tracker-update.timer`
+2. Service dosyası oluşturun: `/etc/systemd/system/task-tracker-update.service`
+3. Timer'ı etkinleştirin: `sudo systemctl enable task-tracker-update.timer`
 
 ### Ek Notlar
 - `git pull` sonrası servis/daemon restart işlemleri yapmaz. Gerekiyorsa betiğin sonuna `npm run build`, `php artisan config:cache` gibi komutlar eklenebilir.
