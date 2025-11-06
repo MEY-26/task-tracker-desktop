@@ -281,7 +281,13 @@ task-tracker-desktop/
 │   ├── setup.sh            # Linux/Mac kurulum
 │   ├── start-api.bat       # Windows için API otomatik yeniden başlatma
 │   ├── start-api.sh        # Linux/Mac için API otomatik yeniden başlatma
-│   └── start-api.cjs       # Node.js ile API otomatik yeniden başlatma
+│   ├── start-api.cjs       # Node.js ile API otomatik yeniden başlatma
+│   ├── windows-auto-update.ps1  # Windows otomatik güncelleme
+│   ├── linux-update.sh     # Linux otomatik güncelleme
+│   └── linux-systemd/      # Linux systemd servis dosyaları
+│       ├── task-tracker-api.service.example
+│       ├── task-tracker-frontend.service.example
+│       └── README.md
 ├── .github/workflows/       # CI/CD pipeline
 │   └── ci.yml              # GitHub Actions
 ├── public/                  # Statik web dosyaları
@@ -600,6 +606,61 @@ chmod +x scripts/linux-update.sh
 # Veya farklı bir dizin için:
 ./scripts/linux-update.sh /path/to/task-tracker-desktop
 ```
+
+#### Systemd Servisleri ile Arka Planda Çalıştırma
+
+PuTTY kapandığında uygulamanın kapanmaması için systemd servisleri kullanabilirsiniz:
+
+**1. Servis dosyalarını kopyalayın:**
+```bash
+sudo cp scripts/linux-systemd/task-tracker-api.service.example /etc/systemd/system/task-tracker-api.service
+sudo cp scripts/linux-systemd/task-tracker-frontend.service.example /etc/systemd/system/task-tracker-frontend.service
+```
+
+**2. Servis dosyalarını düzenleyin:**
+Kullanıcı adı, dizin yolu ve Node.js/npm path'lerini kendi sisteminize göre güncelleyin:
+```bash
+sudo nano /etc/systemd/system/task-tracker-api.service
+sudo nano /etc/systemd/system/task-tracker-frontend.service
+```
+
+**Önemli:** Aşağıdaki değerleri kendi sisteminize göre güncelleyin:
+- `User=gtakip` → Kendi kullanıcı adınız
+- `WorkingDirectory=/home/gtakip/task-tracker-desktop` → Proje dizininiz
+- `ExecStart=/usr/bin/npm` → npm path'iniz (hangi npm kullanıyorsanız)
+
+**3. Systemd'yi yeniden yükleyin:**
+```bash
+sudo systemctl daemon-reload
+```
+
+**4. Servisleri etkinleştirin ve başlatın:**
+```bash
+sudo systemctl enable task-tracker-api
+sudo systemctl enable task-tracker-frontend
+sudo systemctl start task-tracker-api
+sudo systemctl start task-tracker-frontend
+```
+
+**5. Servis durumlarını kontrol edin:**
+```bash
+sudo systemctl status task-tracker-api
+sudo systemctl status task-tracker-frontend
+```
+
+**Servis Yönetimi:**
+```bash
+# Servisleri başlat/durdur/yeniden başlat
+sudo systemctl start task-tracker-api
+sudo systemctl stop task-tracker-api
+sudo systemctl restart task-tracker-api
+
+# Logları görüntüle
+sudo journalctl -u task-tracker-api -f
+sudo journalctl -u task-tracker-frontend -f
+```
+
+Detaylı bilgi için `scripts/linux-systemd/README.md` dosyasına bakın.
 
 #### Systemd ile Otomatik Güncelleme (Opsiyonel)
 Linux'ta haftalık otomatik güncellemeler için systemd timer kullanabilirsiniz:

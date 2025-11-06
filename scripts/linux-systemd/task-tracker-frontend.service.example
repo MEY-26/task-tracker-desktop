@@ -1,0 +1,20 @@
+[Unit]
+Description=Task Tracker Frontend Server
+After=network.target
+
+[Service]
+Type=simple
+User=gtakip
+Group=gtakip
+WorkingDirectory=/home/gtakip/task-tracker-desktop
+Environment="NODE_ENV=development"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
+ExecStart=/usr/bin/npm run dev:web
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
