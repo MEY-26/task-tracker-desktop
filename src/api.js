@@ -1,21 +1,30 @@
 import axios from 'axios';
 
 const getApiBaseURL = () => {
-  if (window.location.protocol === 'file:') {
+  // 0) Explicit override via Vite env (if provided)
+  try {
+    const envUrl = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL)
+      ? import.meta.env.VITE_API_BASE_URL
+      : null;
+    if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+      const trimmed = envUrl.replace(/\/+$/, '');
+      return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+    }
+  } catch (_) {
+    // ignore if import.meta is not available
+  }
+
+  // 1) Electron/file protocol (no hostname)
+  if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
     return 'http://localhost:8000/api';
   }
-  
-  // Local network IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-  if (window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' || 
-      window.location.hostname.startsWith('192.168.') ||
-      window.location.hostname.startsWith('10.') ||
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(window.location.hostname)) {
-    return `http://${window.location.hostname}:8000/api`;
-  }
-  
-  // Production fallback
-  return 'http://api.gorevtakip.vaden:8000/api';
+
+  // 2) Default: use the SAME host as the frontend, port 8000
+  //    Works for IPs, *.local, intranet DNS, etc.
+  const host = (typeof window !== 'undefined' && window.location?.hostname)
+    ? window.location.hostname
+    : 'localhost';
+  return `http://${host}:8000/api`;
 };
 
 export const api = axios.create({
