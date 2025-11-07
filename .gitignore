@@ -163,3 +163,7 @@ packages/
 # Local configuration files
 config.local.js
 config.local.json
+
+# Deployment scripts with credentials
+scripts/deploy-changed-files.sh
+scripts/deploy-changed-files.ps1
