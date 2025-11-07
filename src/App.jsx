@@ -3812,6 +3812,16 @@ function App() {
                         <input
                           type="file"
                           multiple
+                          accept={[
+                            'image/*',
+                            '.pdf',
+                            '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+                            '.zip', '.rar', '.7z',
+                            '.sldprt', '.sldasm', '.slddrw',
+                            '.step', '.stp', '.iges', '.igs',
+                            '.x_t', '.x_b', '.stl', '.3mf',
+                            '.dwg', '.dxf', '.eprt', '.easm', '.edrw'
+                          ].join(',')}
                           onChange={(e) => {
                             const files = Array.from(e.target.files);
                             setNewTask({
