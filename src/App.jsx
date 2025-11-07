@@ -2678,9 +2678,6 @@ function App() {
 
     return users.filter(u => {
       if (u.role === 'observer') return false;
-
-      if (user.role === 'team_leader' && u.role === 'admin') return false;
-
       return true;
     });
   }
@@ -2690,7 +2687,6 @@ function App() {
 
     return users.filter(u => {
       if (u.role === 'observer') return false;
-      if (user.role === 'team_leader' && u.role === 'admin') return false;
       if (responsibleId && u.id === parseInt(responsibleId)) return false;
       return true;
     });
@@ -4826,7 +4822,7 @@ function App() {
                     </div>
                     <div className="text-gray-400 text-xs mt-2">
                       {searchTerm ? 'Aramayı temizlemeyi deneyin' :
-                        (activeTab === 'active' && (user?.role === 'admin' || user?.role === 'team_leader') ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
+                        (activeTab === 'active' && user?.role !== 'observer' ? 'Yeni görev ekleyin' : 'Henüz görev bulunmuyor')}
                     </div>
                   </div>
                 </div>
