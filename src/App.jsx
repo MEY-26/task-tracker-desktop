@@ -3690,9 +3690,22 @@ function App() {
                                 className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-gray-200 last:border-b-0 text-left"
                                 style={{ backgroundColor: '#1f2937' }}
                                 onClick={() => {
+                                  // Eklenecek kullanıcı listesi
+                                  let usersToAdd = [u.id];
+                                  
+                                  // Eğer seçilen kullanıcı takım lideriyse, ekibini de ekle
+                                  if (u.role === 'team_leader') {
+                                    const teamMembers = users.filter(tm => tm.leader_id === u.id);
+                                    const teamMemberIds = teamMembers.map(tm => tm.id);
+                                    usersToAdd = [...usersToAdd, ...teamMemberIds];
+                                  }
+                                  
+                                  // Mevcut atananlarla birleştir ve tekrarları temizle
+                                  const combinedUsers = [...new Set([...newTask.assigned_users, ...usersToAdd])];
+                                  
                                   setNewTask({
                                     ...newTask,
-                                    assigned_users: [...newTask.assigned_users, u.id]
+                                    assigned_users: combinedUsers
                                   });
                                   setAssigneeSearch('');
                                   setShowAssigneeDropdown(false);
@@ -5146,8 +5159,14 @@ function App() {
                                       className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-b border-gray-200 last:border-b-0 text-left"
                                       onMouseDown={(e) => e.preventDefault()}
                                       onClick={async () => {
-                                        const nextIds = Array.from(new Set([...(detailDraft?.assigned_user_ids || []), u.id]));
-                                        setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
+                                        let usersToAdd = [u.id];
+                                        if (u.role === 'team_leader') {
+                                          const teamMembers = users.filter(tm => tm.leader_id === u.id);
+                                          const teamMemberIds = teamMembers.map(tm => tm.id);
+                                          usersToAdd = [...usersToAdd, ...teamMemberIds];
+                                        }
+                                        const combinedUsers = [...new Set([...(detailDraft?.assigned_user_ids || []), ...usersToAdd])];
+                                        setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: combinedUsers }));
                                         setAssigneeSearchDetail('');
                                         setShowAssigneeDropdownDetail(true);
                                         setTimeout(() => assigneeDetailInputRef.current?.focus(), 0);
