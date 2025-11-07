@@ -3874,12 +3874,21 @@ function App() {
                     </div>
                     <br />
                     <div className="mt-4 sm:mt-6 mb-4">
+                      {uploadProgress && (
+                        <div className="mb-4 bg-gray-200 rounded-full h-8 overflow-hidden">
+                          <div className="flex items-center justify-center h-full bg-blue-600 text-white text-sm font-medium transition-all duration-300"
+                            style={{ width: `${Math.max(0, Math.min(100, uploadProgress.percent ?? 10))}%` }}
+                          >
+                            {typeof uploadProgress.percent === 'number' ? `${uploadProgress.percent}%` : '...'}
+                          </div>
+                        </div>
+                      )}
                       <button
                         onClick={handleAddTask}
                         disabled={addingTask || !newTask.title}
                         className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
                       >
-                        {addingTask ? 'Ekleniyor...' : 'Ekle'}
+                        {addingTask ? (uploadProgress ? `Yükleniyor... ${uploadProgress.percent ?? 0}%` : 'Ekleniyor...') : 'Ekle'}
                       </button>
                     </div>
 
