@@ -1021,16 +1021,22 @@ function App() {
     if (showAddForm && newTask.responsible_id && users) {
       const responsibleUser = users.find(u => u.id === newTask.responsible_id);
 
-      // Önceki liderin ekibini kaldır
+      // Önceki liderin kendisini ve ekibini kaldır
       let cleanedAssignedUsers = [...newTask.assigned_users];
       if (previousResponsibleIdRef.current) {
         const prevResponsibleUser = users.find(u => u.id === previousResponsibleIdRef.current);
+        // Önceki sorumluyu atananlardan kaldır
+        cleanedAssignedUsers = cleanedAssignedUsers.filter(id => id !== previousResponsibleIdRef.current);
+        
         if (prevResponsibleUser && prevResponsibleUser.role === 'team_leader') {
           const prevTeamMembers = users.filter(u => u.leader_id === previousResponsibleIdRef.current);
           const prevTeamMemberIds = prevTeamMembers.map(m => m.id);
           cleanedAssignedUsers = cleanedAssignedUsers.filter(id => !prevTeamMemberIds.includes(id));
         }
       }
+      
+      // Yeni sorumluyu atananlardan kaldır (sorumlu aynı zamanda atanan olamaz)
+      cleanedAssignedUsers = cleanedAssignedUsers.filter(id => id !== newTask.responsible_id);
 
       // Yeni lider takım lideriyse, ekibini ekle
       if (responsibleUser && responsibleUser.role === 'team_leader') {
