@@ -1341,7 +1341,7 @@ function App() {
     if (user?.id && user.role !== 'observer' && (!users || users.length === 0)) {
       loadUsers();
     }
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, users?.length]);
 
   async function loadPasswordResetRequests() {
     try {
@@ -3709,6 +3709,7 @@ function App() {
                                   if (u.role === 'team_leader') {
                                     const teamMembers = users.filter(tm => Number(tm.leader_id) === Number(u.id));
                                     const teamMemberIds = teamMembers.map(tm => tm.id);
+                                    console.log(`Takım lideri ${u.name} seçildi. Ekip: `, teamMembers.map(tm => tm.name));
                                     usersToAdd = [...usersToAdd, ...teamMemberIds];
                                   }
                                   
@@ -5175,6 +5176,7 @@ function App() {
                                         if (u.role === 'team_leader') {
                                           const teamMembers = users.filter(tm => Number(tm.leader_id) === Number(u.id));
                                           const teamMemberIds = teamMembers.map(tm => tm.id);
+                                          console.log(`[Detay Modal] Takım lideri ${u.name} seçildi. Ekip: `, teamMembers.map(tm => tm.name));
                                           usersToAdd = [...usersToAdd, ...teamMemberIds];
                                         }
                                         const combinedUsers = [...new Set([...(detailDraft?.assigned_user_ids || []), ...usersToAdd])];
