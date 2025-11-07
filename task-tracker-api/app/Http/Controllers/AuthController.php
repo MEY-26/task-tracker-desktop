@@ -77,7 +77,7 @@ class AuthController extends Controller
     public function index()
     {
         $user = Auth::user();
-        if (!in_array($user->role, ['admin', 'team_leader', 'observer'])) {
+        if ($user->role === 'observer') {
             return response()->json(['message' => 'Bu işlemi yapmaya yetkiniz yok.'], 403);
         }
 

@@ -4983,7 +4983,7 @@ function App() {
                     <br />
                     <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <PriorityLabelWithTooltip htmlFor="new-task-priority" />
-                      {user?.role === 'admin' ? (
+                      {user?.role !== 'observer' ? (
                         <select
                           value={detailDraft?.priority || 'medium'}
                           onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), priority: e.target.value }))}
@@ -5006,7 +5006,7 @@ function App() {
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
                         Sorumlu
                       </label>
-                      {(user?.role === 'admin') ? (
+                      {(user?.role !== 'observer') ? (
                         <select
                           value={detailDraft?.responsible_id || ''}
                           onChange={(e) => {
@@ -5071,7 +5071,7 @@ function App() {
                         Atananlar
                       </label>
                       <div className="w-full rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
-                        {user?.role === 'admin' ? (
+                        {user?.role !== 'observer' ? (
                           <div className="assignee-dropdown-detail-container relative">
                             {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 && (
                               <div className="flex flex-wrap items-center gap-2 mb-3 overflow-hidden">
