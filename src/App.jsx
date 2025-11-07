@@ -1040,8 +1040,11 @@ function App() {
 
       // Yeni lider takım lideriyse, ekibini ekle
       if (responsibleUser && responsibleUser.role === 'team_leader') {
-        // Takım liderinin ekibini bul
-        const teamMembers = users.filter(u => u.leader_id === newTask.responsible_id);
+        // Takım liderinin ekibini bul (ancak sorumlu kişiyi hariç tut)
+        const teamMembers = users.filter(u => 
+          u.leader_id === newTask.responsible_id && 
+          u.id !== newTask.responsible_id
+        );
         const teamMemberIds = teamMembers.map(m => m.id);
         // Ekibi assigned_users'a ekle (duplikasyon olmaması için)
         const combinedIds = [...new Set([...cleanedAssignedUsers, ...teamMemberIds])];
@@ -3707,9 +3710,12 @@ function App() {
                                   // Eklenecek kullanıcı listesi
                                   let usersToAdd = [u.id];
                                   
-                                  // Eğer seçilen kullanıcı takım lideriyse, ekibini de ekle
+                                  // Eğer seçilen kullanıcı takım lideriyse, ekibini de ekle (sorumlu hariç)
                                   if (u.role === 'team_leader') {
-                                    const teamMembers = users.filter(tm => Number(tm.leader_id) === Number(u.id));
+                                    const teamMembers = users.filter(tm => 
+                                      Number(tm.leader_id) === Number(u.id) && 
+                                      tm.id !== newTask.responsible_id
+                                    );
                                     const teamMemberIds = teamMembers.map(tm => tm.id);
                                     console.log(`Takım lideri ${u.name} seçildi. Ekip: `, teamMembers.map(tm => tm.name));
                                     usersToAdd = [...usersToAdd, ...teamMemberIds];
@@ -5176,7 +5182,12 @@ function App() {
                                       onClick={async () => {
                                         let usersToAdd = [u.id];
                                         if (u.role === 'team_leader') {
-                                          const teamMembers = users.filter(tm => Number(tm.leader_id) === Number(u.id));
+                                          // Sorumlu kişiyi hariç tutarak ekip üyelerini bul
+                                          const responsibleId = detailDraft?.responsible_id || selectedTask.responsible?.id;
+                                          const teamMembers = users.filter(tm => 
+                                            Number(tm.leader_id) === Number(u.id) && 
+                                            tm.id !== responsibleId
+                                          );
                                           const teamMemberIds = teamMembers.map(tm => tm.id);
                                           console.log(`[Detay Modal] Takım lideri ${u.name} seçildi. Ekip: `, teamMembers.map(tm => tm.name));
                                           usersToAdd = [...usersToAdd, ...teamMemberIds];

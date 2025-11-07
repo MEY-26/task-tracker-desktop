@@ -215,6 +215,17 @@ class PasswordResetController extends Controller
                     'updated_at' => now()
                 ]);
 
+            // Tüm adminlerdeki şifre sıfırlama talep bildirimlerini temizle
+            try {
+                DB::table('notifications')
+                    ->whereRaw("JSON_EXTRACT(data, '$.user_id') = ?", [$request->user_id])
+                    ->whereRaw("JSON_EXTRACT(data, '$.type') = ?", ['password_reset_request'])
+                    ->delete();
+                Log::info('Deleted password reset request notifications for user ID: ' . $request->user_id);
+            } catch (\Exception $e) {
+                Log::error('Failed to delete password reset notifications: ' . $e->getMessage());
+            }
+
             Log::info("Admin reset password for user: {$user->email}");
 
             return response()->json([

@@ -544,6 +544,18 @@ class TaskController extends Controller
             $task->end_date = now();
         }
 
+        // Görev iptal edildiğinde bildirimleri temizle
+        if (str_contains($statusLower, 'cancelled') || str_contains($statusLower, 'iptal')) {
+            try {
+                DB::table('notifications')
+                    ->whereRaw("JSON_EXTRACT(data, '$.task_id') = ?", [$task->id])
+                    ->delete();
+                Log::info('Deleted notifications for cancelled task ID: ' . $task->id);
+            } catch (\Exception $e) {
+                Log::error('Failed to delete cancelled task notifications: ' . $e->getMessage());
+            }
+        }
+
         $task->save();
         $after = $task->fresh()->toArray();
 
@@ -827,6 +839,16 @@ class TaskController extends Controller
         // Görev ilişkilerini temizle
         $task->assignedUsers()->detach();
         $task->histories()->delete();
+
+        // Görevle ilgili tüm bildirimleri temizle
+        try {
+            DB::table('notifications')
+                ->whereRaw("JSON_EXTRACT(data, '$.task_id') = ?", [$task->id])
+                ->delete();
+            Log::info('Deleted notifications for task ID: ' . $task->id);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete task notifications: ' . $e->getMessage());
+        }
 
         // Görevi sil
         $task->delete();
