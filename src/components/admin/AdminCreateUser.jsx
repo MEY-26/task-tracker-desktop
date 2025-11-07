@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 
-function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
+function AdminCreateUser({ onCreateUser, onBulkImport, pushToast, users = [] }) {
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     password_confirmation: '',
     role: 'team_member',
+    leader_id: null,
   });
+
+  const leaderOptions = useMemo(
+    () => (Array.isArray(users) ? users.filter(u => u.role === 'team_leader' || u.role === 'admin') : []),
+    [users]
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,9 +29,13 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
     }
 
     try {
-      await onCreateUser?.(form);
+      const payload = {
+        ...form,
+        leader_id: form.role === 'team_member' ? (form.leader_id ?? null) : null,
+      };
+      await onCreateUser?.(payload);
       pushToast?.('Kullanıcı eklendi', 'success');
-      setForm({ name: '', email: '', password: '', password_confirmation: '', role: 'team_member' });
+      setForm({ name: '', email: '', password: '', password_confirmation: '', role: 'team_member', leader_id: null });
     } catch (error) {
       console.error('User registration error:', error);
       const message = error?.response?.data?.message || 'Kullanıcı eklenemedi';
@@ -104,6 +114,21 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast }) {
             <option value="team_leader" className="bg-gray-800 text-white">Takım Lideri</option>
             <option value="team_member" className="bg-gray-800 text-white">Takım Üyesi</option>
             <option value="observer" className="bg-gray-800 text-white">Gözlemci</option>
+          </select>
+
+          {/* Opsiyonel: Ekip Lideri seçimi */}
+          <select
+            className="w-[101%] h-[35px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white"
+            value={form.leader_id ?? ''}
+            onChange={(e) => setForm((prev) => ({ ...prev, leader_id: e.target.value ? Number(e.target.value) : null }))}
+            style={{ marginBottom: '10px' }}
+          >
+            <option value="" className="bg-gray-800 text-white">Takım Lideri (opsiyonel)</option>
+            {leaderOptions.map((u) => (
+              <option key={u.id} value={u.id} className="bg-gray-800 text-white">
+                {u.name || u.email} {u.role === 'admin' ? '(Yönetici)' : '(Takım Lideri)'}
+              </option>
+            ))}
           </select>
 
           <button
