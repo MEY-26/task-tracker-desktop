@@ -1336,6 +1336,13 @@ function App() {
     }
   }, [showUserPanel, user?.role]);
 
+  // Kullanıcı giriş yaptıktan sonra (observer değilse) users boşsa otomatik yükle
+  useEffect(() => {
+    if (user?.id && user.role !== 'observer' && (!users || users.length === 0)) {
+      loadUsers();
+    }
+  }, [user?.id, user?.role]);
+
   async function loadPasswordResetRequests() {
     try {
       if (user?.role === 'admin') {
@@ -3658,7 +3665,12 @@ function App() {
                           setAssigneeSearch(e.target.value);
                           setShowAssigneeDropdown(true);
                         }}
-                        onFocus={() => setShowAssigneeDropdown(true)}
+                        onFocus={() => {
+                          if ((!users || users.length === 0) && user?.role !== 'observer') {
+                            loadUsers();
+                          }
+                          setShowAssigneeDropdown(true);
+                        }}
                         onBlur={() => {
                           setTimeout(() => setShowAssigneeDropdown(false), 200);
                         }}
@@ -3695,7 +3707,7 @@ function App() {
                                   
                                   // Eğer seçilen kullanıcı takım lideriyse, ekibini de ekle
                                   if (u.role === 'team_leader') {
-                                    const teamMembers = users.filter(tm => tm.leader_id === u.id);
+                                    const teamMembers = users.filter(tm => Number(tm.leader_id) === Number(u.id));
                                     const teamMemberIds = teamMembers.map(tm => tm.id);
                                     usersToAdd = [...usersToAdd, ...teamMemberIds];
                                   }
@@ -5161,7 +5173,7 @@ function App() {
                                       onClick={async () => {
                                         let usersToAdd = [u.id];
                                         if (u.role === 'team_leader') {
-                                          const teamMembers = users.filter(tm => tm.leader_id === u.id);
+                                          const teamMembers = users.filter(tm => Number(tm.leader_id) === Number(u.id));
                                           const teamMemberIds = teamMembers.map(tm => tm.id);
                                           usersToAdd = [...usersToAdd, ...teamMemberIds];
                                         }
