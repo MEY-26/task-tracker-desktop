@@ -54,10 +54,21 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - npm veya yarn
 
 ### Backend (Laravel API)
+
+**Geliştirme Ortamı (Windows/Mac/Linux):**
 - PHP 8.2 veya üzeri
 - Composer
-- MySQL/PostgreSQL/SQLite
+- SQLite (veya MySQL/PostgreSQL)
 - Laravel 12
+
+**Production Ortamı (Linux - Önerilen):**
+- PHP 8.3-FPM (çoklu istek desteği için)
+- Nginx (reverse proxy)
+- Composer
+- SQLite (veya PostgreSQL - 80+ kullanıcı için)
+- Systemd (servis yönetimi)
+
+**Mail Servisi (Opsiyonel):**
 - SMTP Mail Server (Gmail, Outlook, vb.)
 
 ## 🛠️ Kurulum
@@ -174,17 +185,15 @@ npm run build
 
 ## 📜 Kullanılabilir Scripts
 
-### Ağ Erişimi
+### Ağ Erişimi (Yerel Geliştirme)
 - `scripts\setup.bat` - Windows için kurulum ve başlatma
 - `scripts\setup.sh` - Linux/Mac için kurulum ve başlatma
 - `npm run start:network` - NPM ile ağ erişimi (eşzamanlı API ve Frontend başlatma)
-- `npm run start:network:restart` - API otomatik yeniden başlatma ile ağ erişimi
-- `npm run start:network:watch` - Nodemon ile API dosya değişikliklerini izleme ve otomatik yeniden başlatma
 
-### API Yönetimi
+**Not**: Production'da artisan serve kullanmayın. Bunun yerine aşağıdaki "Production Deployment" bölümündeki Nginx + PHP-FPM kurulumunu yapın.
+
+### API Yönetimi (Yerel Geliştirme)
 - `npm run api:serve` - Laravel API'yi başlat (host=0.0.0.0, port=8000)
-- `npm run api:serve:watch` - Nodemon ile API'yi izle ve otomatik yeniden başlat (dosya değişikliklerinde)
-- `npm run api:serve:restart` - API crash durumunda otomatik yeniden başlatma
 
 ### Geliştirme
 - `npm run dev` - Electron geliştirme modu (localhost)
