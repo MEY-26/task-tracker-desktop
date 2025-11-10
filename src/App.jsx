@@ -6469,7 +6469,16 @@ function App() {
 
                           {/* Seçilen Tür için Mevcut Durumlar */}
                           <div className="space-y-3">
-                            <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>{getTaskTypeText(selectedTaskTypeForStatuses)} Durumları</div>
+                            <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>
+                              {(() => {
+                                const allTypes = getAllTaskTypes();
+                                const foundType = allTypes.find(type => 
+                                  type.value === selectedTaskTypeForStatuses || 
+                                  type.id === selectedTaskTypeForStatuses
+                                );
+                                return foundType ? foundType.label : 'Geliştirme';
+                              })()} Durumları
+                            </div>
 
                             {/* Sistem Durumları (Sabit) */}
                             <div className="mb-4">
