@@ -26,8 +26,8 @@
     "dev": "concurrently -k \"cross-env NODE_ENV=development vite --host 0.0.0.0\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:network": "concurrently -k \"cross-env NODE_ENV=development vite --host 0.0.0.0 --port 5173\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "dev:web": "vite --host 0.0.0.0 --port 5173",
-    "api:serve": "echo 'DEPRECATED: Use PHP-FPM + Nginx for production. For local dev: cd task-tracker-api && php artisan serve --host=0.0.0.0 --port=8000'",
-    "start:network": "echo 'DEPRECATED: Use systemd services (task-tracker-frontend) + Nginx + PHP-FPM for production'",
+    "api:serve": "cd task-tracker-api && php artisan serve --host=0.0.0.0 --port=8000",
+    "start:network": "concurrently -k \"npm run api:serve\" \"npm run dev:web\"",
     "build:ui": "vite build",
     "build": "npm run build:ui && electron-builder",
     "build:win": "npm run build:ui && electron-builder --win",
@@ -66,8 +66,7 @@
     "sharp": "^0.34.3",
     "tailwindcss": "^4.1.12",
     "vite": "^7.1.2",
-    "wait-on": "^8.0.4",
-    "nodemon": "^3.0.2"
+    "wait-on": "^8.0.4"
   },
   "build": {
     "appId": "com.example.tasktracker",
