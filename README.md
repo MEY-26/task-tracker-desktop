@@ -339,6 +339,147 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,app://./
 
 ## 🚀 Deployment
 
+### Production Deployment (Linux + Nginx + PHP-FPM)
+
+**Önerilen yapı**: Artisan serve yerine **Nginx + PHP-FPM** kullanın. Bu sayede:
+- ✅ Çoklu eşzamanlı istek desteği
+- ✅ Büyük dosya yüklemesi sırasında sistem kullanılabilir
+- ✅ 80+ kullanıcı için ölçeklenebilir performans
+
+#### 1. Sunucu Gereksinimleri
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install nginx php8.3-fpm php8.3-sqlite3 php8.3-mbstring php8.3-xml php8.3-curl
+```
+
+#### 2. PHP-FPM Yapılandırması
+```bash
+# Upload limitlerini ayarlayın
+sudo nano /etc/php/8.3/fpm/php.ini
+```
+
+Şu ayarları yapın:
+```ini
+upload_max_filesize = 1024M
+post_max_size = 1024M
+memory_limit = 512M
+max_execution_time = 600
+max_input_time = 600
+```
+
+Kaydet ve restart:
+```bash
+sudo systemctl restart php8.3-fpm
+```
+
+#### 3. Nginx Yapılandırması
+```bash
+sudo nano /etc/nginx/sites-available/task-tracker
+```
+
+Aşağıdaki içeriği yapıştırın:
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;  # veya IP adresi
+
+    root /path/to/task-tracker-desktop/task-tracker-api/public;
+    index index.php;
+
+    client_max_body_size 1024M;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_read_timeout 600s;
+        fastcgi_send_timeout 600s;
+    }
+
+    location ~* \.(jpg|jpeg|png|gif|svg|css|js|ico|woff2?)$ {
+        expires 7d;
+        access_log off;
+    }
+}
+```
+
+Site'ı aktif edin:
+```bash
+sudo ln -s /etc/nginx/sites-available/task-tracker /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### 4. Laravel İzinleri
+```bash
+# Storage ve database izinleri
+sudo chown -R www-data:www-data task-tracker-api/storage
+sudo chown -R www-data:www-data task-tracker-api/bootstrap/cache
+sudo chown -R www-data:www-data task-tracker-api/database
+sudo chmod -R 775 task-tracker-api/storage
+sudo chmod -R 775 task-tracker-api/bootstrap/cache
+sudo chmod 664 task-tracker-api/database/database.sqlite
+```
+
+#### 5. Frontend (Vite) için Systemd Servisi
+```bash
+sudo nano /etc/systemd/system/task-tracker-frontend.service
+```
+
+İçerik:
+```ini
+[Unit]
+Description=Task Tracker Frontend Server
+After=network.target
+
+[Service]
+Type=simple
+User=your-user
+WorkingDirectory=/path/to/task-tracker-desktop
+ExecStart=/usr/bin/npm run dev:web
+Restart=always
+Environment="NODE_ENV=production"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Aktif edin:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable task-tracker-frontend
+sudo systemctl start task-tracker-frontend
+```
+
+#### 6. Artisan Serve Servisini Kaldırma (Eski Yapı)
+Eğer eski `task-tracker-api.service` varsa devre dışı bırakın:
+```bash
+sudo systemctl stop task-tracker-api
+sudo systemctl disable task-tracker-api
+```
+
+#### 7. Frontend API URL Ayarı
+`src/api.js` dosyasında API URL artık port olmadan:
+```javascript
+// Önceki: http://host:8000/api
+// Yeni: http://host/api (Nginx üzerinden)
+const host = window.location.hostname;
+return `http://${host}/api`;
+```
+
+#### 8. Test
+```bash
+# Backend test
+curl -I http://localhost/api/user
+
+# Frontend test
+curl -I http://localhost:5173
+```
+
 ### Windows için Executable Oluşturma
 ```bash
 npm run build
