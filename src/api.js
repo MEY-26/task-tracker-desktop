@@ -29,7 +29,7 @@ const getApiBaseURL = () => {
 
 export const api = axios.create({
   baseURL: getApiBaseURL(),
-  timeout: 5000,
+  timeout: 30000, // 30 seconds - increased for slow network/large responses
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
