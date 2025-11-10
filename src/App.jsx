@@ -6473,8 +6473,8 @@ function App() {
                               {(() => {
                                 const allTypes = getAllTaskTypes();
                                 const foundType = allTypes.find(type => 
-                                  type.value === selectedTaskTypeForStatuses || 
-                                  type.id === selectedTaskTypeForStatuses
+                                  type.value == selectedTaskTypeForStatuses || 
+                                  type.id == selectedTaskTypeForStatuses
                                 );
                                 return foundType ? foundType.label : 'Geliştirme';
                               })()} Durumları
