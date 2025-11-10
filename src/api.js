@@ -16,15 +16,15 @@ const getApiBaseURL = () => {
 
   // 1) Electron/file protocol (no hostname)
   if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
-    return 'http://localhost:8000/api';
+    return 'http://localhost/api';
   }
 
-  // 2) Default: use the SAME host as the frontend, port 8000
+  // 2) Default: use the SAME host as the frontend (Nginx on port 80 → PHP-FPM)
   //    Works for IPs, *.local, intranet DNS, etc.
   const host = (typeof window !== 'undefined' && window.location?.hostname)
     ? window.location.hostname
     : 'localhost';
-  return `http://${host}:8000/api`;
+  return `http://${host}/api`;
 };
 
 export const api = axios.create({
