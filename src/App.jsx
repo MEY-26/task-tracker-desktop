@@ -4391,7 +4391,7 @@ function App() {
                     <div className="flex items-center gap-3 w-[98%]" style={{ marginTop: '10px', marginLeft: '16px', marginRight: '16px', marginBottom: '12px' }}>
                       <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                       <span className="w-[10px]"></span>
-                      {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_lead') && (
+                      {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_leader') && (
                         <button
                           className={`flex-1 rounded px-4 py-2 transition-colors ${weeklySaveState === 'saving'
                             ? 'bg-blue-500 cursor-wait'
