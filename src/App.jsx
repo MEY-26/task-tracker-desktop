@@ -3033,15 +3033,38 @@ function App() {
     };
 
     return (
-      <>
+      <div
+        onWheel={(e) => {
+          // Scroll event'inin form submit'i tetiklemesini engelle
+          e.stopPropagation();
+        }}
+        onScroll={(e) => {
+          // Scroll event'inin form submit'i tetiklemesini engelle
+          e.stopPropagation();
+        }}
+      >
         {/* Admin için form - direkt görünür */}
         {isAdmin && (
-          <div className="announcement-form-container mb-4 bg-white/5 rounded-lg border border-white/10">
+          <div 
+            className="announcement-form-container mb-4 bg-white/5 rounded-lg"
+            onWheel={(e) => {
+              // Scroll event'inin form submit'i tetiklemesini engelle
+              e.stopPropagation();
+            }}
+            onScroll={(e) => {
+              // Scroll event'inin form submit'i tetiklemesini engelle
+              e.stopPropagation();
+            }}
+          >
             <h3 className="announcement-form-title text-white">
               {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
             </h3>
             <div 
               className="space-y-4"
+              onWheel={(e) => {
+                // Scroll event'inin form submit'i tetiklemesini engelle
+                e.stopPropagation();
+              }}
             >
               <div>
                 <label className="announcement-form-label">Başlık</label>
@@ -3169,7 +3192,7 @@ function App() {
             ))}
           </div>
         )}
-      </>
+      </div>
     );
   }
 
