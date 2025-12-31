@@ -3081,9 +3081,29 @@ function App() {
                       } else {
                         // Normal Enter tuşu textarea içinde yeni satır ekler
                         // Event'in yayılmasını engelle - form submit olmasın
+                        e.preventDefault();
                         e.stopPropagation();
+                        // Yeni satır eklemek için manuel olarak value'yu güncelle
+                        const textarea = e.target;
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        const value = textarea.value;
+                        const newValue = value.substring(0, start) + '\n' + value.substring(end);
+                        setFormData(prev => ({ ...prev, message: newValue }));
+                        // Cursor pozisyonunu ayarla
+                        setTimeout(() => {
+                          textarea.selectionStart = textarea.selectionEnd = start + 1;
+                        }, 0);
                       }
                     }
+                  }}
+                  onBlur={(e) => {
+                    // Blur event'inin form submit'i tetiklemesini engelle
+                    e.stopPropagation();
+                  }}
+                  onFocus={(e) => {
+                    // Focus event'inin form submit'i tetiklemesini engelle
+                    e.stopPropagation();
                   }}
                   onScroll={(e) => {
                     // Scroll event'inin form submit'i tetiklemesini engelle
