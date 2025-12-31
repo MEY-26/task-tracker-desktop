@@ -3017,7 +3017,17 @@ function App() {
             <h3 className="text-sm font-semibold text-white mb-3">
               {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
             </h3>
-            <div className="space-y-3">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (editingId) {
+                  handleUpdate();
+                } else {
+                  handleCreate();
+                }
+              }}
+              className="space-y-3"
+            >
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">Başlık</label>
                 <input
@@ -3033,6 +3043,7 @@ function App() {
                 <textarea
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  onPaste={(e) => e.stopPropagation()}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
                   rows="3"
                   placeholder="Duyuru mesajı"
@@ -3053,7 +3064,7 @@ function App() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={editingId ? handleUpdate : handleCreate}
+                  type="submit"
                   disabled={loading}
                   className="flex-1 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm"
                 >
@@ -3061,6 +3072,7 @@ function App() {
                 </button>
                 {editingId && (
                   <button
+                    type="button"
                     onClick={cancelEdit}
                     className="px-3 py-2 rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors text-sm"
                   >
@@ -3068,7 +3080,7 @@ function App() {
                   </button>
                 )}
               </div>
-            </div>
+            </form>
           </div>
         )}
 
@@ -3356,7 +3368,13 @@ function App() {
 
     // Normal kullanıcılar için form
     return (
-      <div className="space-y-4">
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+        className="space-y-4"
+      >
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Tür</label>
           <select
@@ -3387,6 +3405,7 @@ function App() {
           <textarea
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+            onPaste={(e) => e.stopPropagation()}
             className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
             rows="6"
             placeholder="Detaylı açıklama yazın..."
@@ -3394,13 +3413,13 @@ function App() {
         </div>
 
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={loading}
           className="w-full px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm"
         >
           {loading ? 'Gönderiliyor...' : 'Gönder'}
         </button>
-      </div>
+      </form>
     );
   }
 
