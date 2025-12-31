@@ -697,6 +697,128 @@ chmod +x scripts/linux-update.sh
 ./scripts/linux-update.sh /path/to/task-tracker-desktop
 ```
 
+#### Linux Güncelleme Senaryosu (SCP ile Dosya Transferi)
+
+Eğer Linux sunucuda Git erişiminiz yoksa, Windows'tan SCP ile dosya transferi yapabilirsiniz:
+
+**1. Windows'ta (PowerShell veya CMD):**
+
+```powershell
+# Tek dosya transferi
+scp C:\wamp64\www\task-tracker-desktop\src\App.jsx gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/src/App.jsx
+
+# Tüm değişen dosyaları transfer etmek için (örnek):
+scp C:\wamp64\www\task-tracker-desktop\src\*.jsx gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/src/
+scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\routes\api.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/routes/
+scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\app\Http\Controllers\*.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/app/Http/Controllers/
+```
+
+**2. Linux Sunucuda Güncelleme Adımları:**
+
+```bash
+# 1. Servisleri durdur (güncelleme sırasında kesintisiz çalışma için)
+sudo systemctl stop task-tracker-api
+sudo systemctl stop task-tracker-frontend
+
+# 2. Bağımlılıkları güncelle (yeni paketler varsa)
+cd ~/task-tracker-desktop
+npm install
+
+# 3. Backend bağımlılıklarını güncelle
+cd task-tracker-api
+composer install --no-interaction
+
+# 4. Veritabanı migration'larını çalıştır (yeni tablolar/kolonlar varsa)
+php artisan migrate --force
+
+# 5. Laravel cache'lerini temizle
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+
+# 6. Servisleri yeniden başlat
+sudo systemctl restart task-tracker-api
+sudo systemctl restart task-tracker-frontend
+
+# 7. Servis durumlarını kontrol et
+sudo systemctl status task-tracker-api
+sudo systemctl status task-tracker-frontend
+```
+
+**3. Hızlı Güncelleme Senaryosu (Sadece Frontend Değişiklikleri):**
+
+Eğer sadece frontend dosyalarında değişiklik varsa:
+
+```bash
+# Windows'ta
+scp C:\wamp64\www\task-tracker-desktop\src\App.jsx gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/src/App.jsx
+
+# Linux'ta
+sudo systemctl restart task-tracker-frontend
+sudo systemctl status task-tracker-frontend
+```
+
+**4. Hızlı Güncelleme Senaryosu (Sadece Backend Değişiklikleri):**
+
+Eğer sadece backend dosyalarında değişiklik varsa:
+
+```bash
+# Windows'ta
+scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\routes\api.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/routes/api.php
+scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\app\Http\Controllers\*.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/app/Http/Controllers/
+
+# Linux'ta
+cd ~/task-tracker-desktop/task-tracker-api
+php artisan route:clear
+php artisan config:clear
+sudo systemctl restart task-tracker-api
+sudo systemctl status task-tracker-api
+```
+
+**5. Tam Güncelleme Senaryosu (Frontend + Backend + Migration):**
+
+Yeni özellikler veya veritabanı değişiklikleri varsa:
+
+```bash
+# Windows'ta - Tüm değişen dosyaları transfer et
+# (Hangi dosyaların değiştiğini git status ile kontrol edin)
+
+# Linux'ta
+cd ~/task-tracker-desktop
+
+# Servisleri durdur
+sudo systemctl stop task-tracker-api
+sudo systemctl stop task-tracker-frontend
+
+# Bağımlılıkları güncelle
+npm install
+cd task-tracker-api
+composer install --no-interaction
+
+# Migration'ları çalıştır
+php artisan migrate --force
+
+# Cache'leri temizle
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+
+# Servisleri yeniden başlat
+cd ..
+sudo systemctl restart task-tracker-api
+sudo systemctl restart task-tracker-frontend
+
+# Durumu kontrol et
+sudo systemctl status task-tracker-api
+sudo systemctl status task-tracker-frontend
+
+# Logları kontrol et (hata varsa)
+sudo journalctl -u task-tracker-api -n 50 --no-pager
+sudo journalctl -u task-tracker-frontend -n 50 --no-pager
+```
+
+**Not:** SCP komutlarında `gorevtakip.yildiz.local` yerine kendi sunucu adresinizi veya IP adresinizi kullanın (örn: `10.11.23.57` veya `gtakip@10.11.23.57`).
+
 ## 🛠️ Otomatik Güncelleme
 
 ### Windows
