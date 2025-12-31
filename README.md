@@ -705,12 +705,12 @@ Eğer Linux sunucuda Git erişiminiz yoksa, Windows'tan SCP ile dosya transferi 
 
 ```powershell
 # Tek dosya transferi
-scp C:\wamp64\www\task-tracker-desktop\src\App.jsx gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/src/App.jsx
+scp C:\path\to\task-tracker-desktop\src\App.jsx user@hostname:/path/to/task-tracker-desktop/src/App.jsx
 
 # Tüm değişen dosyaları transfer etmek için (örnek):
-scp C:\wamp64\www\task-tracker-desktop\src\*.jsx gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/src/
-scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\routes\api.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/routes/
-scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\app\Http\Controllers\*.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/app/Http/Controllers/
+scp C:\path\to\task-tracker-desktop\src\*.jsx user@hostname:/path/to/task-tracker-desktop/src/
+scp C:\path\to\task-tracker-desktop\task-tracker-api\routes\api.php user@hostname:/path/to/task-tracker-desktop/task-tracker-api/routes/
+scp C:\path\to\task-tracker-desktop\task-tracker-api\app\Http\Controllers\*.php user@hostname:/path/to/task-tracker-desktop/task-tracker-api/app/Http/Controllers/
 ```
 
 **2. Linux Sunucuda Güncelleme Adımları:**
@@ -751,7 +751,7 @@ Eğer sadece frontend dosyalarında değişiklik varsa:
 
 ```bash
 # Windows'ta
-scp C:\wamp64\www\task-tracker-desktop\src\App.jsx gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/src/App.jsx
+scp C:\path\to\task-tracker-desktop\src\App.jsx user@hostname:/path/to/task-tracker-desktop/src/App.jsx
 
 # Linux'ta
 sudo systemctl restart task-tracker-frontend
@@ -764,8 +764,8 @@ Eğer sadece backend dosyalarında değişiklik varsa:
 
 ```bash
 # Windows'ta
-scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\routes\api.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/routes/api.php
-scp C:\wamp64\www\task-tracker-desktop\task-tracker-api\app\Http\Controllers\*.php gtakip@gorevtakip.yildiz.local:/home/gtakip/task-tracker-desktop/task-tracker-api/app/Http/Controllers/
+scp C:\path\to\task-tracker-desktop\task-tracker-api\routes\api.php user@hostname:/path/to/task-tracker-desktop/task-tracker-api/routes/api.php
+scp C:\path\to\task-tracker-desktop\task-tracker-api\app\Http\Controllers\*.php user@hostname:/path/to/task-tracker-desktop/task-tracker-api/app/Http/Controllers/
 
 # Linux'ta
 cd ~/task-tracker-desktop/task-tracker-api
@@ -817,7 +817,7 @@ sudo journalctl -u task-tracker-api -n 50 --no-pager
 sudo journalctl -u task-tracker-frontend -n 50 --no-pager
 ```
 
-**Not:** SCP komutlarında `gorevtakip.yildiz.local` yerine kendi sunucu adresinizi veya IP adresinizi kullanın (örn: `10.11.23.57` veya `gtakip@10.11.23.57`).
+**Not:** SCP komutlarında `user@hostname` yerine kendi kullanıcı adınızı ve sunucu adresinizi kullanın. IP adresi de kullanabilirsiniz (örn: `user@192.168.1.100`).
 
 ## 🛠️ Otomatik Güncelleme
 
@@ -836,12 +836,12 @@ Her adım `Invoke-ExternalCommand` fonksiyonu ile izlenir. Hata durumunda betik 
 
 ### Manuel Çalıştırma
 ```
-powershell -ExecutionPolicy Bypass -File "C:\wamp64\www\task-tracker-desktop\scripts\windows-auto-update.ps1"
+powershell -ExecutionPolicy Bypass -File "C:\path\to\task-tracker-desktop\scripts\windows-auto-update.ps1"
 ```
-- Varsayılan dizin farklıysa `-RepoPath "D:\projeler\task-tracker-desktop"` parametresi ile değiştirilebilir.
+- Varsayılan dizin farklıysa `-RepoPath "D:\path\to\task-tracker-desktop"` parametresi ile değiştirilebilir.
 - `-Force` eklenirse yerel değişiklikler olsa bile pull yapılır (kendi değişikliklerinizi kaybedebilirsiniz).
 
-> Betik çalışırken `npm`, `composer` ve `php` komutlarının PATH’te bulunması gerekir. WAMP veya ilgili araçların kurulu olduğundan emin olun.
+> Betik çalışırken `npm`, `composer` ve `php` komutlarının PATH'te bulunması gerekir. WAMP veya ilgili araçların kurulu olduğundan emin olun.
 
 ### Windows Task Scheduler ile Haftalık Görev
 1. `Win + R` → `taskschd.msc`
@@ -852,7 +852,7 @@ powershell -ExecutionPolicy Bypass -File "C:\wamp64\www\task-tracker-desktop\scr
    - Program/script: `powershell.exe`
    - Arguments:
      ```
-     -ExecutionPolicy Bypass -File "C:\wamp64\www\task-tracker-desktop\scripts\windows-auto-update.ps1"
+     -ExecutionPolicy Bypass -File "C:\path\to\task-tracker-desktop\scripts\windows-auto-update.ps1"
      ```
 6. Sihirbazı bitir. Gerekiyorsa görevin özelliklerinde “Run whether user is logged on or not” ve “Run with highest privileges” seçeneklerini işaretleyin.
 7. Görevi sağ tıklayıp **Run** diyerek test edin. Sonuçlar `logs/auto-update.log` içinde görülür.
@@ -897,8 +897,8 @@ sudo nano /etc/systemd/system/task-tracker-frontend.service
 ```
 
 **Önemli:** Aşağıdaki değerleri kendi sisteminize göre güncelleyin:
-- `User=gtakip` → Kendi kullanıcı adınız
-- `WorkingDirectory=/home/gtakip/task-tracker-desktop` → Proje dizininiz
+- `User=your-username` → Kendi kullanıcı adınız
+- `WorkingDirectory=/path/to/task-tracker-desktop` → Proje dizininiz
 - `ExecStart=/usr/bin/npm` → npm path'iniz (hangi npm kullanıyorsanız)
 
 **3. Systemd'yi yeniden yükleyin:**
