@@ -3040,13 +3040,14 @@ function App() {
             <h3 className="text-sm font-semibold text-white mb-3">
               {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
             </h3>
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                // Form submit'i sadece button onClick ile handle ediliyor
-                // Bu onSubmit sadece form'un varsayılan davranışını engellemek için
-              }}
+            <div 
               className="space-y-3"
+              onKeyDown={(e) => {
+                // Form içindeki Enter tuşlarını engelle (sadece button onClick ile submit)
+                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+                  e.preventDefault();
+                }
+              }}
             >
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">Başlık</label>
@@ -3083,6 +3084,14 @@ function App() {
                   }}
                   onScroll={(e) => {
                     // Scroll event'inin form submit'i tetiklemesini engelle
+                    e.stopPropagation();
+                  }}
+                  onWheel={(e) => {
+                    // Wheel event'inin form submit'i tetiklemesini engelle
+                    e.stopPropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    // Scrollbar'a tıklandığında form submit olmasını engelle
                     e.stopPropagation();
                   }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
@@ -3129,7 +3138,7 @@ function App() {
                   </button>
                 )}
               </div>
-            </form>
+            </div>
           </div>
         )}
 
