@@ -2908,14 +2908,12 @@ function App() {
 
     const loadAnnouncements = useCallback(async () => {
       try {
-        setLoading(true);
+        // setLoading(true) kaldırıldı - sadece buton için loading kullanılıyor
         const data = await AnnouncementsAPI.list();
         setAnnouncements(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load announcements:', err);
         addNotification?.('Duyurular yüklenemedi.', 'error');
-      } finally {
-        setLoading(false);
       }
     }, [addNotification]);
 
@@ -3010,8 +3008,6 @@ function App() {
     }, []);
 
     const handleMessageChange = useCallback((e) => {
-      // Event'in yayılmasını engelle - form submit olmasın
-      e.stopPropagation();
       setFormData(prev => ({ ...prev, message: e.target.value }));
     }, []);
 
@@ -3070,64 +3066,6 @@ function App() {
                   value={formData.message}
                   onChange={handleMessageChange}
                   onPaste={handleMessagePaste}
-                  onKeyDown={(e) => {
-                    // Enter tuşu ile form submit olmasını engelle
-                    if (e.key === 'Enter') {
-                      if (e.ctrlKey || e.metaKey) {
-                        // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (editingId) {
-                          handleUpdate();
-                        } else {
-                          handleCreate();
-                        }
-                      } else {
-                        // Normal Enter tuşu textarea içinde yeni satır ekler
-                        // Event'in yayılmasını engelle - form submit olmasın
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Yeni satır eklemek için manuel olarak value'yu güncelle
-                        const textarea = e.target;
-                        const start = textarea.selectionStart;
-                        const end = textarea.selectionEnd;
-                        const value = textarea.value;
-                        const newValue = value.substring(0, start) + '\n' + value.substring(end);
-                        setFormData(prev => ({ ...prev, message: newValue }));
-                        // Cursor pozisyonunu ayarla
-                        setTimeout(() => {
-                          textarea.selectionStart = textarea.selectionEnd = start + 1;
-                        }, 0);
-                      }
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Blur event'inin form submit'i tetiklemesini engelle
-                    e.stopPropagation();
-                  }}
-                  onFocus={(e) => {
-                    // Focus event'inin form submit'i tetiklemesini engelle
-                    e.stopPropagation();
-                  }}
-                  onScroll={(e) => {
-                    // Scroll event'inin form submit'i tetiklemesini engelle
-                    e.stopPropagation();
-                  }}
-                  onWheel={(e) => {
-                    // Wheel event'inin form submit'i tetiklemesini engelle
-                    e.stopPropagation();
-                  }}
-                  onMouseDown={(e) => {
-                    // Scrollbar'a tıklandığında form submit olmasını engelle
-                    // Sadece scrollbar'a tıklandığında engelle, textarea içine tıklamada engelleme
-                    if (e.target === e.currentTarget || e.offsetX > e.currentTarget.clientWidth - 20) {
-                      e.stopPropagation();
-                    }
-                  }}
-                  onMouseUp={(e) => {
-                    // Mouse up event'inin form submit'i tetiklemesini engelle
-                    e.stopPropagation();
-                  }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
                   rows="6"
                   placeholder="Duyuru mesajı"
