@@ -3043,6 +3043,8 @@ function App() {
             <form 
               onSubmit={(e) => {
                 e.preventDefault();
+                // Form submit'i button onClick ile handle ediliyor
+                // Bu onSubmit sadece güvenlik için (örneğin başka input'larda Enter'a basıldığında)
                 if (editingId) {
                   handleUpdate();
                 } else {
@@ -3069,14 +3071,19 @@ function App() {
                   onPaste={handleMessagePaste}
                   onKeyDown={(e) => {
                     // Enter tuşu ile form submit olmasını engelle
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                      // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
-                      e.preventDefault();
-                      if (editingId) {
-                        handleUpdate();
-                      } else {
-                        handleCreate();
+                    if (e.key === 'Enter') {
+                      if (e.ctrlKey || e.metaKey) {
+                        // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
+                        e.preventDefault();
+                        if (editingId) {
+                          handleUpdate();
+                        } else {
+                          handleCreate();
+                        }
                       }
+                      // Normal Enter tuşu textarea içinde yeni satır ekler
+                      // Form submit olmasını engellemek için hiçbir şey yapmıyoruz
+                      // Enter tuşu textarea içinde varsayılan davranışını yapar (yeni satır)
                     }
                   }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
@@ -3099,7 +3106,15 @@ function App() {
               </div>
               <div className="flex gap-2">
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (editingId) {
+                      handleUpdate();
+                    } else {
+                      handleCreate();
+                    }
+                  }}
                   disabled={loading}
                   className="flex-1 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm"
                 >
