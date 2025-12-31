@@ -73,6 +73,17 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 500);
         });
 
+        // Handle AuthenticationException for API routes
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Authentication required',
+                ], 401);
+            }
+        });
+
         // Handle specific exception types
         $exceptions->reportable(function (Throwable $e) {
             // Log all exceptions for monitoring
