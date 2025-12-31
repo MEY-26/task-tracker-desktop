@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses, Announcements as AnnouncementsAPI, UserFeedback as UserFeedbackAPI } from './api';
 import { api } from './api';
 import './App.css'
@@ -2920,20 +2920,16 @@ function App() {
     // loadAnnouncements fonksiyonunu sadece bir kez oluştur
     if (!loadAnnouncementsRef.current) {
       loadAnnouncementsRef.current = async (force = false) => {
-        // Eğer zaten yükleniyorsa, tekrar çağırma
-        if (isLoadingRef.current) {
-          console.log('[Announcements] loadAnnouncements: Already loading, skipping');
+        // Eğer zaten yükleniyorsa ve force değilse, tekrar çağırma
+        if (isLoadingRef.current && !force) {
           return;
         }
         
         // Son yüklemeden 5 saniye geçmediyse ve force değilse, yükleme
         const now = Date.now();
         if (!force && now - lastLoadTimeRef.current < 5000) {
-          console.log('[Announcements] loadAnnouncements: Too soon, skipping. Last load:', now - lastLoadTimeRef.current, 'ms ago');
           return;
         }
-        
-        console.log('[Announcements] loadAnnouncements: Loading...', { force, timeSinceLastLoad: now - lastLoadTimeRef.current });
         
         try {
           isLoadingRef.current = true;
@@ -2945,14 +2941,12 @@ function App() {
           setAnnouncements(prev => {
             // JSON karşılaştırması yap - eğer aynıysa state'i güncelleme
             if (JSON.stringify(prev) === JSON.stringify(newData)) {
-              console.log('[Announcements] loadAnnouncements: Data unchanged, skipping state update');
               return prev; // Aynı veri, state'i güncelleme
             }
-            console.log('[Announcements] loadAnnouncements: Data changed, updating state');
             return newData;
           });
         } catch (err) {
-          console.error('[Announcements] Failed to load announcements:', err);
+          console.error('Failed to load announcements:', err);
           addNotificationRef.current?.('Duyurular yüklenemedi.', 'error');
         } finally {
           isLoadingRef.current = false;
@@ -3226,24 +3220,70 @@ function App() {
 
     const isAdmin = user?.role === 'admin';
 
-    const loadFeedback = useCallback(async () => {
-      try {
-        setLoading(true);
-        const data = await UserFeedbackAPI.list({ type: filterType === 'all' ? null : filterType });
-        setFeedbackList(Array.isArray(data.feedback) ? data.feedback : (Array.isArray(data) ? data : []));
-      } catch (err) {
-        console.error('Failed to load feedback:', err);
-        addNotification?.('Geri bildirimler yüklenemedi.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }, [filterType, addNotification]);
+    // addNotification'ı ref ile sakla - her render'da değişiyor olabilir
+    const addNotificationRef = useRef(addNotification);
+    useEffect(() => {
+      addNotificationRef.current = addNotification;
+    }, [addNotification]);
 
+    // filterType'ı ref ile sakla
+    const filterTypeRef = useRef(filterType);
+    useEffect(() => {
+      filterTypeRef.current = filterType;
+    }, [filterType]);
+
+    // loadFeedback'i ref ile sakla - sadece bir kez tanımla
+    const isLoadingRef = useRef(false);
+    const loadFeedbackRef = useRef(null);
+    
+    // loadFeedback fonksiyonunu sadece bir kez oluştur
+    if (!loadFeedbackRef.current) {
+      loadFeedbackRef.current = async () => {
+        // Eğer zaten yükleniyorsa, tekrar çağırma
+        if (isLoadingRef.current) {
+          return;
+        }
+        
+        try {
+          isLoadingRef.current = true;
+          setLoading(true);
+          const currentFilterType = filterTypeRef.current;
+          const data = await UserFeedbackAPI.list({ type: currentFilterType === 'all' ? null : currentFilterType });
+          const newData = Array.isArray(data.feedback) ? data.feedback : (Array.isArray(data) ? data : []);
+          
+          // Sadece veri gerçekten değiştiyse state'i güncelle
+          setFeedbackList(prev => {
+            // JSON karşılaştırması yap - eğer aynıysa state'i güncelleme
+            if (JSON.stringify(prev) === JSON.stringify(newData)) {
+              return prev; // Aynı veri, state'i güncelleme
+            }
+            return newData;
+          });
+        } catch (err) {
+          console.error('Failed to load feedback:', err);
+          addNotificationRef.current?.('Geri bildirimler yüklenemedi.', 'error');
+        } finally {
+          isLoadingRef.current = false;
+          setLoading(false);
+        }
+      };
+    }
+
+    // Sadece component mount olduğunda çalış (admin ise)
     useEffect(() => {
       if (isAdmin) {
-        loadFeedback();
+        loadFeedbackRef.current?.();
       }
-    }, [isAdmin, loadFeedback]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Boş dependency array - sadece mount'ta çalış
+
+    // filterType değiştiğinde loadFeedback'i çağır
+    useEffect(() => {
+      if (isAdmin) {
+        loadFeedbackRef.current?.();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterType]); // Sadece filterType değiştiğinde
 
     // Optimize edilmiş onChange handler'ları - performans iyileştirmesi
     const handleTypeChange = useCallback((e) => {
@@ -3270,7 +3310,7 @@ function App() {
 
     async function handleSubmit() {
       if (!formData.subject.trim() || !formData.message.trim()) {
-        addNotification?.('Konu ve mesaj alanları zorunludur.', 'error');
+        addNotificationRef.current?.('Konu ve mesaj alanları zorunludur.', 'error');
         return;
       }
 
@@ -3280,10 +3320,10 @@ function App() {
           ...formData,
           user_id: user?.id
         });
-        addNotification?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
+        addNotificationRef.current?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
         setFormData({ type: 'request', subject: '', message: '' });
       } catch {
-        addNotification?.('Geri bildirim gönderilemedi.', 'error');
+        addNotificationRef.current?.('Geri bildirim gönderilemedi.', 'error');
       } finally {
         setLoading(false);
       }
@@ -3297,10 +3337,10 @@ function App() {
       try {
         setLoading(true);
         await UserFeedbackAPI.delete(id);
-        addNotification?.('Geri bildirim başarıyla silindi.', 'success');
-        await loadFeedback();
+        addNotificationRef.current?.('Geri bildirim başarıyla silindi.', 'success');
+        await loadFeedbackRef.current?.();
       } catch {
-        addNotification?.('Geri bildirim silinemedi.', 'error');
+        addNotificationRef.current?.('Geri bildirim silinemedi.', 'error');
       } finally {
         setLoading(false);
       }
@@ -3310,10 +3350,10 @@ function App() {
       try {
         setLoading(true);
         await UserFeedbackAPI.update(id, { status });
-        addNotification?.('Durum güncellendi.', 'success');
-        await loadFeedback();
+        addNotificationRef.current?.('Durum güncellendi.', 'success');
+        await loadFeedbackRef.current?.();
       } catch {
-        addNotification?.('Durum güncellenemedi.', 'error');
+        addNotificationRef.current?.('Durum güncellenemedi.', 'error');
       } finally {
         setLoading(false);
       }
@@ -3349,7 +3389,7 @@ function App() {
             <button
               onClick={() => {
                 setFilterType('all');
-                loadFeedback();
+                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
               }}
               className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
             >
@@ -3358,7 +3398,7 @@ function App() {
             <button
               onClick={() => {
                 setFilterType('request');
-                loadFeedback();
+                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
               }}
               className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'request' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
             >
@@ -3367,7 +3407,7 @@ function App() {
             <button
               onClick={() => {
                 setFilterType('bug');
-                loadFeedback();
+                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
               }}
               className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'bug' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
             >
@@ -3376,7 +3416,7 @@ function App() {
             <button
               onClick={() => {
                 setFilterType('suggestion');
-                loadFeedback();
+                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
               }}
               className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'suggestion' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
             >
@@ -3465,70 +3505,72 @@ function App() {
 
     // Normal kullanıcılar için form
     return (
-      <form 
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
-        }}
-        className="space-y-4"
-      >
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Tür</label>
-          <select
-            value={formData.type}
-            onChange={handleTypeChange}
-            className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
-          >
-            <option value="request">İstek</option>
-            <option value="bug">Hata Bildirimi</option>
-            <option value="suggestion">Öneri</option>
-            <option value="other">Diğer</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Konu</label>
-          <input
-            type="text"
-            value={formData.subject}
-            onChange={handleSubjectChange}
-            className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
-            placeholder="Kısa bir konu başlığı"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Mesaj</label>
-          <textarea
-            value={formData.message}
-            onChange={handleMessageChange}
-            onPaste={handleMessagePaste}
-            onKeyDown={(e) => {
-              // Enter tuşu ile form submit olmasını engelle (Ctrl+Enter ile submit yapılabilir)
-              if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) {
-                // Normal Enter tuşu textarea içinde yeni satır ekler
-                // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
-                return;
-              }
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                handleSubmit();
-              }
-            }}
-            className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
-            rows="6"
-            placeholder="Detaylı açıklama yazın..."
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm"
+      <div className="feedback-form-container bg-white/5 rounded-lg p-6">
+        <form 
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+          className="space-y-4"
         >
-          {loading ? 'Gönderiliyor...' : 'Gönder'}
-        </button>
-      </form>
+          <div>
+            <label className="feedback-form-label">Tür</label>
+            <select
+              value={formData.type}
+              onChange={handleTypeChange}
+              className="feedback-form-select"
+            >
+              <option value="request">İstek</option>
+              <option value="bug">Hata Bildirimi</option>
+              <option value="suggestion">Öneri</option>
+              <option value="other">Diğer</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="feedback-form-label">Konu</label>
+            <input
+              type="text"
+              value={formData.subject}
+              onChange={handleSubjectChange}
+              className="feedback-form-input"
+              placeholder="Kısa bir konu başlığı"
+            />
+          </div>
+
+          <div>
+            <label className="feedback-form-label">Mesaj</label>
+            <textarea
+              value={formData.message}
+              onChange={handleMessageChange}
+              onPaste={handleMessagePaste}
+              onKeyDown={(e) => {
+                // Enter tuşu ile form submit olmasını engelle (Ctrl+Enter ile submit yapılabilir)
+                if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) {
+                  // Normal Enter tuşu textarea içinde yeni satır ekler
+                  // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
+                  return;
+                }
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              className="feedback-form-textarea"
+              rows="6"
+              placeholder="Detaylı açıklama yazın..."
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="feedback-form-button w-full rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Gönderiliyor...' : 'Gönder'}
+          </button>
+        </form>
+      </div>
     );
   }
 
@@ -4187,7 +4229,7 @@ function App() {
                             onClick={() => setNotificationTab('feedback')}
                             className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
                               notificationTab === 'feedback'
-                                ? 'bg-white/10 text-white border-b-2 border-blue-500'
+                                ? 'bg-white/10 text-white'
                                 : 'text-neutral-400 hover:text-white hover:bg-white/5'
                             }`}
                           >
