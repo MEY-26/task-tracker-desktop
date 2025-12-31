@@ -40,7 +40,7 @@ export default function Announcements({ user, addNotification }) {
       addNotification?.('Duyuru başarıyla oluşturuldu.', 'success');
       setFormData({ title: '', message: '', priority: 'normal' });
       await loadAnnouncements();
-    } catch (err) {
+    } catch {
       addNotification?.('Duyuru oluşturulamadı.', 'error');
     } finally {
       setLoading(false);
@@ -60,7 +60,7 @@ export default function Announcements({ user, addNotification }) {
       setFormData({ title: '', message: '', priority: 'normal' });
       setEditingId(null);
       await loadAnnouncements();
-    } catch (err) {
+    } catch {
       addNotification?.('Duyuru güncellenemedi.', 'error');
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ export default function Announcements({ user, addNotification }) {
       await AnnouncementsAPI.delete(id);
       addNotification?.('Duyuru başarıyla silindi.', 'success');
       await loadAnnouncements();
-    } catch (err) {
+    } catch {
       addNotification?.('Duyuru silinemedi.', 'error');
     } finally {
       setLoading(false);

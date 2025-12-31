@@ -45,7 +45,7 @@ export default function UserFeedback({ user, addNotification }) {
       addNotification?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
       setFormData({ type: 'request', subject: '', message: '' });
       setShowFeedbackModal(false);
-    } catch (err) {
+    } catch {
       addNotification?.('Geri bildirim gönderilemedi.', 'error');
     } finally {
       setLoading(false);
@@ -62,7 +62,7 @@ export default function UserFeedback({ user, addNotification }) {
       await UserFeedbackAPI.delete(id);
       addNotification?.('Geri bildirim başarıyla silindi.', 'success');
       await loadFeedback();
-    } catch (err) {
+    } catch {
       addNotification?.('Geri bildirim silinemedi.', 'error');
     } finally {
       setLoading(false);
@@ -75,7 +75,7 @@ export default function UserFeedback({ user, addNotification }) {
       await UserFeedbackAPI.update(id, { status });
       addNotification?.('Durum güncellendi.', 'success');
       await loadFeedback();
-    } catch (err) {
+    } catch {
       addNotification?.('Durum güncellenemedi.', 'error');
     } finally {
       setLoading(false);
