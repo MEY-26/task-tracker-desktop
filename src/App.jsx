@@ -2912,27 +2912,52 @@ function App() {
       addNotificationRef.current = addNotification;
     }, [addNotification]);
 
-    // loadAnnouncements'i ref ile sakla
-    const loadAnnouncementsRef = useRef(null);
-    loadAnnouncementsRef.current = async () => {
+    // loadAnnouncements'i ref ile sakla - sadece bir kez tanımla
+    const isLoadingRef = useRef(false);
+    const lastLoadTimeRef = useRef(0);
+    const loadAnnouncementsRef = useRef(async (force = false) => {
+      // Eğer zaten yükleniyorsa, tekrar çağırma
+      if (isLoadingRef.current) {
+        return;
+      }
+      
+      // Son yüklemeden 1 saniye geçmediyse ve force değilse, yükleme
+      const now = Date.now();
+      if (!force && now - lastLoadTimeRef.current < 1000) {
+        return;
+      }
+      
       try {
+        isLoadingRef.current = true;
+        lastLoadTimeRef.current = now;
         const data = await AnnouncementsAPI.list();
-        setAnnouncements(Array.isArray(data) ? data : []);
+        const newData = Array.isArray(data) ? data : [];
+        
+        // Sadece veri gerçekten değiştiyse state'i güncelle
+        setAnnouncements(prev => {
+          // JSON karşılaştırması yap - eğer aynıysa state'i güncelleme
+          if (JSON.stringify(prev) === JSON.stringify(newData)) {
+            return prev; // Aynı veri, state'i güncelleme
+          }
+          return newData;
+        });
       } catch (err) {
         console.error('Failed to load announcements:', err);
         addNotificationRef.current?.('Duyurular yüklenemedi.', 'error');
+      } finally {
+        isLoadingRef.current = false;
       }
-    };
+    });
 
     // Sadece component mount olduğunda çalış
     useEffect(() => {
-      loadAnnouncementsRef.current?.();
+      loadAnnouncementsRef.current?.(true); // force = true ile mount'ta çalış
     }, []); // Boş dependency array - sadece mount'ta çalış
 
     async function handleMarkAsRead(id) {
       try {
         await AnnouncementsAPI.markAsRead(id);
-        await loadAnnouncementsRef.current?.();
+        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
       } catch (error) {
         console.error('Failed to mark announcement as read:', error);
       }
@@ -2949,7 +2974,7 @@ function App() {
         await AnnouncementsAPI.create(formData);
         addNotificationRef.current?.('Duyuru başarıyla oluşturuldu.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
-        await loadAnnouncementsRef.current?.();
+        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
       } catch {
         addNotificationRef.current?.('Duyuru oluşturulamadı.', 'error');
       } finally {
@@ -2969,7 +2994,7 @@ function App() {
         addNotificationRef.current?.('Duyuru başarıyla güncellendi.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
         setEditingId(null);
-        await loadAnnouncementsRef.current?.();
+        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
       } catch {
         addNotificationRef.current?.('Duyuru güncellenemedi.', 'error');
       } finally {
@@ -2986,7 +3011,7 @@ function App() {
         setLoading(true);
         await AnnouncementsAPI.delete(id);
         addNotificationRef.current?.('Duyuru başarıyla silindi.', 'success');
-        await loadAnnouncementsRef.current?.();
+        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
       } catch {
         addNotificationRef.current?.('Duyuru silinemedi.', 'error');
       } finally {
