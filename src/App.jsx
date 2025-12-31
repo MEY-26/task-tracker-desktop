@@ -2944,7 +2944,7 @@ function App() {
         addNotification?.('Duyuru başarıyla oluşturuldu.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
         await loadAnnouncements();
-      } catch (err) {
+      } catch {
         addNotification?.('Duyuru oluşturulamadı.', 'error');
       } finally {
         setLoading(false);
@@ -2964,7 +2964,7 @@ function App() {
         setFormData({ title: '', message: '', priority: 'normal' });
         setEditingId(null);
         await loadAnnouncements();
-      } catch (err) {
+      } catch {
         addNotification?.('Duyuru güncellenemedi.', 'error');
       } finally {
         setLoading(false);
@@ -2981,7 +2981,7 @@ function App() {
         await AnnouncementsAPI.delete(id);
         addNotification?.('Duyuru başarıyla silindi.', 'success');
         await loadAnnouncements();
-      } catch (err) {
+      } catch {
         addNotification?.('Duyuru silinemedi.', 'error');
       } finally {
         setLoading(false);
@@ -2995,7 +2995,6 @@ function App() {
         priority: announcement.priority || 'normal'
       });
       setEditingId(announcement.id);
-      setShowAdminPanel(true);
     }
 
     function cancelEdit() {
@@ -3174,7 +3173,7 @@ function App() {
         });
         addNotification?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
         setFormData({ type: 'request', subject: '', message: '' });
-      } catch (err) {
+      } catch {
         addNotification?.('Geri bildirim gönderilemedi.', 'error');
       } finally {
         setLoading(false);
@@ -3191,7 +3190,7 @@ function App() {
         await UserFeedbackAPI.delete(id);
         addNotification?.('Geri bildirim başarıyla silindi.', 'success');
         await loadFeedback();
-      } catch (err) {
+      } catch {
         addNotification?.('Geri bildirim silinemedi.', 'error');
       } finally {
         setLoading(false);
@@ -3204,7 +3203,7 @@ function App() {
         await UserFeedbackAPI.update(id, { status });
         addNotification?.('Durum güncellendi.', 'success');
         await loadFeedback();
-      } catch (err) {
+      } catch {
         addNotification?.('Durum güncellenemedi.', 'error');
       } finally {
         setLoading(false);
