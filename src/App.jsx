@@ -3033,7 +3033,10 @@ function App() {
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) => {
+                    // State güncellemesini fonksiyonel olarak yap
+                    setFormData(prev => ({ ...prev, title: e.target.value }));
+                  }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
                   placeholder="Duyuru başlığı"
                 />
@@ -3042,8 +3045,31 @@ function App() {
                 <label className="block text-xs font-medium text-gray-300 mb-1">Mesaj</label>
                 <textarea
                   value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  onPaste={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    // State güncellemesini fonksiyonel olarak yap
+                    setFormData(prev => ({ ...prev, message: e.target.value }));
+                  }}
+                  onPaste={(e) => {
+                    e.stopPropagation();
+                    // Paste işlemi sonrası form resetlenmesini engelle
+                    setTimeout(() => {
+                      const textarea = e.target;
+                      const value = textarea.value;
+                      setFormData(prev => ({ ...prev, message: value }));
+                    }, 0);
+                  }}
+                  onKeyDown={(e) => {
+                    // Enter tuşu ile form submit olmasını engelle
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                      // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
+                      e.preventDefault();
+                      if (editingId) {
+                        handleUpdate();
+                      } else {
+                        handleCreate();
+                      }
+                    }
+                  }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
                   rows="3"
                   placeholder="Duyuru mesajı"
@@ -3053,7 +3079,10 @@ function App() {
                 <label className="block text-xs font-medium text-gray-300 mb-1">Öncelik</label>
                 <select
                   value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                  onChange={(e) => {
+                    // State güncellemesini fonksiyonel olarak yap
+                    setFormData(prev => ({ ...prev, priority: e.target.value }));
+                  }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
                 >
                   <option value="low">Düşük</option>
@@ -3379,7 +3408,10 @@ function App() {
           <label className="block text-sm font-medium text-gray-300 mb-2">Tür</label>
           <select
             value={formData.type}
-            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+            onChange={(e) => {
+              // State güncellemesini fonksiyonel olarak yap
+              setFormData(prev => ({ ...prev, type: e.target.value }));
+            }}
             className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
           >
             <option value="request">İstek</option>
@@ -3394,7 +3426,10 @@ function App() {
           <input
             type="text"
             value={formData.subject}
-            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            onChange={(e) => {
+              // State güncellemesini fonksiyonel olarak yap
+              setFormData(prev => ({ ...prev, subject: e.target.value }));
+            }}
             className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
             placeholder="Kısa bir konu başlığı"
           />
@@ -3404,8 +3439,31 @@ function App() {
           <label className="block text-sm font-medium text-gray-300 mb-2">Mesaj</label>
           <textarea
             value={formData.message}
-            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            onPaste={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              // State güncellemesini fonksiyonel olarak yap
+              setFormData(prev => ({ ...prev, message: e.target.value }));
+            }}
+            onPaste={(e) => {
+              e.stopPropagation();
+              // Paste işlemi sonrası form resetlenmesini engelle
+              setTimeout(() => {
+                const textarea = e.target;
+                const value = textarea.value;
+                setFormData(prev => ({ ...prev, message: value }));
+              }, 0);
+            }}
+            onKeyDown={(e) => {
+              // Enter tuşu ile form submit olmasını engelle (Ctrl+Enter ile submit yapılabilir)
+              if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) {
+                // Normal Enter tuşu textarea içinde yeni satır ekler
+                // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
+                return;
+              }
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
             className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
             rows="6"
             placeholder="Detaylı açıklama yazın..."
