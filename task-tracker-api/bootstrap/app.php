@@ -23,6 +23,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // Handle AuthenticationException for API routes (önce bu kontrol edilmeli)
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated',
+                    'error' => 'Authentication required',
+                ], 401);
+            }
+        });
+
         // Global exception handling to prevent application crashes
         $exceptions->render(function (Throwable $e, $request) {
             // Return validation errors with 422 instead of generic 500
@@ -35,6 +46,18 @@ return Application::configure(basePath: dirname(__DIR__))
                         'code' => 422,
                         'timestamp' => now()->toISOString(),
                     ], 422);
+                }
+            }
+
+            // RouteNotFoundException için özel handling (API route'ları için)
+            if ($e instanceof \Symfony\Component\Routing\Exception\RouteNotFoundException) {
+                if ($request->is('api/*') || $request->expectsJson()) {
+                    // Authentication hatası olabilir, 401 döndür
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthenticated',
+                        'error' => 'Authentication required',
+                    ], 401);
                 }
             }
             // Log the error for debugging
@@ -73,16 +96,6 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 500);
         });
 
-        // Handle AuthenticationException for API routes
-        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
-            if ($request->is('api/*') || $request->expectsJson()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthenticated',
-                    'error' => 'Authentication required',
-                ], 401);
-            }
-        });
 
         // Handle specific exception types
         $exceptions->reportable(function (Throwable $e) {
