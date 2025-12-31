@@ -2915,39 +2915,50 @@ function App() {
     // loadAnnouncements'i ref ile sakla - sadece bir kez tanımla
     const isLoadingRef = useRef(false);
     const lastLoadTimeRef = useRef(0);
-    const loadAnnouncementsRef = useRef(async (force = false) => {
-      // Eğer zaten yükleniyorsa, tekrar çağırma
-      if (isLoadingRef.current) {
-        return;
-      }
-      
-      // Son yüklemeden 1 saniye geçmediyse ve force değilse, yükleme
-      const now = Date.now();
-      if (!force && now - lastLoadTimeRef.current < 1000) {
-        return;
-      }
-      
-      try {
-        isLoadingRef.current = true;
-        lastLoadTimeRef.current = now;
-        const data = await AnnouncementsAPI.list();
-        const newData = Array.isArray(data) ? data : [];
+    const loadAnnouncementsRef = useRef(null);
+    
+    // loadAnnouncements fonksiyonunu sadece bir kez oluştur
+    if (!loadAnnouncementsRef.current) {
+      loadAnnouncementsRef.current = async (force = false) => {
+        // Eğer zaten yükleniyorsa, tekrar çağırma
+        if (isLoadingRef.current) {
+          console.log('[Announcements] loadAnnouncements: Already loading, skipping');
+          return;
+        }
         
-        // Sadece veri gerçekten değiştiyse state'i güncelle
-        setAnnouncements(prev => {
-          // JSON karşılaştırması yap - eğer aynıysa state'i güncelleme
-          if (JSON.stringify(prev) === JSON.stringify(newData)) {
-            return prev; // Aynı veri, state'i güncelleme
-          }
-          return newData;
-        });
-      } catch (err) {
-        console.error('Failed to load announcements:', err);
-        addNotificationRef.current?.('Duyurular yüklenemedi.', 'error');
-      } finally {
-        isLoadingRef.current = false;
-      }
-    });
+        // Son yüklemeden 5 saniye geçmediyse ve force değilse, yükleme
+        const now = Date.now();
+        if (!force && now - lastLoadTimeRef.current < 5000) {
+          console.log('[Announcements] loadAnnouncements: Too soon, skipping. Last load:', now - lastLoadTimeRef.current, 'ms ago');
+          return;
+        }
+        
+        console.log('[Announcements] loadAnnouncements: Loading...', { force, timeSinceLastLoad: now - lastLoadTimeRef.current });
+        
+        try {
+          isLoadingRef.current = true;
+          lastLoadTimeRef.current = now;
+          const data = await AnnouncementsAPI.list();
+          const newData = Array.isArray(data) ? data : [];
+          
+          // Sadece veri gerçekten değiştiyse state'i güncelle
+          setAnnouncements(prev => {
+            // JSON karşılaştırması yap - eğer aynıysa state'i güncelleme
+            if (JSON.stringify(prev) === JSON.stringify(newData)) {
+              console.log('[Announcements] loadAnnouncements: Data unchanged, skipping state update');
+              return prev; // Aynı veri, state'i güncelleme
+            }
+            console.log('[Announcements] loadAnnouncements: Data changed, updating state');
+            return newData;
+          });
+        } catch (err) {
+          console.error('[Announcements] Failed to load announcements:', err);
+          addNotificationRef.current?.('Duyurular yüklenemedi.', 'error');
+        } finally {
+          isLoadingRef.current = false;
+        }
+      };
+    }
 
     // Sadece component mount olduğunda çalış
     useEffect(() => {
@@ -3200,6 +3211,10 @@ function App() {
         )}
       </>
     );
+  }, (prevProps, nextProps) => {
+    // Custom comparison: sadece user.id ve user.role değiştiyse re-render yap
+    return prevProps.user?.id === nextProps.user?.id && 
+           prevProps.user?.role === nextProps.user?.role;
   });
 
   // User Feedback Content Component (for tab view)
