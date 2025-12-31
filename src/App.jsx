@@ -3036,15 +3036,15 @@ function App() {
       <>
         {/* Admin için form - direkt görünür */}
         {isAdmin && (
-          <div className="mb-4 p-4 bg-white/5 rounded-lg border border-white/10">
-            <h3 className="text-sm font-semibold text-white mb-3">
+          <div className="mb-4 p-5 bg-white/5 rounded-lg border border-white/10">
+            <h3 className="text-base font-semibold text-white mb-4">
               {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
             </h3>
             <div 
-              className="space-y-3"
+              className="space-y-4"
             >
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Başlık</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Başlık</label>
                 <input
                   type="text"
                   value={formData.title}
@@ -3056,27 +3056,27 @@ function App() {
                       e.stopPropagation();
                     }
                   }}
-                  className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
+                  className="w-full rounded bg-white/10 border border-white/20 px-4 py-3 text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                   placeholder="Duyuru başlığı"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Mesaj</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Mesaj</label>
                 <textarea
                   value={formData.message}
                   onChange={handleMessageChange}
                   onPaste={handleMessagePaste}
-                  className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
+                  className="w-full rounded bg-white/10 border border-white/20 px-4 py-3 text-white placeholder-gray-400 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                   rows="6"
                   placeholder="Duyuru mesajı"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Öncelik</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Öncelik</label>
                 <select
                   value={formData.priority}
                   onChange={handlePriorityChange}
-                  className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
+                  className="w-full rounded bg-white/10 border border-white/20 px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
                 >
                   <option value="low">Düşük</option>
                   <option value="normal">Normal</option>
@@ -3084,7 +3084,7 @@ function App() {
                   <option value="urgent">Acil</option>
                 </select>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -3096,7 +3096,7 @@ function App() {
                     }
                   }}
                   disabled={loading}
-                  className="flex-1 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm"
+                  className="flex-1 px-4 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm font-medium"
                 >
                   {loading ? 'Kaydediliyor...' : (editingId ? 'Güncelle' : 'Oluştur')}
                 </button>
@@ -3104,7 +3104,7 @@ function App() {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="px-3 py-2 rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors text-sm"
+                    className="px-4 py-3 rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors text-sm font-medium"
                   >
                     İptal
                   </button>
