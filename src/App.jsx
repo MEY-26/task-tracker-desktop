@@ -2919,9 +2919,11 @@ function App() {
       }
     }, [addNotification]);
 
+    // Sadece component mount olduğunda çalış, loadAnnouncements değiştiğinde çalışma
     useEffect(() => {
       loadAnnouncements();
-    }, [loadAnnouncements]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Boş dependency array - sadece mount'ta çalış
 
     async function handleMarkAsRead(id) {
       try {
