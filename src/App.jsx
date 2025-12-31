@@ -3042,12 +3042,6 @@ function App() {
             </h3>
             <div 
               className="space-y-3"
-              onKeyDown={(e) => {
-                // Form içindeki Enter tuşlarını engelle (sadece button onClick ile submit)
-                if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
-                  e.preventDefault();
-                }
-              }}
             >
               <div>
                 <label className="block text-xs font-medium text-gray-300 mb-1">Başlık</label>
@@ -3055,6 +3049,13 @@ function App() {
                   type="text"
                   value={formData.title}
                   onChange={handleTitleChange}
+                  onKeyDown={(e) => {
+                    // Enter tuşu ile form submit olmasını engelle
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }
+                  }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
                   placeholder="Duyuru başlığı"
                 />
@@ -3071,15 +3072,17 @@ function App() {
                       if (e.ctrlKey || e.metaKey) {
                         // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
                         e.preventDefault();
+                        e.stopPropagation();
                         if (editingId) {
                           handleUpdate();
                         } else {
                           handleCreate();
                         }
+                      } else {
+                        // Normal Enter tuşu textarea içinde yeni satır ekler
+                        // Event'in yayılmasını engelle - form submit olmasın
+                        e.stopPropagation();
                       }
-                      // Normal Enter tuşu textarea içinde yeni satır ekler
-                      // Form submit olmasını engellemek için hiçbir şey yapmıyoruz
-                      // Enter tuşu textarea içinde varsayılan davranışını yapar (yeni satır)
                     }
                   }}
                   onScroll={(e) => {
