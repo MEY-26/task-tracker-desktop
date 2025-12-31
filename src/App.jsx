@@ -3043,13 +3043,8 @@ function App() {
             <form 
               onSubmit={(e) => {
                 e.preventDefault();
-                // Form submit'i button onClick ile handle ediliyor
-                // Bu onSubmit sadece güvenlik için (örneğin başka input'larda Enter'a basıldığında)
-                if (editingId) {
-                  handleUpdate();
-                } else {
-                  handleCreate();
-                }
+                // Form submit'i sadece button onClick ile handle ediliyor
+                // Bu onSubmit sadece form'un varsayılan davranışını engellemek için
               }}
               className="space-y-3"
             >
@@ -3086,8 +3081,12 @@ function App() {
                       // Enter tuşu textarea içinde varsayılan davranışını yapar (yeni satır)
                     }
                   }}
+                  onScroll={(e) => {
+                    // Scroll event'inin form submit'i tetiklemesini engelle
+                    e.stopPropagation();
+                  }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
-                  rows="3"
+                  rows="6"
                   placeholder="Duyuru mesajı"
                 />
               </div>
