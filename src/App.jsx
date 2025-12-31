@@ -3002,6 +3002,29 @@ function App() {
       setEditingId(null);
     }
 
+    // Optimize edilmiş onChange handler'ları - performans iyileştirmesi
+    const handleTitleChange = useCallback((e) => {
+      setFormData(prev => ({ ...prev, title: e.target.value }));
+    }, []);
+
+    const handleMessageChange = useCallback((e) => {
+      setFormData(prev => ({ ...prev, message: e.target.value }));
+    }, []);
+
+    const handlePriorityChange = useCallback((e) => {
+      setFormData(prev => ({ ...prev, priority: e.target.value }));
+    }, []);
+
+    const handleMessagePaste = useCallback((e) => {
+      e.stopPropagation();
+      // Paste işlemi sonrası form resetlenmesini engelle
+      setTimeout(() => {
+        const textarea = e.target;
+        const value = textarea.value;
+        setFormData(prev => ({ ...prev, message: value }));
+      }, 0);
+    }, []);
+
     const priorityColors = {
       low: 'bg-blue-500/20 border-blue-500/50',
       normal: 'bg-yellow-500/20 border-yellow-500/50',
@@ -3033,10 +3056,7 @@ function App() {
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => {
-                    // State güncellemesini fonksiyonel olarak yap
-                    setFormData(prev => ({ ...prev, title: e.target.value }));
-                  }}
+                  onChange={handleTitleChange}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
                   placeholder="Duyuru başlığı"
                 />
@@ -3045,19 +3065,8 @@ function App() {
                 <label className="block text-xs font-medium text-gray-300 mb-1">Mesaj</label>
                 <textarea
                   value={formData.message}
-                  onChange={(e) => {
-                    // State güncellemesini fonksiyonel olarak yap
-                    setFormData(prev => ({ ...prev, message: e.target.value }));
-                  }}
-                  onPaste={(e) => {
-                    e.stopPropagation();
-                    // Paste işlemi sonrası form resetlenmesini engelle
-                    setTimeout(() => {
-                      const textarea = e.target;
-                      const value = textarea.value;
-                      setFormData(prev => ({ ...prev, message: value }));
-                    }, 0);
-                  }}
+                  onChange={handleMessageChange}
+                  onPaste={handleMessagePaste}
                   onKeyDown={(e) => {
                     // Enter tuşu ile form submit olmasını engelle
                     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -3079,10 +3088,7 @@ function App() {
                 <label className="block text-xs font-medium text-gray-300 mb-1">Öncelik</label>
                 <select
                   value={formData.priority}
-                  onChange={(e) => {
-                    // State güncellemesini fonksiyonel olarak yap
-                    setFormData(prev => ({ ...prev, priority: e.target.value }));
-                  }}
+                  onChange={handlePriorityChange}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
                 >
                   <option value="low">Düşük</option>
@@ -3199,6 +3205,29 @@ function App() {
         loadFeedback();
       }
     }, [isAdmin, loadFeedback]);
+
+    // Optimize edilmiş onChange handler'ları - performans iyileştirmesi
+    const handleTypeChange = useCallback((e) => {
+      setFormData(prev => ({ ...prev, type: e.target.value }));
+    }, []);
+
+    const handleSubjectChange = useCallback((e) => {
+      setFormData(prev => ({ ...prev, subject: e.target.value }));
+    }, []);
+
+    const handleMessageChange = useCallback((e) => {
+      setFormData(prev => ({ ...prev, message: e.target.value }));
+    }, []);
+
+    const handleMessagePaste = useCallback((e) => {
+      e.stopPropagation();
+      // Paste işlemi sonrası form resetlenmesini engelle
+      setTimeout(() => {
+        const textarea = e.target;
+        const value = textarea.value;
+        setFormData(prev => ({ ...prev, message: value }));
+      }, 0);
+    }, []);
 
     async function handleSubmit() {
       if (!formData.subject.trim() || !formData.message.trim()) {
@@ -3408,10 +3437,7 @@ function App() {
           <label className="block text-sm font-medium text-gray-300 mb-2">Tür</label>
           <select
             value={formData.type}
-            onChange={(e) => {
-              // State güncellemesini fonksiyonel olarak yap
-              setFormData(prev => ({ ...prev, type: e.target.value }));
-            }}
+            onChange={handleTypeChange}
             className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
           >
             <option value="request">İstek</option>
@@ -3426,10 +3452,7 @@ function App() {
           <input
             type="text"
             value={formData.subject}
-            onChange={(e) => {
-              // State güncellemesini fonksiyonel olarak yap
-              setFormData(prev => ({ ...prev, subject: e.target.value }));
-            }}
+            onChange={handleSubjectChange}
             className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
             placeholder="Kısa bir konu başlığı"
           />
@@ -3439,19 +3462,8 @@ function App() {
           <label className="block text-sm font-medium text-gray-300 mb-2">Mesaj</label>
           <textarea
             value={formData.message}
-            onChange={(e) => {
-              // State güncellemesini fonksiyonel olarak yap
-              setFormData(prev => ({ ...prev, message: e.target.value }));
-            }}
-            onPaste={(e) => {
-              e.stopPropagation();
-              // Paste işlemi sonrası form resetlenmesini engelle
-              setTimeout(() => {
-                const textarea = e.target;
-                const value = textarea.value;
-                setFormData(prev => ({ ...prev, message: value }));
-              }, 0);
-            }}
+            onChange={handleMessageChange}
+            onPaste={handleMessagePaste}
             onKeyDown={(e) => {
               // Enter tuşu ile form submit olmasını engelle (Ctrl+Enter ile submit yapılabilir)
               if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) {
