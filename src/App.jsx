@@ -3008,6 +3008,8 @@ function App() {
     }, []);
 
     const handleMessageChange = useCallback((e) => {
+      // Event'in yayılmasını engelle - form submit olmasın
+      e.stopPropagation();
       setFormData(prev => ({ ...prev, message: e.target.value }));
     }, []);
 
@@ -3115,6 +3117,13 @@ function App() {
                   }}
                   onMouseDown={(e) => {
                     // Scrollbar'a tıklandığında form submit olmasını engelle
+                    // Sadece scrollbar'a tıklandığında engelle, textarea içine tıklamada engelleme
+                    if (e.target === e.currentTarget || e.offsetX > e.currentTarget.clientWidth - 20) {
+                      e.stopPropagation();
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    // Mouse up event'inin form submit'i tetiklemesini engelle
                     e.stopPropagation();
                   }}
                   className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
