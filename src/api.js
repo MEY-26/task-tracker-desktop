@@ -28,6 +28,11 @@ const getApiBaseURL = () => {
     if ((hostname === 'localhost' || hostname === '127.0.0.1') && (port === '5173' || port === '')) {
       return 'http://localhost:8000/api';
     }
+    
+    // Vite dev server (port 5173) - API port 8000'de çalışıyor
+    if (port === '5173' || port === '') {
+      return `http://${hostname}:8000/api`;
+    }
   }
 
   // 3) Production/Server: use the SAME host as the frontend (Nginx on port 80 → PHP-FPM)
