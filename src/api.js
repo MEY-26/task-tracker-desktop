@@ -16,10 +16,21 @@ const getApiBaseURL = () => {
 
   // 1) Electron/file protocol (no hostname)
   if (typeof window !== 'undefined' && window.location?.protocol === 'file:') {
-    return 'http://localhost/api';
+    return 'http://localhost:8000/api';
   }
 
-  // 2) Default: use the SAME host as the frontend (Nginx on port 80 → PHP-FPM)
+  // 2) Local development detection (localhost or 127.0.0.1 on port 5173)
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    const port = window.location.port;
+    
+    // Local development: localhost/127.0.0.1 on Vite dev server (port 5173)
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && (port === '5173' || port === '')) {
+      return 'http://localhost:8000/api';
+    }
+  }
+
+  // 3) Production/Server: use the SAME host as the frontend (Nginx on port 80 → PHP-FPM)
   //    Works for IPs, *.local, intranet DNS, etc.
   const host = (typeof window !== 'undefined' && window.location?.hostname)
     ? window.location.hostname
@@ -679,6 +690,100 @@ export const TaskStatuses = {
       return response.data;
     } catch (error) {
       console.error('Task status delete error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
+export const Announcements = {
+  list: async () => {
+    try {
+      const response = await api.get('/announcements');
+      return response.data.announcements || response.data || [];
+    } catch (error) {
+      console.error('Announcements fetch error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  create: async (announcementData) => {
+    try {
+      const response = await api.post('/announcements', announcementData);
+      return response.data;
+    } catch (error) {
+      console.error('Announcement create error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  update: async (announcementId, announcementData) => {
+    try {
+      const response = await api.put(`/announcements/${announcementId}`, announcementData);
+      return response.data;
+    } catch (error) {
+      console.error('Announcement update error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  delete: async (announcementId) => {
+    try {
+      const response = await api.delete(`/announcements/${announcementId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Announcement delete error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  markAsRead: async (announcementId) => {
+    try {
+      const response = await api.post(`/announcements/${announcementId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error('Announcement mark as read error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
+export const UserFeedback = {
+  create: async (feedbackData) => {
+    try {
+      const response = await api.post('/user-feedback', feedbackData);
+      return response.data;
+    } catch (error) {
+      console.error('User feedback create error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  list: async (params = {}) => {
+    try {
+      const response = await api.get('/user-feedback', { params });
+      return response.data.feedback || response.data || [];
+    } catch (error) {
+      console.error('User feedback list error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  update: async (feedbackId, feedbackData) => {
+    try {
+      const response = await api.put(`/user-feedback/${feedbackId}`, feedbackData);
+      return response.data;
+    } catch (error) {
+      console.error('User feedback update error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  delete: async (feedbackId) => {
+    try {
+      const response = await api.delete(`/user-feedback/${feedbackId}`);
+      return response.data;
+    } catch (error) {
+      console.error('User feedback delete error:', error.response?.data || error.message);
       throw error;
     }
   }

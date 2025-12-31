@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses } from './api';
+﻿import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses, Announcements as AnnouncementsAPI, UserFeedback as UserFeedbackAPI } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -248,6 +248,7 @@ function App() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [markingAllNotifications, setMarkingAllNotifications] = useState(false);
+  const [notificationTab, setNotificationTab] = useState('notifications'); // 'notifications', 'announcements', 'feedback'
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [users, setUsers] = useState([]);
@@ -2896,6 +2897,515 @@ function App() {
     );
   }
 
+  // Announcements Content Component (for tab view)
+  function AnnouncementsContent({ user, addNotification }) {
+    const [announcements, setAnnouncements] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [showAdminPanel, setShowAdminPanel] = useState(false);
+    const [formData, setFormData] = useState({ title: '', message: '', priority: 'normal' });
+    const [editingId, setEditingId] = useState(null);
+
+    const isAdmin = user?.role === 'admin';
+
+    useEffect(() => {
+      loadAnnouncements();
+    }, []);
+
+    async function loadAnnouncements() {
+      try {
+        setLoading(true);
+        const data = await AnnouncementsAPI.list();
+        setAnnouncements(Array.isArray(data.announcements) ? data.announcements : (Array.isArray(data) ? data : []));
+      } catch (error) {
+        console.error('Failed to load announcements:', error);
+        addNotification?.('Duyurular yüklenemedi.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function handleMarkAsRead(id) {
+      try {
+        await AnnouncementsAPI.markAsRead(id);
+        await loadAnnouncements();
+      } catch (error) {
+        console.error('Failed to mark announcement as read:', error);
+      }
+    }
+
+    async function handleCreate() {
+      if (!formData.title.trim() || !formData.message.trim()) {
+        addNotification?.('Başlık ve mesaj alanları zorunludur.', 'error');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await AnnouncementsAPI.create(formData);
+        addNotification?.('Duyuru başarıyla oluşturuldu.', 'success');
+        setFormData({ title: '', message: '', priority: 'normal' });
+        await loadAnnouncements();
+        setShowAdminPanel(false);
+      } catch (error) {
+        addNotification?.('Duyuru oluşturulamadı.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function handleUpdate() {
+      if (!formData.title.trim() || !formData.message.trim()) {
+        addNotification?.('Başlık ve mesaj alanları zorunludur.', 'error');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await AnnouncementsAPI.update(editingId, formData);
+        addNotification?.('Duyuru başarıyla güncellendi.', 'success');
+        setFormData({ title: '', message: '', priority: 'normal' });
+        setEditingId(null);
+        await loadAnnouncements();
+        setShowAdminPanel(false);
+      } catch (error) {
+        addNotification?.('Duyuru güncellenemedi.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function handleDelete(id) {
+      if (!confirm('Bu duyuruyu silmek istediğinize emin misiniz?')) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await AnnouncementsAPI.delete(id);
+        addNotification?.('Duyuru başarıyla silindi.', 'success');
+        await loadAnnouncements();
+      } catch (error) {
+        addNotification?.('Duyuru silinemedi.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function startEdit(announcement) {
+      setFormData({
+        title: announcement.title || '',
+        message: announcement.message || '',
+        priority: announcement.priority || 'normal'
+      });
+      setEditingId(announcement.id);
+      setShowAdminPanel(true);
+    }
+
+    function cancelEdit() {
+      setFormData({ title: '', message: '', priority: 'normal' });
+      setEditingId(null);
+    }
+
+    const priorityColors = {
+      low: 'bg-blue-500/20 border-blue-500/50',
+      normal: 'bg-yellow-500/20 border-yellow-500/50',
+      high: 'bg-orange-500/20 border-orange-500/50',
+      urgent: 'bg-red-500/20 border-red-500/50'
+    };
+
+    return (
+      <>
+        {/* Admin için form - direkt görünür */}
+        {isAdmin && (
+          <div className="mb-4 p-4 bg-white/5 rounded-lg border border-white/10">
+            <h3 className="text-sm font-semibold text-white mb-3">
+              {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">Başlık</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
+                  placeholder="Duyuru başlığı"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">Mesaj</label>
+                <textarea
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
+                  rows="3"
+                  placeholder="Duyuru mesajı"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">Öncelik</label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                  className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
+                >
+                  <option value="low">Düşük</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">Yüksek</option>
+                  <option value="urgent">Acil</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={editingId ? handleUpdate : handleCreate}
+                  disabled={loading}
+                  className="flex-1 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm"
+                >
+                  {loading ? 'Kaydediliyor...' : (editingId ? 'Güncelle' : 'Oluştur')}
+                </button>
+                {editingId && (
+                  <button
+                    onClick={cancelEdit}
+                    className="px-3 py-2 rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors text-sm"
+                  >
+                    İptal
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Duyurular Listesi */}
+        {loading && announcements.length === 0 ? (
+          <div className="text-center text-gray-400 py-8">Yükleniyor...</div>
+        ) : announcements.length === 0 ? (
+          <div className="text-center text-gray-400 py-8">Henüz duyuru bulunmamaktadır.</div>
+        ) : (
+          <div className="space-y-3">
+            {announcements.map((announcement) => (
+              <div
+                key={announcement.id}
+                className={`p-3 rounded-lg border ${priorityColors[announcement.priority] || priorityColors.normal} ${!announcement.is_read ? 'ring-2 ring-blue-500/50' : ''}`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-base font-semibold text-white">{announcement.title}</h3>
+                  <span className="text-xs text-gray-400">
+                    {new Date(announcement.created_at).toLocaleDateString('tr-TR', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-300 whitespace-pre-wrap">{announcement.message}</p>
+                <div className="flex items-center justify-between mt-2">
+                  {!announcement.is_read && (
+                    <button
+                      onClick={() => handleMarkAsRead(announcement.id)}
+                      className="text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      Okundu olarak işaretle
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <div className="flex gap-2 ml-auto">
+                      <button
+                        onClick={() => startEdit(announcement)}
+                        className="text-xs px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300"
+                      >
+                        Düzenle
+                      </button>
+                      <button
+                        onClick={() => handleDelete(announcement.id)}
+                        className="text-xs px-2 py-1 rounded bg-red-600/20 hover:bg-red-600/30 text-red-300"
+                      >
+                        Sil
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // User Feedback Content Component (for tab view)
+  function UserFeedbackContent({ user, addNotification }) {
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({ type: 'request', subject: '', message: '' });
+    const [feedbackList, setFeedbackList] = useState([]);
+    const [filterType, setFilterType] = useState('all');
+
+    const isAdmin = user?.role === 'admin';
+
+    async function loadFeedback() {
+      try {
+        setLoading(true);
+        const data = await UserFeedbackAPI.list({ type: filterType === 'all' ? null : filterType });
+        setFeedbackList(Array.isArray(data.feedback) ? data.feedback : (Array.isArray(data) ? data : []));
+      } catch (error) {
+        console.error('Failed to load feedback:', error);
+        addNotification?.('Geri bildirimler yüklenemedi.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function handleSubmit() {
+      if (!formData.subject.trim() || !formData.message.trim()) {
+        addNotification?.('Konu ve mesaj alanları zorunludur.', 'error');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await UserFeedbackAPI.create({
+          ...formData,
+          user_id: user?.id
+        });
+        addNotification?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
+        setFormData({ type: 'request', subject: '', message: '' });
+      } catch (error) {
+        addNotification?.('Geri bildirim gönderilemedi.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function handleDelete(id) {
+      if (!confirm('Bu geri bildirimi silmek istediğinize emin misiniz?')) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await UserFeedbackAPI.delete(id);
+        addNotification?.('Geri bildirim başarıyla silindi.', 'success');
+        await loadFeedback();
+      } catch (error) {
+        addNotification?.('Geri bildirim silinemedi.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function handleUpdateStatus(id, status) {
+      try {
+        setLoading(true);
+        await UserFeedbackAPI.update(id, { status });
+        addNotification?.('Durum güncellendi.', 'success');
+        await loadFeedback();
+      } catch (error) {
+        addNotification?.('Durum güncellenemedi.', 'error');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    const statusColors = {
+      pending: 'bg-yellow-500/20 text-yellow-300',
+      in_progress: 'bg-blue-500/20 text-blue-300',
+      resolved: 'bg-green-500/20 text-green-300',
+      rejected: 'bg-red-500/20 text-red-300'
+    };
+
+    const statusLabels = {
+      pending: 'Beklemede',
+      in_progress: 'İşleniyor',
+      resolved: 'Çözüldü',
+      rejected: 'Reddedildi'
+    };
+
+    const typeLabels = {
+      request: 'İstek',
+      bug: 'Hata',
+      suggestion: 'Öneri',
+      other: 'Diğer'
+    };
+
+    // Admin için direkt geri bildirim listesi göster
+    if (isAdmin) {
+      useEffect(() => {
+        loadFeedback();
+      }, [filterType]);
+
+      return (
+        <>
+          {/* Filtreler */}
+          <div className="mb-4 flex gap-2">
+            <button
+              onClick={() => {
+                setFilterType('all');
+                loadFeedback();
+              }}
+              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
+            >
+              Tümü
+            </button>
+            <button
+              onClick={() => {
+                setFilterType('request');
+                loadFeedback();
+              }}
+              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'request' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
+            >
+              İstekler
+            </button>
+            <button
+              onClick={() => {
+                setFilterType('bug');
+                loadFeedback();
+              }}
+              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'bug' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
+            >
+              Hatalar
+            </button>
+            <button
+              onClick={() => {
+                setFilterType('suggestion');
+                loadFeedback();
+              }}
+              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'suggestion' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
+            >
+              Öneriler
+            </button>
+          </div>
+
+          {/* Geri Bildirim Listesi */}
+          {loading ? (
+            <div className="text-center text-gray-400 py-8">Yükleniyor...</div>
+          ) : feedbackList.length === 0 ? (
+            <div className="text-center text-gray-400 py-8">Henüz geri bildirim bulunmamaktadır.</div>
+          ) : (
+            <div className="space-y-3">
+              {feedbackList.map((feedback) => (
+                <div
+                  key={feedback.id}
+                  className="p-3 rounded-lg border border-white/10 bg-white/5"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[feedback.status] || statusColors.pending}`}>
+                          {statusLabels[feedback.status] || 'Bilinmiyor'}
+                        </span>
+                        <span className="px-2 py-1 rounded text-xs bg-gray-600/20 text-gray-300">
+                          {typeLabels[feedback.type] || feedback.type}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-white mb-1">{feedback.subject}</h4>
+                      <p className="text-xs text-gray-300 whitespace-pre-wrap mb-2">{feedback.message}</p>
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">{feedback.user?.name || 'Bilinmeyen Kullanıcı'}</span>
+                        <span className="mx-2">•</span>
+                        <span>
+                          {new Date(feedback.created_at).toLocaleDateString('tr-TR', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    {feedback.status !== 'resolved' && (
+                      <button
+                        onClick={() => handleUpdateStatus(feedback.id, 'resolved')}
+                        className="px-2 py-1 rounded bg-green-600/20 hover:bg-green-600/30 text-green-300 text-xs"
+                      >
+                        Çözüldü
+                      </button>
+                    )}
+                    {feedback.status !== 'in_progress' && (
+                      <button
+                        onClick={() => handleUpdateStatus(feedback.id, 'in_progress')}
+                        className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs"
+                      >
+                        İşleniyor
+                      </button>
+                    )}
+                    {feedback.status !== 'rejected' && (
+                      <button
+                        onClick={() => handleUpdateStatus(feedback.id, 'rejected')}
+                        className="px-2 py-1 rounded bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs"
+                      >
+                        Reddet
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(feedback.id)}
+                      className="px-2 py-1 rounded bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 text-xs ml-auto"
+                    >
+                      Sil
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      );
+    }
+
+    // Normal kullanıcılar için form
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Tür</label>
+          <select
+            value={formData.type}
+            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+            className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white text-sm"
+          >
+            <option value="request">İstek</option>
+            <option value="bug">Hata Bildirimi</option>
+            <option value="suggestion">Öneri</option>
+            <option value="other">Diğer</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Konu</label>
+          <input
+            type="text"
+            value={formData.subject}
+            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 text-sm"
+            placeholder="Kısa bir konu başlığı"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">Mesaj</label>
+          <textarea
+            value={formData.message}
+            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+            className="w-full rounded bg-white/10 border border-white/20 px-3 py-2 text-white placeholder-gray-400 resize-none text-sm"
+            rows="6"
+            placeholder="Detaylı açıklama yazın..."
+          />
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="w-full px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm"
+        >
+          {loading ? 'Gönderiliyor...' : 'Gönder'}
+        </button>
+      </div>
+    );
+  }
+
   function PasswordChangeForm({ onDone }) {
     const [form, setForm] = useState({ current: '', next: '', again: '' });
     const [loading, setLoading] = useState(false);
@@ -3522,39 +4032,84 @@ function App() {
                       }}
                     >
                       <div
-                        className="w-[400px] max-h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                        className="w-[500px] max-h-[600px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
                         style={{ pointerEvents: 'auto' }}
                       >
-
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0" style={{ padding: '10px' }}>
-                          <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                        {/* Sekmeler */}
+                        <div className="flex items-center border-b border-white/10 flex-shrink-0">
                           <button
-                            onClick={markAllNotificationsAsRead}
-                            disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
-                            className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            onClick={() => setNotificationTab('notifications')}
+                            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                              notificationTab === 'notifications'
+                                ? 'bg-white/10 text-white border-b-2 border-blue-500'
+                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                            }`}
                           >
-                            Tümünü Oku
+                            🔔 Bildirimler
+                          </button>
+                          <button
+                            onClick={() => setNotificationTab('announcements')}
+                            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                              notificationTab === 'announcements'
+                                ? 'bg-white/10 text-white border-b-2 border-blue-500'
+                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                            }`}
+                          >
+                            📢 Duyurular
+                          </button>
+                          <button
+                            onClick={() => setNotificationTab('feedback')}
+                            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                              notificationTab === 'feedback'
+                                ? 'bg-white/10 text-white border-b-2 border-blue-500'
+                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                            }`}
+                          >
+                            💬 Geri Bildirim
                           </button>
                         </div>
 
+                        {/* İçerik Alanı */}
                         <div className="overflow-y-auto no-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
-                          {(!Array.isArray(notifications) || notifications.length === 0) ? (
-                            <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
-                          ) : (
-                            notifications.map(n => (
-                              <div
-                                key={n.id}
-                                className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
-                                onClick={() => handleNotificationClick(n)}
-                              >
-                                <div className="flex items-start">
-                                  <div className="flex-1">
-                                    <p className="text-sm text-white">{n.message}</p>
-                                    <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
-                                  </div>
-                                </div>
+                          {notificationTab === 'notifications' && (
+                            <>
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                                <button
+                                  onClick={markAllNotificationsAsRead}
+                                  disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
+                                  className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  Tümünü Oku
+                                </button>
                               </div>
-                            ))
+                              {(!Array.isArray(notifications) || notifications.length === 0) ? (
+                                <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
+                              ) : (
+                                notifications.map(n => (
+                                  <div
+                                    key={n.id}
+                                    className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
+                                    onClick={() => handleNotificationClick(n)}
+                                  >
+                                    <div className="flex items-start">
+                                      <div className="flex-1">
+                                        <p className="text-sm text-white">{n.message}</p>
+                                        <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </>
+                          )}
+
+                          {notificationTab === 'announcements' && (
+                            <AnnouncementsContent user={user} addNotification={addNotification} />
+                          )}
+
+                          {notificationTab === 'feedback' && (
+                            <UserFeedbackContent user={user} addNotification={addNotification} />
                           )}
                         </div>
 
@@ -4091,7 +4646,7 @@ function App() {
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
-                                    <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={capacity > 0 ? ((t / capacity) * 100).toFixed(1) : '0.0'}
+                                    <input type="number" inputMode="numeric" step="1" min="0" disabled={true} value={capacity > 0 ? ((t / capacity) * 100).toFixed(1) : '0.0'}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
                                       style={{ width: '60px', height: '60px', textAlign: 'center' }}
                                     />
@@ -4104,7 +4659,7 @@ function App() {
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
-                                    <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={rate}
+                                    <input type="number" inputMode="numeric" step="1" min="0" disabled={true} value={rate}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
                                       style={{ width: '60px', height: '60px', textAlign: 'center' }}
                                     />
@@ -4240,7 +4795,7 @@ function App() {
                                       style={{ width: '60px', height: '60px', textAlign: 'center' }} />
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
-                                    <input type="number" inputMode="numeric" step="1" min="0" disabled="true" value={weightPercent.toFixed(1)}
+                                    <input type="number" inputMode="numeric" step="1" min="0" disabled={true} value={weightPercent.toFixed(1)}
                                       className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
                                       style={{ width: '60px', height: '60px', textAlign: 'center' }}
                                     />
@@ -4472,7 +5027,7 @@ function App() {
                       onChange={(e) => setGoalDescription(e.target.value)}
                       className="w-full !h-[200px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-none text-base"
                       placeholder="Ek açıklamalarınızı buraya yazabilirsiniz..."
-                      disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                      disabled={user && user.role === 'observer'}
                     />
                   </div>
                   <div className="flex justify-end gap-4 pt-4">
@@ -4483,7 +5038,7 @@ function App() {
                       İptal
                     </button>
                     <span className="w-[20px]"></span>
-                    {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
+                    {(!user || !user.role || user.role !== 'observer') && (
                       <button
                         onClick={async () => {
                           if (selectedGoalIndex !== null) {
