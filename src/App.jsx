@@ -2901,28 +2901,27 @@ function App() {
   function AnnouncementsContent({ user, addNotification }) {
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [showAdminPanel, setShowAdminPanel] = useState(false);
     const [formData, setFormData] = useState({ title: '', message: '', priority: 'normal' });
     const [editingId, setEditingId] = useState(null);
 
     const isAdmin = user?.role === 'admin';
 
-    useEffect(() => {
-      loadAnnouncements();
-    }, []);
-
-    async function loadAnnouncements() {
+    const loadAnnouncements = useCallback(async () => {
       try {
         setLoading(true);
         const data = await AnnouncementsAPI.list();
-        setAnnouncements(Array.isArray(data.announcements) ? data.announcements : (Array.isArray(data) ? data : []));
-      } catch (error) {
-        console.error('Failed to load announcements:', error);
+        setAnnouncements(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Failed to load announcements:', err);
         addNotification?.('Duyurular yüklenemedi.', 'error');
       } finally {
         setLoading(false);
       }
-    }
+    }, [addNotification]);
+
+    useEffect(() => {
+      loadAnnouncements();
+    }, [loadAnnouncements]);
 
     async function handleMarkAsRead(id) {
       try {
@@ -2945,8 +2944,7 @@ function App() {
         addNotification?.('Duyuru başarıyla oluşturuldu.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
         await loadAnnouncements();
-        setShowAdminPanel(false);
-      } catch (error) {
+      } catch (err) {
         addNotification?.('Duyuru oluşturulamadı.', 'error');
       } finally {
         setLoading(false);
@@ -2966,8 +2964,7 @@ function App() {
         setFormData({ title: '', message: '', priority: 'normal' });
         setEditingId(null);
         await loadAnnouncements();
-        setShowAdminPanel(false);
-      } catch (error) {
+      } catch (err) {
         addNotification?.('Duyuru güncellenemedi.', 'error');
       } finally {
         setLoading(false);
@@ -2984,7 +2981,7 @@ function App() {
         await AnnouncementsAPI.delete(id);
         addNotification?.('Duyuru başarıyla silindi.', 'success');
         await loadAnnouncements();
-      } catch (error) {
+      } catch (err) {
         addNotification?.('Duyuru silinemedi.', 'error');
       } finally {
         setLoading(false);
@@ -3144,18 +3141,24 @@ function App() {
 
     const isAdmin = user?.role === 'admin';
 
-    async function loadFeedback() {
+    const loadFeedback = useCallback(async () => {
       try {
         setLoading(true);
         const data = await UserFeedbackAPI.list({ type: filterType === 'all' ? null : filterType });
         setFeedbackList(Array.isArray(data.feedback) ? data.feedback : (Array.isArray(data) ? data : []));
-      } catch (error) {
-        console.error('Failed to load feedback:', error);
+      } catch (err) {
+        console.error('Failed to load feedback:', err);
         addNotification?.('Geri bildirimler yüklenemedi.', 'error');
       } finally {
         setLoading(false);
       }
-    }
+    }, [filterType, addNotification]);
+
+    useEffect(() => {
+      if (isAdmin) {
+        loadFeedback();
+      }
+    }, [isAdmin, loadFeedback]);
 
     async function handleSubmit() {
       if (!formData.subject.trim() || !formData.message.trim()) {
@@ -3171,7 +3174,7 @@ function App() {
         });
         addNotification?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
         setFormData({ type: 'request', subject: '', message: '' });
-      } catch (error) {
+      } catch (err) {
         addNotification?.('Geri bildirim gönderilemedi.', 'error');
       } finally {
         setLoading(false);
@@ -3188,7 +3191,7 @@ function App() {
         await UserFeedbackAPI.delete(id);
         addNotification?.('Geri bildirim başarıyla silindi.', 'success');
         await loadFeedback();
-      } catch (error) {
+      } catch (err) {
         addNotification?.('Geri bildirim silinemedi.', 'error');
       } finally {
         setLoading(false);
@@ -3201,7 +3204,7 @@ function App() {
         await UserFeedbackAPI.update(id, { status });
         addNotification?.('Durum güncellendi.', 'success');
         await loadFeedback();
-      } catch (error) {
+      } catch (err) {
         addNotification?.('Durum güncellenemedi.', 'error');
       } finally {
         setLoading(false);
@@ -3231,10 +3234,6 @@ function App() {
 
     // Admin için direkt geri bildirim listesi göster
     if (isAdmin) {
-      useEffect(() => {
-        loadFeedback();
-      }, [filterType]);
-
       return (
         <>
           {/* Filtreler */}

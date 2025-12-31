@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Announcements as AnnouncementsAPI } from '../../api';
 
 export default function Announcements({ user, addNotification }) {
@@ -11,22 +11,22 @@ export default function Announcements({ user, addNotification }) {
 
   const isAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    loadAnnouncements();
-  }, []);
-
-  async function loadAnnouncements() {
+  const loadAnnouncements = useCallback(async () => {
     try {
       setLoading(true);
       const data = await AnnouncementsAPI.list();
       setAnnouncements(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Failed to load announcements:', error);
+    } catch (err) {
+      console.error('Failed to load announcements:', err);
       addNotification?.('Duyurular yüklenemedi.', 'error');
     } finally {
       setLoading(false);
     }
-  }
+  }, [addNotification]);
+
+  useEffect(() => {
+    loadAnnouncements();
+  }, [loadAnnouncements]);
 
   async function handleCreate() {
     if (!formData.title.trim() || !formData.message.trim()) {
@@ -40,7 +40,7 @@ export default function Announcements({ user, addNotification }) {
       addNotification?.('Duyuru başarıyla oluşturuldu.', 'success');
       setFormData({ title: '', message: '', priority: 'normal' });
       await loadAnnouncements();
-    } catch (error) {
+    } catch (err) {
       addNotification?.('Duyuru oluşturulamadı.', 'error');
     } finally {
       setLoading(false);
@@ -60,7 +60,7 @@ export default function Announcements({ user, addNotification }) {
       setFormData({ title: '', message: '', priority: 'normal' });
       setEditingId(null);
       await loadAnnouncements();
-    } catch (error) {
+    } catch (err) {
       addNotification?.('Duyuru güncellenemedi.', 'error');
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ export default function Announcements({ user, addNotification }) {
       await AnnouncementsAPI.delete(id);
       addNotification?.('Duyuru başarıyla silindi.', 'success');
       await loadAnnouncements();
-    } catch (error) {
+    } catch (err) {
       addNotification?.('Duyuru silinemedi.', 'error');
     } finally {
       setLoading(false);

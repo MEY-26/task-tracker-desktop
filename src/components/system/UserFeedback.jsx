@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { UserFeedback as UserFeedbackAPI } from '../../api';
 
 export default function UserFeedback({ user, addNotification }) {
@@ -11,24 +11,24 @@ export default function UserFeedback({ user, addNotification }) {
 
   const isAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    if (showAdminPanel && isAdmin) {
-      loadFeedback();
-    }
-  }, [showAdminPanel, isAdmin]);
-
-  async function loadFeedback() {
+  const loadFeedback = useCallback(async () => {
     try {
       setLoading(true);
       const data = await UserFeedbackAPI.list({ type: filterType === 'all' ? null : filterType });
       setFeedbackList(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Failed to load feedback:', error);
+    } catch (err) {
+      console.error('Failed to load feedback:', err);
       addNotification?.('Geri bildirimler yüklenemedi.', 'error');
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterType, addNotification]);
+
+  useEffect(() => {
+    if (showAdminPanel && isAdmin) {
+      loadFeedback();
+    }
+  }, [showAdminPanel, isAdmin, loadFeedback]);
 
   async function handleSubmit() {
     if (!formData.subject.trim() || !formData.message.trim()) {
@@ -45,7 +45,7 @@ export default function UserFeedback({ user, addNotification }) {
       addNotification?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
       setFormData({ type: 'request', subject: '', message: '' });
       setShowFeedbackModal(false);
-    } catch (error) {
+    } catch (err) {
       addNotification?.('Geri bildirim gönderilemedi.', 'error');
     } finally {
       setLoading(false);
@@ -62,7 +62,7 @@ export default function UserFeedback({ user, addNotification }) {
       await UserFeedbackAPI.delete(id);
       addNotification?.('Geri bildirim başarıyla silindi.', 'success');
       await loadFeedback();
-    } catch (error) {
+    } catch (err) {
       addNotification?.('Geri bildirim silinemedi.', 'error');
     } finally {
       setLoading(false);
@@ -75,7 +75,7 @@ export default function UserFeedback({ user, addNotification }) {
       await UserFeedbackAPI.update(id, { status });
       addNotification?.('Durum güncellendi.', 'success');
       await loadFeedback();
-    } catch (error) {
+    } catch (err) {
       addNotification?.('Durum güncellenemedi.', 'error');
     } finally {
       setLoading(false);

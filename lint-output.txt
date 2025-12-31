@@ -1,0 +1,41 @@
+
+> task-tracker-desktop@2.10.2 lint
+> eslint .
+
+
+C:\wamp64\www\task-tracker-desktop\src\App.jsx
+   907:6   warning  React Hook useEffect has a missing dependency: 'checkAuth'. Either include it or remove the dependency array                                                                                                                                   react-hooks/exhaustive-deps
+  1018:6   warning  React Hook useEffect has a missing dependency: 'selectedTask'. Either include it or remove the dependency array                                                                                                                                react-hooks/exhaustive-deps
+  1070:6   warning  React Hook useEffect has a missing dependency: 'weeklySaveState'. Either include it or remove the dependency array                                                                                                                             react-hooks/exhaustive-deps
+  1190:3   warning  The 'loadTasks' function makes the dependencies of useCallback Hook (at line 1152) change on every render. To fix this, wrap the definition of 'loadTasks' in its own useCallback() Hook                                                       react-hooks/exhaustive-deps
+  1247:3   warning  The 'refreshTasksOnce' function makes the dependencies of useEffect Hook (at line 1323) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'refreshTasksOnce' in its own useCallback() Hook  react-hooks/exhaustive-deps
+  1325:3   warning  The 'loadUsers' function makes the dependencies of useCallback Hook (at line 1152) change on every render. To fix this, wrap the definition of 'loadUsers' in its own useCallback() Hook                                                       react-hooks/exhaustive-deps
+  1354:6   warning  React Hook useEffect has a missing dependency: 'users'. Either include it or remove the dependency array                                                                                                                                       react-hooks/exhaustive-deps
+  1368:3   warning  The 'loadNotifications' function makes the dependencies of useCallback Hook (at line 1152) change on every render. To fix this, wrap the definition of 'loadNotifications' in its own useCallback() Hook                                       react-hooks/exhaustive-deps
+  1500:3   warning  The 'handleLogout' function makes the dependencies of useCallback Hook (at line 1152) change on every render. To fix this, wrap the definition of 'handleLogout' in its own useCallback() Hook                                                 react-hooks/exhaustive-deps
+  1818:3   warning  The 'handleCloseModal' function makes the dependencies of useEffect Hook (at line 996) change on every render. To fix this, wrap the definition of 'handleCloseModal' in its own useCallback() Hook                                            react-hooks/exhaustive-deps
+  2904:12  error    'showAdminPanel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                 no-unused-vars
+  2912:8   warning  React Hook useEffect has a missing dependency: 'loadAnnouncements'. Either include it or remove the dependency array                                                                                                                           react-hooks/exhaustive-deps
+  2949:16  error    'error' is defined but never used                                                                                                                                                                                                              no-unused-vars
+  2970:16  error    'error' is defined but never used                                                                                                                                                                                                              no-unused-vars
+  2987:16  error    'error' is defined but never used                                                                                                                                                                                                              no-unused-vars
+  3174:16  error    'error' is defined but never used                                                                                                                                                                                                              no-unused-vars
+  3191:16  error    'error' is defined but never used                                                                                                                                                                                                              no-unused-vars
+  3204:16  error    'error' is defined but never used                                                                                                                                                                                                              no-unused-vars
+  3234:7   error    React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                                                                   react-hooks/rules-of-hooks
+  3236:10  warning  React Hook useEffect has a missing dependency: 'loadFeedback'. Either include it or remove the dependency array                                                                                                                                react-hooks/exhaustive-deps
+
+C:\wamp64\www\task-tracker-desktop\src\components\system\Announcements.jsx
+  16:6   warning  React Hook useEffect has a missing dependency: 'loadAnnouncements'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  43:14  error    'error' is defined but never used                                                                                     no-unused-vars
+  63:14  error    'error' is defined but never used                                                                                     no-unused-vars
+  80:14  error    'error' is defined but never used                                                                                     no-unused-vars
+
+C:\wamp64\www\task-tracker-desktop\src\components\system\UserFeedback.jsx
+  18:6   warning  React Hook useEffect has a missing dependency: 'loadFeedback'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  48:14  error    'error' is defined but never used                                                                                no-unused-vars
+  65:14  error    'error' is defined but never used                                                                                no-unused-vars
+  78:14  error    'error' is defined but never used                                                                                no-unused-vars
+
+✖ 28 problems (14 errors, 14 warnings)
+
