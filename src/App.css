@@ -94,3 +94,74 @@
 .buttonHoverEffect:hover {
   transform: scale(1.1);
 }
+
+/* Announcement Form Styles */
+.announcement-form-container {
+  padding: 1.5rem !important;
+  margin-bottom: 1.5rem;
+}
+
+.announcement-form-title {
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  margin-bottom: 1.25rem !important;
+}
+
+.announcement-form-label {
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  margin-bottom: 0.5rem !important;
+  display: block;
+  color: #d1d5db;
+}
+
+.announcement-form-input,
+.announcement-form-textarea,
+.announcement-form-select {
+  width: 100% !important;
+  padding: 0.875rem 1rem !important;
+  min-height: 44px !important;
+  font-size: 0.875rem !important;
+  border-radius: 0.375rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  box-sizing: border-box;
+}
+
+.announcement-form-textarea {
+  min-height: 150px !important;
+  padding-top: 0.875rem !important;
+  padding-bottom: 0.875rem !important;
+}
+
+.announcement-form-select {
+  min-height: 44px !important;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25em 1.25em;
+  padding-right: 2.5rem !important;
+}
+
+.announcement-form-input:focus,
+.announcement-form-textarea:focus,
+.announcement-form-select:focus {
+  outline: none !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+
+.announcement-form-input::placeholder,
+.announcement-form-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.announcement-form-button {
+  padding: 0.875rem 1.25rem !important;
+  min-height: 44px !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  border-radius: 0.375rem;
+}

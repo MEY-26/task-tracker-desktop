@@ -3036,15 +3036,15 @@ function App() {
       <>
         {/* Admin için form - direkt görünür */}
         {isAdmin && (
-          <div className="mb-4 p-5 bg-white/5 rounded-lg border border-white/10">
-            <h3 className="text-base font-semibold text-white mb-4">
+          <div className="announcement-form-container mb-4 bg-white/5 rounded-lg border border-white/10">
+            <h3 className="announcement-form-title text-white">
               {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
             </h3>
             <div 
               className="space-y-4"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Başlık</label>
+                <label className="announcement-form-label">Başlık</label>
                 <input
                   type="text"
                   value={formData.title}
@@ -3056,27 +3056,27 @@ function App() {
                       e.stopPropagation();
                     }
                   }}
-                  className="w-full rounded bg-white/10 border border-white/20 px-4 py-3 text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                  className="announcement-form-input"
                   placeholder="Duyuru başlığı"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Mesaj</label>
+                <label className="announcement-form-label">Mesaj</label>
                 <textarea
                   value={formData.message}
                   onChange={handleMessageChange}
                   onPaste={handleMessagePaste}
-                  className="w-full rounded bg-white/10 border border-white/20 px-4 py-3 text-white placeholder-gray-400 resize-none text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                  className="announcement-form-textarea"
                   rows="6"
                   placeholder="Duyuru mesajı"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Öncelik</label>
+                <label className="announcement-form-label">Öncelik</label>
                 <select
                   value={formData.priority}
                   onChange={handlePriorityChange}
-                  className="w-full rounded bg-white/10 border border-white/20 px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+                  className="announcement-form-select"
                 >
                   <option value="low">Düşük</option>
                   <option value="normal">Normal</option>
@@ -3096,7 +3096,7 @@ function App() {
                     }
                   }}
                   disabled={loading}
-                  className="flex-1 px-4 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 text-sm font-medium"
+                  className="announcement-form-button flex-1 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Kaydediliyor...' : (editingId ? 'Güncelle' : 'Oluştur')}
                 </button>
@@ -3104,7 +3104,7 @@ function App() {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="px-4 py-3 rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors text-sm font-medium"
+                    className="announcement-form-button rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors"
                   >
                     İptal
                   </button>
