@@ -2906,27 +2906,27 @@ function App() {
 
     const isAdmin = user?.role === 'admin';
 
-    const loadAnnouncements = useCallback(async () => {
+    // addNotification'ı dependency'den kaldır - her render'da değişiyor olabilir
+    const loadAnnouncementsRef = useRef(null);
+    loadAnnouncementsRef.current = async () => {
       try {
-        // setLoading(true) kaldırıldı - sadece buton için loading kullanılıyor
         const data = await AnnouncementsAPI.list();
         setAnnouncements(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load announcements:', err);
         addNotification?.('Duyurular yüklenemedi.', 'error');
       }
-    }, [addNotification]);
+    };
 
-    // Sadece component mount olduğunda çalış, loadAnnouncements değiştiğinde çalışma
+    // Sadece component mount olduğunda çalış
     useEffect(() => {
-      loadAnnouncements();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      loadAnnouncementsRef.current?.();
     }, []); // Boş dependency array - sadece mount'ta çalış
 
     async function handleMarkAsRead(id) {
       try {
         await AnnouncementsAPI.markAsRead(id);
-        await loadAnnouncements();
+        await loadAnnouncementsRef.current?.();
       } catch (error) {
         console.error('Failed to mark announcement as read:', error);
       }
@@ -2943,7 +2943,7 @@ function App() {
         await AnnouncementsAPI.create(formData);
         addNotification?.('Duyuru başarıyla oluşturuldu.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
-        await loadAnnouncements();
+        await loadAnnouncementsRef.current?.();
       } catch {
         addNotification?.('Duyuru oluşturulamadı.', 'error');
       } finally {
@@ -2963,7 +2963,7 @@ function App() {
         addNotification?.('Duyuru başarıyla güncellendi.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
         setEditingId(null);
-        await loadAnnouncements();
+        await loadAnnouncementsRef.current?.();
       } catch {
         addNotification?.('Duyuru güncellenemedi.', 'error');
       } finally {
@@ -2980,7 +2980,7 @@ function App() {
         setLoading(true);
         await AnnouncementsAPI.delete(id);
         addNotification?.('Duyuru başarıyla silindi.', 'success');
-        await loadAnnouncements();
+        await loadAnnouncementsRef.current?.();
       } catch {
         addNotification?.('Duyuru silinemedi.', 'error');
       } finally {
@@ -3033,39 +3033,14 @@ function App() {
     };
 
     return (
-      <div
-        onWheel={(e) => {
-          // Scroll event'inin form submit'i tetiklemesini engelle
-          e.stopPropagation();
-        }}
-        onScroll={(e) => {
-          // Scroll event'inin form submit'i tetiklemesini engelle
-          e.stopPropagation();
-        }}
-      >
+      <>
         {/* Admin için form - direkt görünür */}
         {isAdmin && (
-          <div 
-            className="announcement-form-container mb-4 bg-white/5 rounded-lg"
-            onWheel={(e) => {
-              // Scroll event'inin form submit'i tetiklemesini engelle
-              e.stopPropagation();
-            }}
-            onScroll={(e) => {
-              // Scroll event'inin form submit'i tetiklemesini engelle
-              e.stopPropagation();
-            }}
-          >
+          <div className="announcement-form-container mb-4 bg-white/5 rounded-lg">
             <h3 className="announcement-form-title text-white">
               {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
             </h3>
-            <div 
-              className="space-y-4"
-              onWheel={(e) => {
-                // Scroll event'inin form submit'i tetiklemesini engelle
-                e.stopPropagation();
-              }}
-            >
+            <div className="space-y-4">
               <div>
                 <label className="announcement-form-label">Başlık</label>
                 <input
@@ -3192,7 +3167,7 @@ function App() {
             ))}
           </div>
         )}
-      </div>
+      </>
     );
   }
 
