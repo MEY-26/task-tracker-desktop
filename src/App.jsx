@@ -2898,7 +2898,7 @@ function App() {
   }
 
   // Announcements Content Component (for tab view)
-  function AnnouncementsContent({ user, addNotification }) {
+  const AnnouncementsContent = React.memo(function AnnouncementsContent({ user, addNotification }) {
     const [announcements, setAnnouncements] = useState([]);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ title: '', message: '', priority: 'normal' });
@@ -2906,7 +2906,13 @@ function App() {
 
     const isAdmin = user?.role === 'admin';
 
-    // addNotification'ı dependency'den kaldır - her render'da değişiyor olabilir
+    // addNotification'ı ref ile sakla - her render'da değişiyor olabilir
+    const addNotificationRef = useRef(addNotification);
+    useEffect(() => {
+      addNotificationRef.current = addNotification;
+    }, [addNotification]);
+
+    // loadAnnouncements'i ref ile sakla
     const loadAnnouncementsRef = useRef(null);
     loadAnnouncementsRef.current = async () => {
       try {
@@ -2914,7 +2920,7 @@ function App() {
         setAnnouncements(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Failed to load announcements:', err);
-        addNotification?.('Duyurular yüklenemedi.', 'error');
+        addNotificationRef.current?.('Duyurular yüklenemedi.', 'error');
       }
     };
 
@@ -2934,18 +2940,18 @@ function App() {
 
     async function handleCreate() {
       if (!formData.title.trim() || !formData.message.trim()) {
-        addNotification?.('Başlık ve mesaj alanları zorunludur.', 'error');
+        addNotificationRef.current?.('Başlık ve mesaj alanları zorunludur.', 'error');
         return;
       }
 
       try {
         setLoading(true);
         await AnnouncementsAPI.create(formData);
-        addNotification?.('Duyuru başarıyla oluşturuldu.', 'success');
+        addNotificationRef.current?.('Duyuru başarıyla oluşturuldu.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
         await loadAnnouncementsRef.current?.();
       } catch {
-        addNotification?.('Duyuru oluşturulamadı.', 'error');
+        addNotificationRef.current?.('Duyuru oluşturulamadı.', 'error');
       } finally {
         setLoading(false);
       }
@@ -2953,19 +2959,19 @@ function App() {
 
     async function handleUpdate() {
       if (!formData.title.trim() || !formData.message.trim()) {
-        addNotification?.('Başlık ve mesaj alanları zorunludur.', 'error');
+        addNotificationRef.current?.('Başlık ve mesaj alanları zorunludur.', 'error');
         return;
       }
 
       try {
         setLoading(true);
         await AnnouncementsAPI.update(editingId, formData);
-        addNotification?.('Duyuru başarıyla güncellendi.', 'success');
+        addNotificationRef.current?.('Duyuru başarıyla güncellendi.', 'success');
         setFormData({ title: '', message: '', priority: 'normal' });
         setEditingId(null);
         await loadAnnouncementsRef.current?.();
       } catch {
-        addNotification?.('Duyuru güncellenemedi.', 'error');
+        addNotificationRef.current?.('Duyuru güncellenemedi.', 'error');
       } finally {
         setLoading(false);
       }
@@ -2979,10 +2985,10 @@ function App() {
       try {
         setLoading(true);
         await AnnouncementsAPI.delete(id);
-        addNotification?.('Duyuru başarıyla silindi.', 'success');
+        addNotificationRef.current?.('Duyuru başarıyla silindi.', 'success');
         await loadAnnouncementsRef.current?.();
       } catch {
-        addNotification?.('Duyuru silinemedi.', 'error');
+        addNotificationRef.current?.('Duyuru silinemedi.', 'error');
       } finally {
         setLoading(false);
       }
@@ -3169,7 +3175,7 @@ function App() {
         )}
       </>
     );
-  }
+  });
 
   // User Feedback Content Component (for tab view)
   function UserFeedbackContent({ user, addNotification }) {
