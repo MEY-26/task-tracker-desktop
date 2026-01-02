@@ -12,8 +12,6 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\WeeklyGoalController;
 use App\Http\Controllers\TaskTypeController;
 use App\Http\Controllers\TaskStatusController;
-use App\Http\Controllers\AnnouncementController;
-use App\Http\Controllers\UserFeedbackController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -80,18 +78,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/task-statuses/{taskStatus}', [TaskStatusController::class, 'update']);
     Route::delete('/task-statuses/{taskStatus}', [TaskStatusController::class, 'destroy']);
 
-    // Announcements
-    Route::get('/announcements', [AnnouncementController::class, 'index']);
-    Route::post('/announcements', [AnnouncementController::class, 'store']);
-    Route::put('/announcements/{announcement}', [AnnouncementController::class, 'update']);
-    Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy']);
-    Route::post('/announcements/{announcement}/read', [AnnouncementController::class, 'markAsRead']);
-
-    // User Feedback
-    Route::get('/user-feedback', [UserFeedbackController::class, 'index']);
-    Route::post('/user-feedback', [UserFeedbackController::class, 'store']);
-    Route::put('/user-feedback/{userFeedback}', [UserFeedbackController::class, 'update']);
-    Route::delete('/user-feedback/{userFeedback}', [UserFeedbackController::class, 'destroy']);
 
     // admin
     Route::get('/password-reset-requests', [PasswordResetController::class, 'getResetRequests']);

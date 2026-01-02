@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses, Announcements as AnnouncementsAPI, UserFeedback as UserFeedbackAPI } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
@@ -248,7 +248,6 @@ function App() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [markingAllNotifications, setMarkingAllNotifications] = useState(false);
-  const [notificationTab, setNotificationTab] = useState('notifications'); // 'notifications', 'announcements', 'feedback'
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [users, setUsers] = useState([]);
@@ -845,8 +844,8 @@ function App() {
     const place = () => {
       if (!bellRef.current) return;
       const r = bellRef.current.getBoundingClientRect();
-      const panelWidth = 360;
-      const maxPanelHeight = 500;
+      const panelWidth = 500;
+      const maxPanelHeight = 600;
 
       let top = r.bottom + 8;
       let right = Math.max(16, window.innerWidth - r.right + 8);
@@ -864,6 +863,7 @@ function App() {
         right,
       });
     };
+
 
     const onDown = (e) => {
       const panel = notifPanelRef.current;
@@ -884,6 +884,7 @@ function App() {
       document.removeEventListener('mousedown', onDown);
     };
   }, [showNotifications]);
+
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -2897,680 +2898,104 @@ function App() {
     );
   }
 
-  // Announcements Content Component (for tab view)
-  const AnnouncementsContent = React.memo(function AnnouncementsContent({ user, addNotification }) {
-    const [announcements, setAnnouncements] = useState([]);
+  function PasswordChangeForm({ onDone }) {
+    const [form, setForm] = useState({ current: '', next: '', again: '' });
     const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({ title: '', message: '', priority: 'normal' });
-    const [editingId, setEditingId] = useState(null);
+    const can = form.current && form.next && form.again && form.next === form.again;
 
-    const isAdmin = user?.role === 'admin';
-
-    // addNotification'ı ref ile sakla - her render'da değişiyor olabilir
-    const addNotificationRef = useRef(addNotification);
-    useEffect(() => {
-      addNotificationRef.current = addNotification;
-    }, [addNotification]);
-
-    // loadAnnouncements'i ref ile sakla - sadece bir kez tanımla
-    const isLoadingRef = useRef(false);
-    const lastLoadTimeRef = useRef(0);
-    const loadAnnouncementsRef = useRef(null);
-    
-    // loadAnnouncements fonksiyonunu sadece bir kez oluştur
-    if (!loadAnnouncementsRef.current) {
-      loadAnnouncementsRef.current = async (force = false) => {
-        // Eğer zaten yükleniyorsa ve force değilse, tekrar çağırma
-        if (isLoadingRef.current && !force) {
-          return;
-        }
-        
-        // Son yüklemeden 5 saniye geçmediyse ve force değilse, yükleme
-        const now = Date.now();
-        if (!force && now - lastLoadTimeRef.current < 5000) {
-          return;
-        }
-        
-        try {
-          isLoadingRef.current = true;
-          lastLoadTimeRef.current = now;
-          const data = await AnnouncementsAPI.list();
-          const newData = Array.isArray(data) ? data : [];
-          
-          // Sadece veri gerçekten değiştiyse state'i güncelle
-          setAnnouncements(prev => {
-            // JSON karşılaştırması yap - eğer aynıysa state'i güncelleme
-            if (JSON.stringify(prev) === JSON.stringify(newData)) {
-              return prev; // Aynı veri, state'i güncelleme
-            }
-            return newData;
-          });
-        } catch (err) {
-          console.error('Failed to load announcements:', err);
-          addNotificationRef.current?.('Duyurular yüklenemedi.', 'error');
-        } finally {
-          isLoadingRef.current = false;
-        }
-      };
-    }
-
-    // Sadece component mount olduğunda çalış
-    useEffect(() => {
-      loadAnnouncementsRef.current?.(true); // force = true ile mount'ta çalış
-    }, []); // Boş dependency array - sadece mount'ta çalış
-
-    async function handleMarkAsRead(id) {
-      try {
-        await AnnouncementsAPI.markAsRead(id);
-        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
-      } catch (error) {
-        console.error('Failed to mark announcement as read:', error);
-      }
-    }
-
-    async function handleCreate() {
-      if (!formData.title.trim() || !formData.message.trim()) {
-        addNotificationRef.current?.('Başlık ve mesaj alanları zorunludur.', 'error');
-        return;
-      }
-
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!can || loading) return;
       try {
         setLoading(true);
-        await AnnouncementsAPI.create(formData);
-        addNotificationRef.current?.('Duyuru başarıyla oluşturuldu.', 'success');
-        setFormData({ title: '', message: '', priority: 'normal' });
-        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
-      } catch {
-        addNotificationRef.current?.('Duyuru oluşturulamadı.', 'error');
+        await changePassword(form.current, form.next);
+        onDone?.();
+        setForm({ current: '', next: '', again: '' });
+        addNotification('Şifre başarıyla güncellendi', 'success');
+      } catch (err) {
+        console.error('Password change error:', err);
+        addNotification(err.response?.data?.message || 'Şifre güncellenemedi', 'error');
       } finally {
         setLoading(false);
       }
-    }
-
-    async function handleUpdate() {
-      if (!formData.title.trim() || !formData.message.trim()) {
-        addNotificationRef.current?.('Başlık ve mesaj alanları zorunludur.', 'error');
-        return;
-      }
-
-      try {
-        setLoading(true);
-        await AnnouncementsAPI.update(editingId, formData);
-        addNotificationRef.current?.('Duyuru başarıyla güncellendi.', 'success');
-        setFormData({ title: '', message: '', priority: 'normal' });
-        setEditingId(null);
-        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
-      } catch {
-        addNotificationRef.current?.('Duyuru güncellenemedi.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    async function handleDelete(id) {
-      if (!confirm('Bu duyuruyu silmek istediğinize emin misiniz?')) {
-        return;
-      }
-
-      try {
-        setLoading(true);
-        await AnnouncementsAPI.delete(id);
-        addNotificationRef.current?.('Duyuru başarıyla silindi.', 'success');
-        await loadAnnouncementsRef.current?.(true); // force = true ile güncelleme sonrası çalış
-      } catch {
-        addNotificationRef.current?.('Duyuru silinemedi.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    function startEdit(announcement) {
-      setFormData({
-        title: announcement.title || '',
-        message: announcement.message || '',
-        priority: announcement.priority || 'normal'
-      });
-      setEditingId(announcement.id);
-    }
-
-    function cancelEdit() {
-      setFormData({ title: '', message: '', priority: 'normal' });
-      setEditingId(null);
-    }
-
-    // Optimize edilmiş onChange handler'ları - performans iyileştirmesi
-    const handleTitleChange = useCallback((e) => {
-      setFormData(prev => ({ ...prev, title: e.target.value }));
-    }, []);
-
-    const handleMessageChange = useCallback((e) => {
-      setFormData(prev => ({ ...prev, message: e.target.value }));
-    }, []);
-
-    const handlePriorityChange = useCallback((e) => {
-      setFormData(prev => ({ ...prev, priority: e.target.value }));
-    }, []);
-
-    const handleMessagePaste = useCallback((e) => {
-      e.stopPropagation();
-      // Paste işlemi sonrası form resetlenmesini engelle
-      setTimeout(() => {
-        const textarea = e.target;
-        const value = textarea.value;
-        setFormData(prev => ({ ...prev, message: value }));
-      }, 0);
-    }, []);
-
-    const priorityColors = {
-      low: 'bg-blue-500/20 border-blue-500/50',
-      normal: 'bg-yellow-500/20 border-yellow-500/50',
-      high: 'bg-orange-500/20 border-orange-500/50',
-      urgent: 'bg-red-500/20 border-red-500/50'
     };
 
     return (
-      <>
-        {/* Admin için form - direkt görünür */}
-        {isAdmin && (
-          <div className="announcement-form-container mb-4 bg-white/5 rounded-lg">
-            <h3 className="announcement-form-title text-white">
-              {editingId ? 'Duyuru Düzenle' : 'Yeni Duyuru Oluştur'}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="announcement-form-label">Başlık</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={handleTitleChange}
-                  onKeyDown={(e) => {
-                    // Enter tuşu ile form submit olmasını engelle
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }
-                  }}
-                  className="announcement-form-input"
-                  placeholder="Duyuru başlığı"
-                />
-              </div>
-              <div>
-                <label className="announcement-form-label">Mesaj</label>
-                <textarea
-                  value={formData.message}
-                  onChange={handleMessageChange}
-                  onPaste={handleMessagePaste}
-                  className="announcement-form-textarea"
-                  rows="6"
-                  placeholder="Duyuru mesajı"
-                />
-              </div>
-              <div>
-                <label className="announcement-form-label">Öncelik</label>
-                <select
-                  value={formData.priority}
-                  onChange={handlePriorityChange}
-                  className="announcement-form-select"
-                >
-                  <option value="low">Düşük</option>
-                  <option value="normal">Normal</option>
-                  <option value="high">Yüksek</option>
-                  <option value="urgent">Acil</option>
-                </select>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (editingId) {
-                      handleUpdate();
-                    } else {
-                      handleCreate();
-                    }
-                  }}
-                  disabled={loading}
-                  className="announcement-form-button flex-1 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Kaydediliyor...' : (editingId ? 'Güncelle' : 'Oluştur')}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="announcement-form-button rounded bg-gray-600 hover:bg-gray-700 text-white transition-colors"
-                  >
-                    İptal
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-10" style={{ padding: '18px', paddingBottom: '32px' }}>
+        {/* Hidden username field for accessibility */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }}
+          tabIndex="-1"
+          aria-hidden="true"
+        />
+        <div className="space-y-6">
+          <input
+            type="password"
+            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] sm:!text-[16px] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
+            placeholder="Mevcut şifrenizi girin"
+            value={form.current}
+            onChange={e => setForm({ ...form, current: e.target.value })}
+            autoComplete="current-password"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-form-type="password"
+            name="current-password"
+            style={{ height: '40px' }}
+          />
+        </div>
 
-        {/* Duyurular Listesi */}
-        {loading && announcements.length === 0 ? (
-          <div className="text-center text-gray-400 py-8">Yükleniyor...</div>
-        ) : announcements.length === 0 ? (
-          <div className="text-center text-gray-400 py-8">Henüz duyuru bulunmamaktadır.</div>
-        ) : (
-          <div className="space-y-3">
-            {announcements.map((announcement) => (
-              <div
-                key={announcement.id}
-                className={`p-3 rounded-lg border ${priorityColors[announcement.priority] || priorityColors.normal} ${!announcement.is_read ? 'ring-2 ring-blue-500/50' : ''}`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-base font-semibold text-white">{announcement.title}</h3>
-                  <span className="text-xs text-gray-400">
-                    {new Date(announcement.created_at).toLocaleDateString('tr-TR', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-300 whitespace-pre-wrap">{announcement.message}</p>
-                <div className="flex items-center justify-between mt-2">
-                  {!announcement.is_read && (
-                    <button
-                      onClick={() => handleMarkAsRead(announcement.id)}
-                      className="text-xs text-blue-400 hover:text-blue-300"
-                    >
-                      Okundu olarak işaretle
-                    </button>
-                  )}
-                  {isAdmin && (
-                    <div className="flex gap-2 ml-auto">
-                      <button
-                        onClick={() => startEdit(announcement)}
-                        className="text-xs px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300"
-                      >
-                        Düzenle
-                      </button>
-                      <button
-                        onClick={() => handleDelete(announcement.id)}
-                        className="text-xs px-2 py-1 rounded bg-red-600/20 hover:bg-red-600/30 text-red-300"
-                      >
-                        Sil
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </>
-    );
-  }, (prevProps, nextProps) => {
-    // Custom comparison: sadece user.id ve user.role değiştiyse re-render yap
-    return prevProps.user?.id === nextProps.user?.id && 
-           prevProps.user?.role === nextProps.user?.role;
-  });
+        <div className="space-y-6">
+          <input
+            type="password"
+            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
+            placeholder="Yeni şifrenizi girin"
+            value={form.next}
+            onChange={e => setForm({ ...form, next: e.target.value })}
+            autoComplete="new-password"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-form-type="password"
+            name="new-password"
+            style={{ height: '40px' }}
+          />
+        </div>
 
-  // User Feedback Content Component (for tab view)
-  function UserFeedbackContent({ user, addNotification }) {
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({ type: 'request', subject: '', message: '' });
-    const [feedbackList, setFeedbackList] = useState([]);
-    const [filterType, setFilterType] = useState('all');
+        <div className="space-y-6">
+          <input
+            type="password"
+            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
+            placeholder="Yeni şifrenizi tekrar girin"
+            value={form.again}
+            onChange={e => setForm({ ...form, again: e.target.value })}
+            autoComplete="new-password"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-form-type="password"
+            name="confirm-password"
+            style={{ height: '40px' }}
+          />
+        </div>
 
-    const isAdmin = user?.role === 'admin';
-
-    // addNotification'ı ref ile sakla - her render'da değişiyor olabilir
-    const addNotificationRef = useRef(addNotification);
-    useEffect(() => {
-      addNotificationRef.current = addNotification;
-    }, [addNotification]);
-
-    // filterType'ı ref ile sakla
-    const filterTypeRef = useRef(filterType);
-    useEffect(() => {
-      filterTypeRef.current = filterType;
-    }, [filterType]);
-
-    // loadFeedback'i ref ile sakla - sadece bir kez tanımla
-    const isLoadingRef = useRef(false);
-    const loadFeedbackRef = useRef(null);
-    
-    // loadFeedback fonksiyonunu sadece bir kez oluştur
-    if (!loadFeedbackRef.current) {
-      loadFeedbackRef.current = async () => {
-        // Eğer zaten yükleniyorsa, tekrar çağırma
-        if (isLoadingRef.current) {
-          return;
-        }
-        
-        try {
-          isLoadingRef.current = true;
-          setLoading(true);
-          const currentFilterType = filterTypeRef.current;
-          const data = await UserFeedbackAPI.list({ type: currentFilterType === 'all' ? null : currentFilterType });
-          const newData = Array.isArray(data.feedback) ? data.feedback : (Array.isArray(data) ? data : []);
-          
-          // Sadece veri gerçekten değiştiyse state'i güncelle
-          setFeedbackList(prev => {
-            // JSON karşılaştırması yap - eğer aynıysa state'i güncelleme
-            if (JSON.stringify(prev) === JSON.stringify(newData)) {
-              return prev; // Aynı veri, state'i güncelleme
-            }
-            return newData;
-          });
-        } catch (err) {
-          console.error('Failed to load feedback:', err);
-          addNotificationRef.current?.('Geri bildirimler yüklenemedi.', 'error');
-        } finally {
-          isLoadingRef.current = false;
-          setLoading(false);
-        }
-      };
-    }
-
-    // Sadece component mount olduğunda çalış (admin ise)
-    useEffect(() => {
-      if (isAdmin) {
-        loadFeedbackRef.current?.();
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Boş dependency array - sadece mount'ta çalış
-
-    // filterType değiştiğinde loadFeedback'i çağır
-    useEffect(() => {
-      if (isAdmin) {
-        loadFeedbackRef.current?.();
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filterType]); // Sadece filterType değiştiğinde
-
-    // Optimize edilmiş onChange handler'ları - performans iyileştirmesi
-    const handleTypeChange = useCallback((e) => {
-      setFormData(prev => ({ ...prev, type: e.target.value }));
-    }, []);
-
-    const handleSubjectChange = useCallback((e) => {
-      setFormData(prev => ({ ...prev, subject: e.target.value }));
-    }, []);
-
-    const handleMessageChange = useCallback((e) => {
-      setFormData(prev => ({ ...prev, message: e.target.value }));
-    }, []);
-
-    const handleMessagePaste = useCallback((e) => {
-      e.stopPropagation();
-      // Paste işlemi sonrası form resetlenmesini engelle
-      setTimeout(() => {
-        const textarea = e.target;
-        const value = textarea.value;
-        setFormData(prev => ({ ...prev, message: value }));
-      }, 0);
-    }, []);
-
-    async function handleSubmit() {
-      if (!formData.subject.trim() || !formData.message.trim()) {
-        addNotificationRef.current?.('Konu ve mesaj alanları zorunludur.', 'error');
-        return;
-      }
-
-      try {
-        setLoading(true);
-        await UserFeedbackAPI.create({
-          ...formData,
-          user_id: user?.id
-        });
-        addNotificationRef.current?.('Geri bildiriminiz başarıyla gönderildi. Teşekkürler!', 'success');
-        setFormData({ type: 'request', subject: '', message: '' });
-      } catch {
-        addNotificationRef.current?.('Geri bildirim gönderilemedi.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    async function handleDelete(id) {
-      if (!confirm('Bu geri bildirimi silmek istediğinize emin misiniz?')) {
-        return;
-      }
-
-      try {
-        setLoading(true);
-        await UserFeedbackAPI.delete(id);
-        addNotificationRef.current?.('Geri bildirim başarıyla silindi.', 'success');
-        await loadFeedbackRef.current?.();
-      } catch {
-        addNotificationRef.current?.('Geri bildirim silinemedi.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    async function handleUpdateStatus(id, status) {
-      try {
-        setLoading(true);
-        await UserFeedbackAPI.update(id, { status });
-        addNotificationRef.current?.('Durum güncellendi.', 'success');
-        await loadFeedbackRef.current?.();
-      } catch {
-        addNotificationRef.current?.('Durum güncellenemedi.', 'error');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    const statusColors = {
-      pending: 'bg-yellow-500/20 text-yellow-300',
-      in_progress: 'bg-blue-500/20 text-blue-300',
-      resolved: 'bg-green-500/20 text-green-300',
-      rejected: 'bg-red-500/20 text-red-300'
-    };
-
-    const statusLabels = {
-      pending: 'Beklemede',
-      in_progress: 'İşleniyor',
-      resolved: 'Çözüldü',
-      rejected: 'Reddedildi'
-    };
-
-    const typeLabels = {
-      request: 'İstek',
-      bug: 'Hata',
-      suggestion: 'Öneri',
-      other: 'Diğer'
-    };
-
-    // Admin için direkt geri bildirim listesi göster
-    if (isAdmin) {
-      return (
-        <>
-          {/* Filtreler */}
-          <div className="mb-4 flex gap-2">
-            <button
-              onClick={() => {
-                setFilterType('all');
-                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
-              }}
-              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
-            >
-              Tümü
-            </button>
-            <button
-              onClick={() => {
-                setFilterType('request');
-                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
-              }}
-              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'request' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
-            >
-              İstekler
-            </button>
-            <button
-              onClick={() => {
-                setFilterType('bug');
-                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
-              }}
-              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'bug' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
-            >
-              Hatalar
-            </button>
-            <button
-              onClick={() => {
-                setFilterType('suggestion');
-                // loadFeedback filterType değiştiğinde useEffect tarafından çağrılacak
-              }}
-              className={`px-3 py-1.5 rounded transition-colors text-xs ${filterType === 'suggestion' ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
-            >
-              Öneriler
-            </button>
-          </div>
-
-          {/* Geri Bildirim Listesi */}
-          {loading ? (
-            <div className="text-center text-gray-400 py-8">Yükleniyor...</div>
-          ) : feedbackList.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">Henüz geri bildirim bulunmamaktadır.</div>
-          ) : (
-            <div className="space-y-3">
-              {feedbackList.map((feedback) => (
-                <div
-                  key={feedback.id}
-                  className="p-3 rounded-lg border border-white/10 bg-white/5"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[feedback.status] || statusColors.pending}`}>
-                          {statusLabels[feedback.status] || 'Bilinmiyor'}
-                        </span>
-                        <span className="px-2 py-1 rounded text-xs bg-gray-600/20 text-gray-300">
-                          {typeLabels[feedback.type] || feedback.type}
-                        </span>
-                      </div>
-                      <h4 className="text-sm font-semibold text-white mb-1">{feedback.subject}</h4>
-                      <p className="text-xs text-gray-300 whitespace-pre-wrap mb-2">{feedback.message}</p>
-                      <div className="text-xs text-gray-500">
-                        <span className="font-medium">{feedback.user?.name || 'Bilinmeyen Kullanıcı'}</span>
-                        <span className="mx-2">•</span>
-                        <span>
-                          {new Date(feedback.created_at).toLocaleDateString('tr-TR', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    {feedback.status !== 'resolved' && (
-                      <button
-                        onClick={() => handleUpdateStatus(feedback.id, 'resolved')}
-                        className="px-2 py-1 rounded bg-green-600/20 hover:bg-green-600/30 text-green-300 text-xs"
-                      >
-                        Çözüldü
-                      </button>
-                    )}
-                    {feedback.status !== 'in_progress' && (
-                      <button
-                        onClick={() => handleUpdateStatus(feedback.id, 'in_progress')}
-                        className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-xs"
-                      >
-                        İşleniyor
-                      </button>
-                    )}
-                    {feedback.status !== 'rejected' && (
-                      <button
-                        onClick={() => handleUpdateStatus(feedback.id, 'rejected')}
-                        className="px-2 py-1 rounded bg-red-600/20 hover:bg-red-600/30 text-red-300 text-xs"
-                      >
-                        Reddet
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(feedback.id)}
-                      className="px-2 py-1 rounded bg-gray-600/20 hover:bg-gray-600/30 text-gray-300 text-xs ml-auto"
-                    >
-                      Sil
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      );
-    }
-
-    // Normal kullanıcılar için form
-    return (
-      <div className="feedback-form-container bg-white/5 rounded-lg p-6">
-        <form 
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmit();
-          }}
-          className="space-y-4"
-        >
-          <div>
-            <label className="feedback-form-label">Tür</label>
-            <select
-              value={formData.type}
-              onChange={handleTypeChange}
-              className="feedback-form-select"
-            >
-              <option value="request">İstek</option>
-              <option value="bug">Hata Bildirimi</option>
-              <option value="suggestion">Öneri</option>
-              <option value="other">Diğer</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="feedback-form-label">Konu</label>
-            <input
-              type="text"
-              value={formData.subject}
-              onChange={handleSubjectChange}
-              className="feedback-form-input"
-              placeholder="Kısa bir konu başlığı"
-            />
-          </div>
-
-          <div>
-            <label className="feedback-form-label">Mesaj</label>
-            <textarea
-              value={formData.message}
-              onChange={handleMessageChange}
-              onPaste={handleMessagePaste}
-              onKeyDown={(e) => {
-                // Enter tuşu ile form submit olmasını engelle (Ctrl+Enter ile submit yapılabilir)
-                if (e.key === 'Enter' && !(e.ctrlKey || e.metaKey)) {
-                  // Normal Enter tuşu textarea içinde yeni satır ekler
-                  // Ctrl+Enter veya Cmd+Enter ile submit yapılabilir
-                  return;
-                }
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              className="feedback-form-textarea"
-              rows="6"
-              placeholder="Detaylı açıklama yazın..."
-            />
-          </div>
-
+        <div className="pt-8" style={{ paddingTop: '10px' }}>
           <button
             type="submit"
-            disabled={loading}
-            className="feedback-form-button w-full rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
+            disabled={!can || loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-blue-400 disabled:to-blue-400 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl px-8 py-4"
+            style={{ height: '48px' }}
           >
-            {loading ? 'Gönderiliyor...' : 'Gönder'}
+            {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
     );
   }
 
@@ -4163,7 +3588,8 @@ function App() {
                     </div>
                   )}
                 </div>
-                <div className="relative">
+                <div className="relative flex items-center gap-2">
+                  {/* Bildirimler Butonu */}
                   <button
                     ref={bellRef}
                     onClick={async () => {
@@ -4203,81 +3629,38 @@ function App() {
                         className="w-[500px] max-h-[600px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
                         style={{ pointerEvents: 'auto' }}
                       >
-                        {/* Sekmeler */}
-                        <div className="flex items-center border-b border-white/10 flex-shrink-0">
-                          <button
-                            onClick={() => setNotificationTab('notifications')}
-                            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                              notificationTab === 'notifications'
-                                ? 'bg-white/10 text-white border-b-2 border-blue-500'
-                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                            }`}
-                          >
-                            🔔 Bildirimler
-                          </button>
-                          <button
-                            onClick={() => setNotificationTab('announcements')}
-                            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                              notificationTab === 'announcements'
-                                ? 'bg-white/10 text-white border-b-2 border-blue-500'
-                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                            }`}
-                          >
-                            📢 Duyurular
-                          </button>
-                          <button
-                            onClick={() => setNotificationTab('feedback')}
-                            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                              notificationTab === 'feedback'
-                                ? 'bg-white/10 text-white'
-                                : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                            }`}
-                          >
-                            💬 Geri Bildirim
-                          </button>
-                        </div>
-
-                        {/* İçerik Alanı */}
-                        <div className="overflow-y-auto no-scrollbar flex-1 min-h-0" style={{ padding: '10px' }}>
-                          {notificationTab === 'notifications' && (
-                            <>
-                              <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
-                                <button
-                                  onClick={markAllNotificationsAsRead}
-                                  disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
-                                  className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                  Tümünü Oku
-                                </button>
-                              </div>
-                              {(!Array.isArray(notifications) || notifications.length === 0) ? (
-                                <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
-                              ) : (
-                                notifications.map(n => (
-                                  <div
-                                    key={n.id}
-                                    className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
-                                    onClick={() => handleNotificationClick(n)}
-                                  >
-                                    <div className="flex items-start">
-                                      <div className="flex-1">
-                                        <p className="text-sm text-white">{n.message}</p>
-                                        <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
-                                      </div>
-                                    </div>
+                        {/* İçerik Alanı - Sadece Bildirimler */}
+                        <div
+                          className="overflow-y-auto no-scrollbar flex-1 min-h-0"
+                          style={{ padding: '10px' }}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                            <button
+                              onClick={markAllNotificationsAsRead}
+                              disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
+                              className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              Tümünü Oku
+                            </button>
+                          </div>
+                          {(!Array.isArray(notifications) || notifications.length === 0) ? (
+                            <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
+                          ) : (
+                            notifications.map(n => (
+                              <div
+                                key={n.id}
+                                className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
+                                onClick={() => handleNotificationClick(n)}
+                              >
+                                <div className="flex items-start">
+                                  <div className="flex-1">
+                                    <p className="text-sm text-white">{n.message}</p>
+                                    <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
                                   </div>
-                                ))
-                              )}
-                            </>
-                          )}
-
-                          {notificationTab === 'announcements' && (
-                            <AnnouncementsContent user={user} addNotification={addNotification} />
-                          )}
-
-                          {notificationTab === 'feedback' && (
-                            <UserFeedbackContent user={user} addNotification={addNotification} />
+                                </div>
+                              </div>
+                            ))
                           )}
                         </div>
 
@@ -7195,8 +6578,8 @@ function App() {
                             <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>
                               {(() => {
                                 const allTypes = getAllTaskTypes();
-                                const foundType = allTypes.find(type => 
-                                  type.value == selectedTaskTypeForStatuses || 
+                                const foundType = allTypes.find(type =>
+                                  type.value == selectedTaskTypeForStatuses ||
                                   type.id == selectedTaskTypeForStatuses
                                 );
                                 return foundType ? foundType.label : 'Geliştirme';
