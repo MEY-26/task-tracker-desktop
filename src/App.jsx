@@ -648,6 +648,74 @@ function App() {
     }
   }
 
+  async function transferIncompleteTasksFromPreviousWeek() {
+    try {
+      // Hedefler kilitliyse işlem yapılamaz
+      if (combinedLocks.targets_locked && user?.role !== 'admin') {
+        addNotification('Hedefler kilitli olduğu için işlem yapılamaz.', 'error');
+        return;
+      }
+
+      // Observer hiçbir zaman bu işlemi yapamaz
+      if (user?.role === 'observer') {
+        addNotification('Bu işlem için yetkiniz yok.', 'error');
+        return;
+      }
+
+      // Mevcut haftanın başlangıcını al
+      const currentWeekStart = weeklyWeekStart || fmtYMD(getMonday());
+      const currentWeekDate = new Date(currentWeekStart);
+      
+      // Önceki haftanın başlangıcını hesapla (7 gün geriye git)
+      const previousWeekDate = new Date(currentWeekDate);
+      previousWeekDate.setDate(previousWeekDate.getDate() - 7);
+      const previousWeekStart = fmtYMD(getMonday(previousWeekDate));
+
+      // Önceki haftanın verilerini çek
+      const params = { week_start: previousWeekStart };
+      if (weeklyUserId) params.user_id = weeklyUserId;
+      const res = await WeeklyGoals.get(params);
+
+      // Backend'den gelen items'ı parse et
+      const previousWeekItems = Array.isArray(res.items) ? res.items.map(item => ({
+        ...item,
+        is_completed: Boolean(item.is_completed),
+        is_unplanned: Boolean(item.is_unplanned),
+      })) : [];
+
+      // Tamamlanmamış (is_completed: false) ve planlı (is_unplanned: false) işleri filtrele
+      const incompletePlannedTasks = previousWeekItems.filter(item => 
+        !item.is_completed && !item.is_unplanned
+      );
+
+      if (incompletePlannedTasks.length === 0) {
+        addNotification('Önceki haftada aktarılacak tamamlanmamış iş bulunamadı.', 'info');
+        return;
+      }
+
+      // ID'leri kaldırarak yeni işler olarak ekle (actual_minutes ve is_completed'i sıfırla)
+      const newTasks = incompletePlannedTasks.map(task => ({
+        title: task.title || '',
+        action_plan: task.action_plan || '',
+        target_minutes: task.target_minutes || 0,
+        weight_percent: task.weight_percent || 0,
+        actual_minutes: 0, // Yeni hafta için sıfırla
+        is_unplanned: false,
+        is_completed: false, // Yeni hafta için tamamlanmamış olarak işaretle
+        description: task.description || '', // Açıklamayı da aktar
+      }));
+
+      // Mevcut işlere ekle
+      const updatedItems = [...weeklyGoals.items, ...newTasks];
+      setWeeklyGoals({ ...weeklyGoals, items: updatedItems });
+      
+      addNotification(`${newTasks.length} adet tamamlanmamış iş önceki haftadan aktarıldı.`, 'success');
+    } catch (err) {
+      console.error('Transfer incomplete tasks error:', err);
+      addNotification('Önceki haftadan işler aktarılırken bir hata oluştu.', 'error');
+    }
+  }
+
   async function saveWeeklyGoals() {
     try {
       // Observer hiçbir zaman kayıt yapamaz
@@ -3977,7 +4045,7 @@ function App() {
                           value={weeklyLeaveMinutesInput}
                           onChange={handleWeeklyLeaveMinutesChange}
                           onBlur={handleWeeklyLeaveMinutesBlur}
-                          disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                          disabled={user?.role === 'observer'}
                           className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
                           placeholder="0"
                           title="Planlanan hafta için izinli olacağınız toplam dakika"
@@ -3992,7 +4060,7 @@ function App() {
                           value={weeklyOvertimeMinutesInput}
                           onChange={handleWeeklyOvertimeMinutesChange}
                           onBlur={handleWeeklyOvertimeMinutesBlur}
-                          disabled={user?.role === 'observer' || (combinedLocks.targets_locked && user?.role !== 'admin')}
+                          disabled={user?.role === 'observer'}
                           className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
                           placeholder="0"
                           title="Mesaiye kalma durumunda 2700 dakikayı aşmak için mesai süresi"
@@ -4180,6 +4248,13 @@ function App() {
                             onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
                           >
                             İş Ekle</button>
+                          <button 
+                            className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px] mt-2"
+                            disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
+                            onClick={transferIncompleteTasksFromPreviousWeek}
+                            title="Önceki haftadan tamamlanmamış (Tamamlandı olarak işaretlenmemiş) planlı işleri mevcut haftaya aktarır. Aktarılan işlerin gerçekleşme süreleri sıfırlanır ve tamamlanmamış olarak işaretlenir."
+                          >
+                            Tamamlanmayan İşleri Aktar</button>
                         </div>
                       )}
                     </div>
