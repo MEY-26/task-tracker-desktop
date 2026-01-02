@@ -224,9 +224,6 @@ function App() {
   const [assigneeSearchDetail, setAssigneeSearchDetail] = useState('');
   const [showAssigneeDropdownDetail, setShowAssigneeDropdownDetail] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showAlertModal, setShowAlertModal] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertType, setAlertType] = useState('info');
   const [transferButtonText, setTransferButtonText] = useState('Tamamlanmayan İşleri Aktar');
 
   const resetNewTask = () => {
@@ -1030,7 +1027,7 @@ function App() {
   useEffect(() => {
     const isModalOpen = showAddForm || showDetailModal || showWeeklyGoals ||
       showGoalDescription || showUserProfile || showTeamModal ||
-      showUserPanel || showNotifications || showTaskSettings || showAlertModal;
+      showUserPanel || showNotifications || showTaskSettings;
 
     if (isModalOpen) {
       document.body.style.overflow = 'hidden';
@@ -1042,7 +1039,7 @@ function App() {
       document.body.style.overflow = 'unset';
     };
   }, [showAddForm, showDetailModal, showWeeklyGoals, showGoalDescription,
-    showUserProfile, showTeamModal, showUserPanel, showNotifications, showTaskSettings, showAlertModal]);
+    showUserProfile, showTeamModal, showUserPanel, showNotifications, showTaskSettings]);
 
   useEffect(() => {
     if (user?.role !== 'admin' && showWeeklyOverview) {
@@ -1106,16 +1103,14 @@ function App() {
           handleCloseModal();
         } else if (showTaskSettings) {
           setShowTaskSettings(false);
-        } else if (showAlertModal) {
-          setShowAlertModal(false);
         }
       }
     };
-    if (showDetailModal || showTaskSettings || showAlertModal) {
+    if (showDetailModal || showTaskSettings) {
       window.addEventListener('keydown', onKey);
       return () => window.removeEventListener('keydown', onKey);
     }
-  }, [showDetailModal, showTaskSettings, showAlertModal, selectedTask, descDraft, user?.role, handleCloseModal]);
+  }, [showDetailModal, showTaskSettings, selectedTask, descDraft, user?.role, handleCloseModal]);
 
   useEffect(() => {
     if (showDetailModal) {
@@ -1610,13 +1605,6 @@ function App() {
       const currentNotifications = Array.isArray(prev) ? prev : [];
       return [notification, ...currentNotifications.slice(0, 4)];
     });
-
-    // Success, error ve warning mesajları için popup modal göster
-    if (type === 'success' || type === 'error' || type === 'warning') {
-      setAlertMessage(message);
-      setAlertType(type);
-      setShowAlertModal(true);
-    }
 
     setTimeout(() => {
       setNotifications(prev => {
@@ -6795,70 +6783,6 @@ function App() {
 
         </div>
       </main>
-
-      {/* Alert Modal - Main dışında render ediliyor */}
-      {showAlertModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" onClick={() => setShowAlertModal(false)}>
-          <div className="bg-[#1e293b] rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-white/20" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                {alertType === 'success' && (
-                  <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-                {alertType === 'error' && (
-                  <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                )}
-                {alertType === 'warning' && (
-                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                )}
-                <h3 className={`text-xl font-semibold ${
-                  alertType === 'success' ? 'text-green-400' :
-                  alertType === 'error' ? 'text-red-400' :
-                  'text-yellow-400'
-                }`}>
-                  {alertType === 'success' ? 'Başarılı' :
-                   alertType === 'error' ? 'Hata' :
-                   'Uyarı'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowAlertModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-gray-200 text-lg mb-6 whitespace-pre-wrap">{alertMessage}</p>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowAlertModal(false)}
-                className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                  alertType === 'success' ? 'bg-green-500 hover:bg-green-600 text-white' :
-                  alertType === 'error' ? 'bg-red-500 hover:bg-red-600 text-white' :
-                  'bg-yellow-500 hover:bg-yellow-600 text-white'
-                }`}
-              >
-                Tamam
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
 
       {/* Footer */}
       <footer className="app-footer bg-[#0f172a] border-t border-white/10" style={{ padding: '15px', paddingRight: '30px' }}>
