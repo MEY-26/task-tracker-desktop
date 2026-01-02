@@ -40,6 +40,8 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🎁 Mesai bonusu sistemi (1.5x çarpan)
 - 👨‍💼 Admin kilitleme bypass yetkisi
 - 🔄 Otomatik liste güncelleme sistemi
+- 🔓 **Bağımsız İzin/Mesai Alanları**: İzin ve Mesai girişleri hedef kilitleme durumundan bağımsız çalışır
+- 📋 **Önceki Haftadan İş Aktarma**: Tamamlanmamış işleri önceki haftadan yeni haftaya aktarma özelliği
 
 ### ⚡ Performans ve Optimizasyon
 - 🚀 Memoized görev filtreleme sistemi
@@ -556,7 +558,14 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.2 - Linux Desteği ve Laravel 12 Uyumluluğu (Son Guncelleme)
+### v2.10.3 - Haftalık Hedef Sistemi İyileştirmeleri (Son Güncelleme)
+- ✅ **İzin ve Mesai Alanları Bağımsız**: İzin ve Mesai input alanları artık hedef kilitleme durumundan bağımsız çalışıyor (sadece observer rolü için kilitli)
+- ✅ **Önceki Haftadan İş Aktarma**: Önceki haftadan tamamlanmamış planlı işleri mevcut haftaya aktarma özelliği eklendi
+- ✅ **Akıllı İş Aktarma**: Sadece tamamlanmamış (`is_completed: false`) ve planlı (`is_unplanned: false`) işler aktarılır
+- ✅ **Otomatik Sıfırlama**: Aktarılan işlerin gerçekleşme süreleri ve tamamlanma durumları sıfırlanır
+- ✅ **Hedef Kilitleme Kontrolü**: İş aktarma butonu sadece hedefler açıkken aktif olur
+
+### v2.10.2 - Linux Desteği ve Laravel 12 Uyumluluğu
 - ✅ **Linux Güncelleme Script'i**: Linux için otomatik güncelleme script'i eklendi (`scripts/linux-update.sh`)
 - ✅ **Linux Dokümantasyonu**: Linux kurulum ve güncelleme dokümantasyonu eklendi
 - ✅ **Laravel 12 Uyumluluğu**: Laravel 12 log parse hatası düzeltildi
