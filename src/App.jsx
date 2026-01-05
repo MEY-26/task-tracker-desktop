@@ -3616,49 +3616,47 @@ function App() {
                   )}
                 </div>
 
-                <div className="relative flex items-center gap-2">
+                {/* Bildirimler Butonu */}
+                <button
+                  ref={bellRef}
+                  onClick={async () => {
+                    const next = !showNotifications;
+                    if (next) await loadNotifications();
+                    setShowNotifications(next);
+                  }}
+                  className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
+                  aria-label="Bildirimler"
+                  style={{marginRight: '5px'}}
+                >
+                  {badgeCount > 0 && (
+                    <span className="notification-badge">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
 
-                  {/* Bildirimler Butonu */}
-                  <button
-                    ref={bellRef}
-                    onClick={async () => {
-                      const next = !showNotifications;
-                      if (next) await loadNotifications();
-                      setShowNotifications(next);
-                    }}
-                    className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
-                    aria-label="Bildirimler"
-                  >
-                    {badgeCount > 0 && (
-                      <span className="notification-badge">
-                        {badgeCount > 99 ? '99+' : badgeCount}
-                      </span>
-                    )}
+                  <span>🔔</span>
+                </button>
 
-                    <span>🔔</span>
-                  </button>
-
-                  {/* Güncelleme Notları Butonu */}
-                  <button
-                    onClick={async () => {
-                      if (!updatesContent) {
-                        try {
-                          const response = await fetch('/UPDATES.md');
-                          const text = await response.text();
-                          setUpdatesContent(text);
-                        } catch (err) {
-                          setUpdatesContent('# Güncelleme Notları\n\nGüncelleme notları yüklenemedi.');
-                        }
+                {/* Güncelleme Notları Butonu */}
+                <button
+                  onClick={async () => {
+                    if (!updatesContent) {
+                      try {
+                        const response = await fetch('/UPDATES.md');
+                        const text = await response.text();
+                        setUpdatesContent(text);
+                      } catch {
+                        setUpdatesContent('# Güncelleme Notları\n\nGüncelleme notları yüklenemedi.');
                       }
-                      setShowUpdatesModal(true);
-                    }}
-                    className="add-task-button rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a] p-2"
-                    aria-label="Güncelleme Notları"
-                    title="Güncelleme Notları"
-                  >
-                    <span>📋</span>
-                  </button>
-                </div>
+                    }
+                    setShowUpdatesModal(true);
+                  }}
+                  className="add-task-button rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
+                  aria-label="Güncelleme Notları"
+                  title="Güncelleme Notları"
+                >
+                  <span>📋</span>
+                </button>
                 {showNotifications && createPortal(
                   <>
                     <div className="fixed inset-0 z-[999992] bg-black/80"
@@ -3773,7 +3771,7 @@ function App() {
                                 for (let i = 0; i < lines.length; i++) {
                                   const line = lines[i];
                                   const trimmed = line.trim();
-                                  
+
                                   // Boş satır
                                   if (!trimmed) {
                                     if (inList) {
@@ -3791,7 +3789,7 @@ function App() {
                                   // Liste öğesi kontrolü (girintili veya girintisiz)
                                   const listMatch = trimmed.match(/^- (.+)$/);
                                   const indentMatch = line.match(/^(\s+)- (.+)$/);
-                                  
+
                                   if (listMatch || indentMatch) {
                                     const content = listMatch ? listMatch[1] : indentMatch[2];
                                     const indent = indentMatch ? indentMatch[1].length : 0;
