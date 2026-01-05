@@ -357,8 +357,7 @@ function App() {
       const isSelectedFuture = selStart.getTime() > curStart.getTime();
 
       let targetsUnlocked = false;
-      // Gerçekleşme alanı sürekli açık
-      let actualsUnlocked = true;
+      // Gerçekleşme alanı sürekli açık (actuals_locked her zaman false)
 
       if (isSelectedFuture) {
         // Future weeks: no locks at all
