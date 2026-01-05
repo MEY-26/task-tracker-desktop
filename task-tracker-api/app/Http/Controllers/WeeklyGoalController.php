@@ -23,14 +23,12 @@ class WeeklyGoalController extends Controller
     private function locksForWeek(string $weekStart): array
     {
         $tz = 'Europe/Istanbul';
-        $monday = Carbon::parse($weekStart, $tz)->startOfDay()->addHours(10); // Monday 10:00
-        $nextMonday10 = (clone $monday)->addWeek();
+        $monday = Carbon::parse($weekStart, $tz)->startOfDay()->addHours(13)->addMinutes(30); // Monday 13:30
         $now = Carbon::now($tz);
         return [
             'targets_locked' => $now->greaterThanOrEqualTo($monday),
-            'actuals_locked' => $now->greaterThanOrEqualTo($nextMonday10),
-            'monday_10' => $monday->toIso8601String(),
-            'next_monday_10' => $nextMonday10->toIso8601String(),
+            'actuals_locked' => false, // Gerçekleşme alanı sürekli açık
+            'monday_13_30' => $monday->toIso8601String(),
         ];
     }
 
@@ -467,28 +465,18 @@ class WeeklyGoalController extends Controller
 
         $items = $request->input('items', []);
 
-        // Validate totals for planned
-        $planned = collect($items)->where('is_unplanned', false);
-        $totalTarget = (int)$planned->sum(function ($x) {
-            return max(0, (int)($x['target_minutes'] ?? 0));
+        // Sadece gerçekleşen süre kontrolü yapılır
+        // Planlı süre kontrolü yok - izin eklendiğinde planlı süre kullanılabilir süreyi aşsa bile kaydedilebilir
+        $allItems = collect($items);
+        $totalActual = (int)$allItems->sum(function ($x) {
+            return max(0, (int)($x['actual_minutes'] ?? 0));
         });
-        $totalWeight = $capacity > 0
-            ? (float)$planned->sum(function ($x) use ($capacity) {
-                $t = max(0, (int)($x['target_minutes'] ?? 0));
-                return ($t / $capacity) * 100;
-            })
-            : 0.0;
 
         // Admin için kapasite kontrollerini bypass et
+        // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
         if ($auth->role !== 'admin') {
-            if ($totalTarget > $capacity) {
-                return response()->json(['message' => 'Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.'], 422);
-            }
-            if ($capacity > 0 && $totalWeight > 100.0 + 0.001) {
-                return response()->json(['message' => "Hedef ağırlık toplamı %100'ü aşamaz."], 422);
-            }
-            if ($capacity === 0 && $totalTarget > 0) {
-                return response()->json(['message' => 'İzin süresi bu hafta için planlı hedef bırakmıyor.'], 422);
+            if ($totalActual > $capacity) {
+                return response()->json(['message' => "Toplam gerçekleşen süre ({$totalActual} dk) kullanılabilir süreyi ({$capacity} dk) aşamaz."], 422);
             }
         }
 

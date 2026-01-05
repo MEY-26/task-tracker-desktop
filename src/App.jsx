@@ -334,9 +334,9 @@ function App() {
     return weekNo;
   }
 
-  function at10AM(d) {
+  function at1330(d) {
     const x = new Date(d);
-    x.setHours(10, 0, 0, 0);
+    x.setHours(13, 30, 0, 0);
     return x;
   }
 
@@ -352,30 +352,28 @@ function App() {
       const curStart = getMonday(now);
       curStart.setHours(0, 0, 0, 0);
 
-      const curStart10 = at10AM(curStart);
+      const curStart1330 = at1330(curStart);
       const isSelectedCurrent = selStart.getTime() === curStart.getTime();
       const isSelectedFuture = selStart.getTime() > curStart.getTime();
 
       let targetsUnlocked = false;
-      let actualsUnlocked = false;
+      // Gerçekleşme alanı sürekli açık
+      let actualsUnlocked = true;
 
       if (isSelectedFuture) {
         // Future weeks: no locks at all
         targetsUnlocked = true;
-        actualsUnlocked = true;
       } else if (isSelectedCurrent) {
-        // Current week: targets closed after Mon 10:00; actuals open after Mon 10:00
-        targetsUnlocked = now < curStart10;
-        actualsUnlocked = now >= curStart10;
+        // Current week: targets closed after Mon 13:30
+        targetsUnlocked = now < curStart1330;
       } else {
-        // Past weeks: fully locked
+        // Past weeks: targets locked
         targetsUnlocked = false;
-        actualsUnlocked = false;
       }
 
       return {
         targets_locked: !targetsUnlocked,
-        actuals_locked: !actualsUnlocked,
+        actuals_locked: false, // Gerçekleşme alanı sürekli açık
       };
     } catch (e) {
       console.warn('UI locks compute failed:', e);
@@ -384,10 +382,10 @@ function App() {
   }, [weeklyWeekStart]);
   const combinedLocks = useMemo(() => {
     const backendTargetsLocked = !!(weeklyGoals?.locks?.targets_locked);
-    const backendActualsLocked = !!(weeklyGoals?.locks?.actuals_locked);
+    // Gerçekleşme alanı sürekli açık (backend ve frontend'de false)
     return {
       targets_locked: backendTargetsLocked || uiLocks.targets_locked,
-      actuals_locked: backendActualsLocked || uiLocks.actuals_locked,
+      actuals_locked: false, // Gerçekleşme alanı sürekli açık
     };
   }, [weeklyGoals?.locks, uiLocks]);
 
@@ -782,20 +780,12 @@ function App() {
         ? Number(weeklyLive.availableMinutes)
         : Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutesForSave);
 
-      // Admin için kapasite kontrollerini bypass et
+      // Sadece gerçekleşen süre kontrolü yapılır
+      // Planlı süre kontrolü yok - izin eklendiğinde planlı süre kullanılabilir süreyi aşsa bile kaydedilebilir
+      // İzin ve mesai alanları her zaman kaydedilebilir (kısıtlama yok)
       if (user?.role !== 'admin') {
-        if ((weeklyLive?.totalTarget || 0) > availableMinutes) {
-          addNotification('Haftalık hedef toplamı izin sonrası kullanılabilir süreyi aşamaz.', 'error');
-          setWeeklySaveState('idle');
-          return;
-        }
-        if (availableMinutes === 0 && (weeklyLive?.totalTarget || 0) > 0) {
-          addNotification('İzin sonrası kullanılabilir süre 0 dakika, planlı hedef ekleyemezsiniz.', 'error');
-          setWeeklySaveState('idle');
-          return;
-        }
-
         // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
+        // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
         const totalActual = weeklyLive?.totalActual || 0;
 
         if (totalActual > availableMinutes) {
@@ -915,7 +905,8 @@ function App() {
       setWeeklySaveState('saved');
     } catch (err) {
       console.error('Weekly goals save error:', err);
-      addNotification(err.response?.data?.message || 'Kaydedilemedi', 'error');
+      const errorMessage = err.response?.data?.message || err.message || 'Kaydedilemedi';
+      addNotification(errorMessage, 'error');
       setWeeklySaveState('idle');
     }
   }
@@ -4055,7 +4046,7 @@ function App() {
                         <span
                           className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
                           title={
-                            'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 10:00’a kadar içinde bulunulan haftanın hedefleri açık, 10:00’dan sonra hedefler kapalı. \nGerçekleşme Pazartesi 10:00’dan sonra açık.'
+                            'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 13:30\'a kadar içinde bulunulan haftanın hedefleri açık, 13:30\'dan sonra hedefler kapalı. \nGerçekleşme alanı sürekli açık.'
                           }
                         >
                           ℹ️
@@ -4528,12 +4519,12 @@ function App() {
                               : 'bg-green-600 hover:bg-green-700'
                             } disabled:bg-gray-600 disabled:cursor-not-allowed`}
                           disabled={
+                            // Kaydetme işlemi devam ediyorsa butonu devre dışı bırak
+                            weeklySaveState === 'saving' ||
                             // Admin için kapasite kontrollerini bypass et
-                            (user?.role !== 'admin' && (
-                              weeklyLive.totalTarget > (weeklyLive.availableMinutes || 0) ||
-                              weeklyLive.overActualCapacity
-                            )) ||
-                            weeklySaveState === 'saving'
+                            // İzin ve mesai alanları her zaman kaydedilebilir (kısıtlama yok)
+                            // Planlı süre kontrolü yok - sadece gerçekleşen süre kontrolü var
+                            (user?.role !== 'admin' && weeklyLive.overActualCapacity)
                           }
                           onClick={saveWeeklyGoals}
                         >
