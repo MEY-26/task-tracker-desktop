@@ -167,3 +167,11 @@ config.local.json
 # Deployment scripts with credentials
 scripts/deploy-changed-files.sh
 scripts/deploy-changed-files.ps1
+
+# Sensitive information files (IPs, passwords, credentials)
+*_COMMANDS.txt
+*_credentials.txt
+*_secrets.txt
+*_passwords.txt
+SCP_*.txt
+DEPLOY_*.txt

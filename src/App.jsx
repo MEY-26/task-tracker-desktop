@@ -3764,31 +3764,84 @@ function App() {
                                 if (!updatesContent) return '<p style="color: #d1d5db;">Güncelleme notları yükleniyor...</p>';
                                 let html = updatesContent;
 
-                                // Liste öğelerini önce işle (satır başında - ile başlayanlar)
+                                // Liste öğelerini işle (girintili ve girintisiz)
                                 const lines = html.split('\n');
-                                let inList = false;
                                 let processedLines = [];
+                                let inList = false;
+                                let listLevel = 0;
 
                                 for (let i = 0; i < lines.length; i++) {
                                   const line = lines[i];
-                                  const isListItem = /^- (.+)$/.test(line);
-
-                                  if (isListItem) {
-                                    if (!inList) {
-                                      processedLines.push('<ul style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: disc;">');
-                                      inList = true;
-                                    }
-                                    processedLines.push(`<li style="margin-bottom: 0.5rem; color: #d1d5db;">${line.replace(/^- (.+)$/, '$1')}</li>`);
-                                  } else {
+                                  const trimmed = line.trim();
+                                  
+                                  // Boş satır
+                                  if (!trimmed) {
                                     if (inList) {
-                                      processedLines.push('</ul>');
+                                      // Liste bitir
+                                      for (let j = 0; j < listLevel; j++) {
+                                        processedLines.push('</ul>');
+                                      }
                                       inList = false;
+                                      listLevel = 0;
+                                    }
+                                    processedLines.push('');
+                                    continue;
+                                  }
+
+                                  // Liste öğesi kontrolü (girintili veya girintisiz)
+                                  const listMatch = trimmed.match(/^- (.+)$/);
+                                  const indentMatch = line.match(/^(\s+)- (.+)$/);
+                                  
+                                  if (listMatch || indentMatch) {
+                                    const content = listMatch ? listMatch[1] : indentMatch[2];
+                                    const indent = indentMatch ? indentMatch[1].length : 0;
+                                    const currentLevel = Math.floor(indent / 2); // Her 2 boşluk = 1 seviye
+
+                                    // Liste başlat veya seviye değiştir
+                                    if (!inList) {
+                                      for (let j = 0; j <= currentLevel; j++) {
+                                        processedLines.push(`<ul style="margin: ${j === 0 ? '1rem' : '0.5rem'} 0; padding-left: ${j === 0 ? '1.5rem' : '2rem'}; list-style-type: ${j === 0 ? 'disc' : 'circle'};">`);
+                                      }
+                                      inList = true;
+                                      listLevel = currentLevel + 1;
+                                    } else {
+                                      // Seviye değişikliği
+                                      if (currentLevel < listLevel - 1) {
+                                        // Seviye azaldı
+                                        for (let j = listLevel - 1; j > currentLevel; j--) {
+                                          processedLines.push('</ul>');
+                                        }
+                                        listLevel = currentLevel + 1;
+                                      } else if (currentLevel >= listLevel) {
+                                        // Seviye arttı
+                                        for (let j = listLevel; j <= currentLevel; j++) {
+                                          processedLines.push(`<ul style="margin: 0.5rem 0; padding-left: 2rem; list-style-type: circle;">`);
+                                        }
+                                        listLevel = currentLevel + 1;
+                                      }
+                                    }
+
+                                    // Liste öğesini ekle
+                                    processedLines.push(`<li style="margin-bottom: 0.5rem; color: #d1d5db; line-height: 1.6;">${content}</li>`);
+                                  } else {
+                                    // Liste öğesi değil
+                                    if (inList) {
+                                      // Liste bitir
+                                      for (let j = 0; j < listLevel; j++) {
+                                        processedLines.push('</ul>');
+                                      }
+                                      inList = false;
+                                      listLevel = 0;
                                     }
                                     processedLines.push(line);
                                   }
                                 }
+
+                                // Kapanmamış listeleri kapat
                                 if (inList) {
-                                  processedLines.push('</ul>');
+                                  for (let j = 0; j < listLevel; j++) {
+                                    processedLines.push('</ul>');
+                                  }
                                 }
 
                                 html = processedLines.join('\n');
@@ -3803,15 +3856,6 @@ function App() {
                                 html = html.replace(/^---$/gm, '<hr style="border: none; border-top: 1px solid #374151; margin: 2rem 0;" />');
                                 // Kalın yazı
                                 html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #fbbf24; font-weight: bold;">$1</strong>');
-
-                                // Paragraflar (boş satırlarla ayrılmış bloklar)
-                                html = html.split('\n\n').map(para => {
-                                  const trimmed = para.trim();
-                                  if (!trimmed) return '';
-                                  if (trimmed.match(/^<[h|u|l|h]/)) return trimmed;
-                                  if (trimmed.startsWith('<ul') || trimmed.startsWith('</ul>')) return trimmed;
-                                  return '<p style="margin-bottom: 1rem; color: #d1d5db; line-height: 1.6;">' + trimmed.replace(/\n/g, '<br />') + '</p>';
-                                }).filter(p => p).join('\n');
 
                                 return html;
                               })()
