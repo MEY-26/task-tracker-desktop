@@ -936,6 +936,7 @@ function App() {
   const lastSelectedSigRef = useRef('');
   const previousResponsibleIdRef = useRef(null);
   const previousResponsibleIdDetailRef = useRef(null);
+  const manuallyRemovedUsersRef = useRef(new Set()); // Manuel olarak kaldırılan kullanıcıları takip et
 
   useEffect(() => { showDetailModalRef.current = showDetailModal; }, [showDetailModal]);
   useEffect(() => { selectedTaskRef.current = selectedTask; }, [selectedTask]);
@@ -1110,10 +1111,11 @@ function App() {
     }
   }, [showDetailModal]);
 
-  // Yeni görev formu açıldığında previousResponsibleIdRef'i sıfırla
+  // Yeni görev formu açıldığında previousResponsibleIdRef ve manuallyRemovedUsersRef'i sıfırla
   useEffect(() => {
     if (showAddForm) {
       previousResponsibleIdRef.current = null;
+      manuallyRemovedUsersRef.current = new Set();
     }
   }, [showAddForm]);
 
@@ -1154,8 +1156,11 @@ function App() {
           u.id !== newTask.responsible_id
         );
         const teamMemberIds = teamMembers.map(m => m.id);
+        // Manuel olarak kaldırılan kullanıcıları filtrele
+        const removedUsers = manuallyRemovedUsersRef.current;
+        const filteredTeamMemberIds = teamMemberIds.filter(id => !removedUsers.has(id));
         // Ekibi assigned_users'a ekle (duplikasyon olmaması için)
-        const combinedIds = [...new Set([...cleanedAssignedUsers, ...teamMemberIds])];
+        const combinedIds = [...new Set([...cleanedAssignedUsers, ...filteredTeamMemberIds])];
         setNewTask({ ...newTask, assigned_users: combinedIds });
       } else {
         // Takım lideri değilse, sadece temizlenmiş listeyi kullan
@@ -1630,6 +1635,7 @@ function App() {
       const responsibleId = newTask.responsible_id ? parseInt(newTask.responsible_id) : user.id;
 
       // Eğer sorumlu bir takım lideri ise, ekibini otomatik olarak atananlara ekle
+      // Ancak manuel olarak kaldırılan kullanıcıları tekrar ekleme
       let assignedUsers = [...newTask.assigned_users];
       if (responsibleId && users) {
         const responsibleUser = users.find(u => u.id === responsibleId);
@@ -1637,8 +1643,11 @@ function App() {
           // Takım liderinin ekibini bul
           const teamMembers = users.filter(u => u.leader_id === responsibleId);
           const teamMemberIds = teamMembers.map(m => m.id);
+          // Manuel olarak kaldırılan kullanıcıları filtrele
+          const removedUsers = manuallyRemovedUsersRef.current;
+          const filteredTeamMemberIds = teamMemberIds.filter(id => !removedUsers.has(id));
           // Ekibi assigned_users'a ekle (duplikasyon olmaması için)
-          assignedUsers = [...new Set([...assignedUsers, ...teamMemberIds])];
+          assignedUsers = [...new Set([...assignedUsers, ...filteredTeamMemberIds])];
         }
       }
 
@@ -3782,10 +3791,14 @@ function App() {
                                   <button
                                     type="button"
                                     aria-label="Atananı kaldır"
-                                    onClick={() => setNewTask({
-                                      ...newTask,
-                                      assigned_users: newTask.assigned_users.filter(id => id !== userId)
-                                    })}
+                                    onClick={() => {
+                                      // Manuel olarak kaldırılan kullanıcıyı ref'e ekle
+                                      manuallyRemovedUsersRef.current.add(userId);
+                                      setNewTask({
+                                        ...newTask,
+                                        assigned_users: newTask.assigned_users.filter(id => id !== userId)
+                                      });
+                                    }}
                                     className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
                                   >
                                     ×
@@ -3857,6 +3870,11 @@ function App() {
                                         console.log(`Takım lideri ${u.name} seçildi. Ekip: `, teamMembers.map(tm => tm.name));
                                         usersToAdd = [...usersToAdd, ...teamMemberIds];
                                       }
+
+                                      // Manuel olarak eklenen kullanıcıları removedUsers'tan çıkar
+                                      usersToAdd.forEach(userId => {
+                                        manuallyRemovedUsersRef.current.delete(userId);
+                                      });
 
                                       // Mevcut atananlarla birleştir ve tekrarları temizle
                                       const combinedUsers = [...new Set([...newTask.assigned_users, ...usersToAdd])];
