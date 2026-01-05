@@ -301,6 +301,8 @@ function App() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showUpdatesModal, setShowUpdatesModal] = useState(false);
+  const [updatesContent, setUpdatesContent] = useState('');
   const [activeTab, setActiveTab] = useState('active');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [selectedTaskType, setSelectedTaskType] = useState('all');
@@ -668,7 +670,7 @@ function App() {
       // Mevcut haftanın başlangıcını al
       const currentWeekStart = weeklyWeekStart || fmtYMD(getMonday());
       const currentWeekDate = new Date(currentWeekStart);
-      
+
       // Önceki haftanın başlangıcını hesapla (7 gün geriye git)
       const previousWeekDate = new Date(currentWeekDate);
       previousWeekDate.setDate(previousWeekDate.getDate() - 7);
@@ -687,7 +689,7 @@ function App() {
       })) : [];
 
       // Tamamlanmamış (is_completed: false) ve planlı (is_unplanned: false) işleri filtrele
-      const incompletePlannedTasks = previousWeekItems.filter(item => 
+      const incompletePlannedTasks = previousWeekItems.filter(item =>
         !item.is_completed && !item.is_unplanned
       );
 
@@ -702,22 +704,22 @@ function App() {
 
       // Mevcut haftadaki işleri al (başlık ve aksiyon planına göre karşılaştırma için)
       const currentWeekItems = Array.isArray(weeklyGoals.items) ? weeklyGoals.items : [];
-      
+
       // Normalize fonksiyonu: boşlukları temizle ve küçük harfe çevir
       const normalize = (str) => (str || '').trim().toLowerCase();
-      
+
       // Mevcut haftada zaten var olan işleri kontrol et (başlık ve aksiyon planına göre)
       const tasksToAdd = incompletePlannedTasks.filter(previousTask => {
         const previousTitle = normalize(previousTask.title);
         const previousActionPlan = normalize(previousTask.action_plan);
-        
+
         // Mevcut haftada aynı başlık ve aksiyon planına sahip iş var mı?
         const isDuplicate = currentWeekItems.some(currentTask => {
           const currentTitle = normalize(currentTask.title);
           const currentActionPlan = normalize(currentTask.action_plan);
           return currentTitle === previousTitle && currentActionPlan === previousActionPlan;
         });
-        
+
         return !isDuplicate; // Duplicate değilse ekle
       });
 
@@ -745,11 +747,11 @@ function App() {
       // Mevcut işlere ekle
       const updatedItems = [...weeklyGoals.items, ...newTasks];
       setWeeklyGoals({ ...weeklyGoals, items: updatedItems });
-      
+
       // Buton metnini güncelle
       const successMessage = `${newTasks.length} İş Aktarıldı`;
       setTransferButtonText(successMessage);
-      
+
       // 5 saniye sonra buton metnini eski haline getir
       setTimeout(() => {
         setTransferButtonText('Tamamlanmayan İşleri Aktar');
@@ -3496,6 +3498,8 @@ function App() {
                 Görev Takip Sistemi
               </h2>
               <div className="flex items-center">
+
+                {/* Görev Ekleme Butonu */}
                 {user?.role !== 'observer' && (
                   <button
                     onClick={() => {
@@ -3509,6 +3513,7 @@ function App() {
                   </button>
                 )}
 
+                {/* Kullanıcı Butonu */}
                 <div className="relative profile-menu">
                   <button
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -3526,6 +3531,7 @@ function App() {
                       className="absolute right-0 top-full mt-2 w-48 !bg-[#0f172a] rounded-lg shadow-xl border border-red-600 py-1 z-[9999]"
                       style={{ display: 'block', padding: '5px' }}
                     >
+                      {/* Profil yönetimi */}
                       <button
                         onClick={() => {
                           setShowProfileMenu(false);
@@ -3539,6 +3545,8 @@ function App() {
                           <span>Profil</span>
                         </span>
                       </button>
+
+                      {/* Görev Ayarları */}
                       {user?.role === 'admin' && (
                         <button
                           onClick={() => {
@@ -3554,6 +3562,8 @@ function App() {
                           </span>
                         </button>
                       )}
+
+                      {/* Takım Yönetim */}
                       {user?.role === 'team_leader' && (
                         <button
                           onClick={async () => {
@@ -3571,6 +3581,7 @@ function App() {
                         </button>
                       )}
 
+                      {/* Kullanıcı Yönetim */}
                       {user?.role === 'admin' && (
                         <button
                           onClick={() => {
@@ -3586,6 +3597,8 @@ function App() {
                           </span>
                         </button>
                       )}
+
+                      {/* Çıkış Butonu */}
                       <button
                         onClick={() => {
                           setShowProfileMenu(false);
@@ -3602,7 +3615,9 @@ function App() {
                     </div>
                   )}
                 </div>
+
                 <div className="relative flex items-center gap-2">
+
                   {/* Bildirimler Butonu */}
                   <button
                     ref={bellRef}
@@ -3621,6 +3636,27 @@ function App() {
                     )}
 
                     <span>🔔</span>
+                  </button>
+
+                  {/* Güncelleme Notları Butonu */}
+                  <button
+                    onClick={async () => {
+                      if (!updatesContent) {
+                        try {
+                          const response = await fetch('/UPDATES.md');
+                          const text = await response.text();
+                          setUpdatesContent(text);
+                        } catch (err) {
+                          setUpdatesContent('# Güncelleme Notları\n\nGüncelleme notları yüklenemedi.');
+                        }
+                      }
+                      setShowUpdatesModal(true);
+                    }}
+                    className="add-task-button rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a] p-2"
+                    aria-label="Güncelleme Notları"
+                    title="Güncelleme Notları"
+                  >
+                    <span>📋</span>
                   </button>
                 </div>
                 {showNotifications && createPortal(
@@ -3680,6 +3716,109 @@ function App() {
 
                       </div>
 
+                    </div>
+                  </>,
+                  document.body
+                )}
+                {showUpdatesModal && createPortal(
+                  <>
+                    <div className="fixed inset-0 z-[999992] bg-black/80"
+                      onClick={() => setShowUpdatesModal(false)} style={{ pointerEvents: 'auto' }} />
+
+                    <div className="fixed z-[99999] p-3 update-screen">
+                      <div
+                        className="max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                      >
+                        {/* Başlık */}
+                        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-gradient-to-r from-blue-600/20 to-purple-600/20">
+                          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <span>📋</span>
+                            Güncelleme Notları
+                          </h2>
+                          <button
+                            onClick={() => setShowUpdatesModal(false)}
+                            className="text-white/70 hover:text-white text-2xl font-bold w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+                            aria-label="Kapat"
+                          >
+                            ×
+                          </button>
+                        </div>
+
+                        {/* İçerik Alanı */}
+                        <div
+                          className="overflow-y-auto flex-1 p-6 no-scrollbar update-screen__inner"
+                          style={{
+                            backgroundColor: '#0f172a',
+                            color: '#e5e7eb',
+                            fontFamily: 'system-ui, -apple-system, sans-serif'
+                          }}
+                        >
+                          <div
+                            className="prose prose-invert max-w-none"
+                            style={{
+                              color: '#e5e7eb',
+                              lineHeight: '1.6',
+                            }}
+                            dangerouslySetInnerHTML={{
+                              __html: (() => {
+                                if (!updatesContent) return '<p style="color: #d1d5db;">Güncelleme notları yükleniyor...</p>';
+                                let html = updatesContent;
+
+                                // Liste öğelerini önce işle (satır başında - ile başlayanlar)
+                                const lines = html.split('\n');
+                                let inList = false;
+                                let processedLines = [];
+
+                                for (let i = 0; i < lines.length; i++) {
+                                  const line = lines[i];
+                                  const isListItem = /^- (.+)$/.test(line);
+
+                                  if (isListItem) {
+                                    if (!inList) {
+                                      processedLines.push('<ul style="margin: 1rem 0; padding-left: 1.5rem; list-style-type: disc;">');
+                                      inList = true;
+                                    }
+                                    processedLines.push(`<li style="margin-bottom: 0.5rem; color: #d1d5db;">${line.replace(/^- (.+)$/, '$1')}</li>`);
+                                  } else {
+                                    if (inList) {
+                                      processedLines.push('</ul>');
+                                      inList = false;
+                                    }
+                                    processedLines.push(line);
+                                  }
+                                }
+                                if (inList) {
+                                  processedLines.push('</ul>');
+                                }
+
+                                html = processedLines.join('\n');
+
+                                // H1 başlıklar
+                                html = html.replace(/^# (.+)$/gm, '<h1 style="color: #60a5fa; font-size: 1.75rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem;">$1</h1>');
+                                // H2 başlıklar
+                                html = html.replace(/^## (.+)$/gm, '<h2 style="color: #a78bfa; font-size: 1.5rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem;">$1</h2>');
+                                // H3 başlıklar
+                                html = html.replace(/^### (.+)$/gm, '<h3 style="color: #c084fc; font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>');
+                                // Yatay çizgi
+                                html = html.replace(/^---$/gm, '<hr style="border: none; border-top: 1px solid #374151; margin: 2rem 0;" />');
+                                // Kalın yazı
+                                html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #fbbf24; font-weight: bold;">$1</strong>');
+
+                                // Paragraflar (boş satırlarla ayrılmış bloklar)
+                                html = html.split('\n\n').map(para => {
+                                  const trimmed = para.trim();
+                                  if (!trimmed) return '';
+                                  if (trimmed.match(/^<[h|u|l|h]/)) return trimmed;
+                                  if (trimmed.startsWith('<ul') || trimmed.startsWith('</ul>')) return trimmed;
+                                  return '<p style="margin-bottom: 1rem; color: #d1d5db; line-height: 1.6;">' + trimmed.replace(/\n/g, '<br />') + '</p>';
+                                }).filter(p => p).join('\n');
+
+                                return html;
+                              })()
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </>,
                   document.body
@@ -4304,7 +4443,7 @@ function App() {
                             onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
                           >
                             İş Ekle</button>
-                          <button 
+                          <button
                             className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px] mt-2"
                             disabled={(combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...'}
                             onClick={transferIncompleteTasksFromPreviousWeek}
