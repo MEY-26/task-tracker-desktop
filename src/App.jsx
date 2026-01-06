@@ -345,14 +345,14 @@ function App() {
     },
     blue: {
       name: 'Mavi Tema',
-      background: '#0c1226',
+      background: '#0a1220',
       text: '#e0e7ff',
       textSecondary: '#a5b4fc',
-      accent: '#6366f1',
-      border: '#312e81',
-      tableBackground: '#1a2332',
-      tableRowAlt: '#162038',
-      tableHeader: '#312e81',
+      accent: '#3b82f6',
+      border: '#1e3a8a',
+      tableBackground: '#1e293b',
+      tableRowAlt: '#1a2332',
+      tableHeader: '#1e3a8a',
       socialIconColor: '#a5b4fc'
     },
     green: {
@@ -372,11 +372,11 @@ function App() {
       background: '#1a0a2e',
       text: '#f3e8ff',
       textSecondary: '#c084fc',
-      accent: '#a855f7',
-      border: '#581c87',
+      accent: '#9333ea',
+      border: '#6b21a8',
       tableBackground: '#2d1b3d',
       tableRowAlt: '#241530',
-      tableHeader: '#581c87',
+      tableHeader: '#6b21a8',
       socialIconColor: '#c084fc'
     },
     orange: {
@@ -3420,62 +3420,195 @@ function App() {
 
     return (
       <div className="space-y-6">
-        <div className="border-b border-white/10 pb-4" style={{ paddingBottom: '30px' }}>
+        <div className="border-b pb-4" style={{ paddingBottom: '30px', borderColor: currentTheme.border }}>
           <div className="space-y-4">
 
-            <input className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+            <input
+              className="w-full rounded px-3 py-3 !text-[24px] focus:outline-none"
               placeholder="İsim"
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
-              style={{ marginBottom: '10px' }} />
+              style={{
+                marginBottom: '10px',
+                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = currentTheme.accent;
+                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = currentTheme.border;
+                e.target.style.boxShadow = 'none';
+              }}
+            />
 
-            <input type="email" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+            <input
+              type="email"
+              className="w-full rounded px-3 py-3 !text-[24px] focus:outline-none"
               placeholder="E-posta"
-              value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-              style={{ marginBottom: '10px' }} />
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              style={{
+                marginBottom: '10px',
+                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = currentTheme.accent;
+                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = currentTheme.border;
+                e.target.style.boxShadow = 'none';
+              }}
+            />
 
-            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+            <input
+              type="password"
+              className="w-full rounded px-3 py-3 !text-[24px] focus:outline-none"
               placeholder="Şifre"
-              value={form.password} onChange={e => setForm({ ...form, password: e.target.value })}
-              autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false"
-              style={{ marginBottom: '10px' }} />
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              style={{
+                marginBottom: '10px',
+                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = currentTheme.accent;
+                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = currentTheme.border;
+                e.target.style.boxShadow = 'none';
+              }}
+            />
 
-            <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+            <input
+              type="password"
+              className="w-full rounded px-3 py-3 !text-[24px] focus:outline-none"
               placeholder="Şifre (tekrar)"
-              value={form.password_confirmation} onChange={e => setForm({ ...form, password_confirmation: e.target.value })}
-              autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false"
-              style={{ marginBottom: '10px' }} />
+              value={form.password_confirmation}
+              onChange={e => setForm({ ...form, password_confirmation: e.target.value })}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              style={{
+                marginBottom: '10px',
+                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = currentTheme.accent;
+                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = currentTheme.border;
+                e.target.style.boxShadow = 'none';
+              }}
+            />
 
-            <select className="w-[101%] h-[35px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white "
-              value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
-              style={{ marginBottom: '10px' }}>
-              <option value="admin" className="bg-gray-800 text-white">Yönetici</option>
-              <option value="team_leader" className="bg-gray-800 text-white">Takım Lideri</option>
-              <option value="team_member" className="bg-gray-800 text-white">Takım Üyesi</option>
-              <option value="observer" className="bg-gray-800 text-white">Gözlemci</option>
+            <select
+              className="w-[101%] h-[35px] rounded px-3 py-3 !text-[24px] focus:outline-none"
+              value={form.role}
+              onChange={e => setForm({ ...form, role: e.target.value })}
+              style={{
+                marginBottom: '10px',
+                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = currentTheme.accent;
+                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = currentTheme.border;
+                e.target.style.boxShadow = 'none';
+              }}
+            >
+              <option value="admin">Yönetici</option>
+              <option value="team_leader">Takım Lideri</option>
+              <option value="team_member">Takım Üyesi</option>
+              <option value="observer">Gözlemci</option>
             </select>
 
             {/* Opsiyonel ekip lideri seçimi */}
             <select
-              className="w-[101%] h-[35px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white"
+              className="w-[101%] h-[35px] rounded px-3 py-3 !text-[24px] focus:outline-none"
               value={form.leader_id ?? ''}
               onChange={(e) => {
                 const v = e.target.value;
                 setForm({ ...form, leader_id: v === '' ? null : Number(v) });
               }}
-              style={{ marginBottom: '10px' }}
+              style={{
+                marginBottom: '10px',
+                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                borderWidth: '1px',
+                borderStyle: 'solid'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = currentTheme.accent;
+                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = currentTheme.border;
+                e.target.style.boxShadow = 'none';
+              }}
             >
-              <option value="" className="bg-gray-800 text-white">Takım Lideri (opsiyonel)</option>
+              <option value="">Takım Lideri (opsiyonel)</option>
               {(users || [])
                 .filter(u => u.role === 'team_leader' || u.role === 'admin')
                 .map(u => (
-                  <option key={u.id} value={u.id} className="bg-gray-800 text-white">
+                  <option key={u.id} value={u.id}>
                     {u.name || u.email} {u.role === 'admin' ? '(Yönetici)' : '(Takım Lideri)'}
                   </option>
                 ))}
             </select>
 
-            <button className="w-[101%] rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginBottom: '10px' }} onClick={async () => {
+            <button
+              className="w-[101%] rounded px-4 py-3 !text-[20px] transition-colors"
+              style={{
+                marginBottom: '10px',
+                backgroundColor: currentTheme.accent,
+                color: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                const hex = currentTheme.accent.replace('#', '');
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                e.target.style.backgroundColor = brightness > 128
+                  ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                  : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = currentTheme.accent;
+              }}
+              onClick={async () => {
               if (!form.name.trim() || !form.email.trim() || !form.password || !form.password_confirmation) {
                 addNotification('Lütfen tüm alanları doldurun', 'error');
                 return;
@@ -3498,17 +3631,20 @@ function App() {
                 console.error('User registration error:', err);
                 addNotification(err.response?.data?.message || 'Kullanıcı eklenemedi', 'error');
               }
-            }}>Kullanıcı Ekle</button>
+              }}
+            >
+              Kullanıcı Ekle
+            </button>
 
           </div>
         </div>
 
-        <div className="border-white/10 pb-4">
-          <h2 className="text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h2>
+        <div className="pb-4" style={{ borderColor: currentTheme.border }}>
+          <h2 className="mb-4" style={{ color: currentTheme.text }}>Excel'den Toplu Kullanıcı Ekle</h2>
           <div className="space-y-4 !text-[16px]">
-            <div className="bg-blue-900/20 border-blue-500/30 rounded-lg p-4">
-              <div className="text-blue-200 space-y-1">
-                <div className="mt-3 text-blue-300">
+            <div className="rounded-lg p-4" style={{ backgroundColor: currentTheme.accent + '20', borderColor: currentTheme.accent, borderWidth: '1px', borderStyle: 'solid' }}>
+              <div className="space-y-1" style={{ color: currentTheme.text }}>
+                <div className="mt-3" style={{ color: currentTheme.accent }}>
                   İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.
                 </div>
                 <div>• A2: Kullanıcı Adı Soyadı</div>
@@ -3518,7 +3654,7 @@ function App() {
                 <div>• E2: Takım Lideri E-posta (opsiyonel)</div>
               </div>
             </div>
-            <div className="text-gray-400 !text-[24px]" style={{ marginTop: '10px' }}>
+            <div className="!text-[24px]" style={{ marginTop: '10px', color: currentTheme.textSecondary || currentTheme.text }}>
               Excel dosyası seçin (.xlsx önerilir)
             </div>
             <input
@@ -3531,8 +3667,20 @@ function App() {
                   e.target.value = '';
                 }
               }}
-              className="text-gray-300 !text-[18px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+              className="!text-[18px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:cursor-pointer file:transition-colors"
+              style={{
+                color: currentTheme.text
+              }}
             />
+            <style>{`
+              input[type="file"]::file-selector-button {
+                background-color: ${currentTheme.accent} !important;
+                color: #ffffff !important;
+              }
+              input[type="file"]::file-selector-button:hover {
+                background-color: ${currentTheme.accent}dd !important;
+              }
+            `}</style>
           </div>
         </div>
       </div>
@@ -3908,7 +4056,7 @@ function App() {
                           e.target.style.backgroundColor = 'transparent';
                         }}
                       >
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2 whitespace-nowrap">
                           <span>🎨</span>
                           <span>Tema Ayarları</span>
                         </span>
@@ -4025,15 +4173,15 @@ function App() {
                 </div>
 
                 {/* Bildirimler Butonu */}
-                <button
-                  ref={bellRef}
-                  onClick={async () => {
-                    const next = !showNotifications;
-                    if (next) await loadNotifications();
-                    setShowNotifications(next);
-                  }}
+                  <button
+                    ref={bellRef}
+                    onClick={async () => {
+                      const next = !showNotifications;
+                      if (next) await loadNotifications();
+                      setShowNotifications(next);
+                    }}
                   className="notification-bell relative rounded-lg overflow-visible transition-colors"
-                  aria-label="Bildirimler"
+                    aria-label="Bildirimler"
                   style={{
                     marginRight: '5px',
                     backgroundColor: currentTheme.accent,
@@ -4049,15 +4197,15 @@ function App() {
                   onMouseLeave={(e) => {
                     e.target.style.backgroundColor = currentTheme.accent;
                   }}
-                >
-                  {badgeCount > 0 && (
-                    <span className="notification-badge">
-                      {badgeCount > 99 ? '99+' : badgeCount}
-                    </span>
-                  )}
+                  >
+                    {badgeCount > 0 && (
+                      <span className="notification-badge">
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </span>
+                    )}
 
-                  <span>🔔</span>
-                </button>
+                    <span>🔔</span>
+                  </button>
 
                 {/* Güncelleme Notları Butonu */}
                 <button
@@ -4134,11 +4282,11 @@ function App() {
                           className="overflow-y-auto no-scrollbar flex-1 min-h-0"
                           style={{ padding: '10px' }}
                         >
-                          <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center justify-between mb-3">
                             <h3 className="text-sm font-semibold" style={{ color: currentTheme.text }}>Bildirimler</h3>
-                            <button
-                              onClick={markAllNotificationsAsRead}
-                              disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
+                                <button
+                                  onClick={markAllNotificationsAsRead}
+                                  disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
                               className="text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               style={{
                                 backgroundColor: `${currentTheme.border}40`,
@@ -4147,34 +4295,34 @@ function App() {
                               }}
                               onMouseEnter={(e) => e.target.style.backgroundColor = `${currentTheme.border}60`}
                               onMouseLeave={(e) => e.target.style.backgroundColor = `${currentTheme.border}40`}
-                            >
-                              Tümünü Oku
-                            </button>
-                          </div>
-                          {(!Array.isArray(notifications) || notifications.length === 0) ? (
+                                >
+                                  Tümünü Oku
+                                </button>
+                              </div>
+                              {(!Array.isArray(notifications) || notifications.length === 0) ? (
                             <div className="p-4 text-center" style={{ color: currentTheme.textSecondary }}>Bildirim bulunmuyor</div>
-                          ) : (
-                            notifications.map(n => (
-                              <div
-                                key={n.id}
+                              ) : (
+                                notifications.map(n => (
+                                  <div
+                                    key={n.id}
                                 className={`p-3 last:border-b-0 transition-colors cursor-pointer`}
                                 style={{
                                   borderBottom: `1px solid ${currentTheme.border}`,
                                   backgroundColor: n.read_at ? `${currentTheme.border}20` : `${currentTheme.accent}20`
                                 }}
-                                onClick={() => handleNotificationClick(n)}
+                                    onClick={() => handleNotificationClick(n)}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${currentTheme.border}30`}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = n.read_at ? `${currentTheme.border}20` : `${currentTheme.accent}20`}
-                              >
-                                <div className="flex items-start">
-                                  <div className="flex-1">
+                                  >
+                                    <div className="flex items-start">
+                                      <div className="flex-1">
                                     <p className="text-sm" style={{ color: currentTheme.text }}>{n.message}</p>
                                     <p className="text-xs mt-1" style={{ color: currentTheme.textSecondary }}>{formatDate(n.created_at)}</p>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
-                            ))
-                          )}
+                                ))
+                              )}
                         </div>
 
                       </div>
@@ -4188,7 +4336,7 @@ function App() {
                     <div className="fixed inset-0 z-[999992]"
                       onClick={() => setShowUpdatesModal(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
 
-                    <div className="fixed z-[99999] p-3 update-screen">
+                    <div className="fixed z-[99999] p-3 update-screen shadow-[0_25px_80px_rgba(0,0,0,.6)]">
                       <div
                         className="max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
                         style={{
@@ -4211,7 +4359,7 @@ function App() {
                           <button
                             onClick={() => setShowUpdatesModal(false)}
                             className="text-2xl font-bold w-8 h-8 flex items-center justify-center rounded transition-colors"
-                            style={{ color: currentTheme.textSecondary }}
+                            style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                             onMouseEnter={(e) => {
                               e.target.style.color = currentTheme.text;
                               e.target.style.backgroundColor = `${currentTheme.border}30`;
@@ -4222,7 +4370,7 @@ function App() {
                             }}
                             aria-label="Kapat"
                           >
-                            ×
+                            X
                           </button>
                         </div>
 
@@ -4373,7 +4521,7 @@ function App() {
                           <div className="justify-self-end">
                             <button onClick={() => setShowThemePanel(false)}
                               className="rounded px-2 py-1 transition-colors"
-                              style={{ color: currentTheme.textSecondary }}
+                              style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                               onMouseEnter={(e) => {
                                 e.target.style.color = currentTheme.text;
                                 e.target.style.backgroundColor = `${currentTheme.border}30`;
@@ -4385,48 +4533,64 @@ function App() {
                           </div>
                         </div>
 
-                        <div className="p-4 xs:p-6 sm:p-8 space-y-6 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+                        <div className="p-4 xs:p-6 sm:p-8 space-y-6 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                           {/* Hazır Temalar */}
-                          <div className="bg-white/5 rounded-xl p-6">
+                          <div className="rounded-xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                             <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>Hazır Temalar</h3>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                              {Object.entries(predefinedThemes).map(([key, theme]) => (
-                                <button
-                                  key={key}
-                                  onClick={() => {
-                                    // Hazır tema seçildiğinde customTheme'i o temanın değerleriyle doldur
-                                    setCustomTheme({
-                                      ...theme,
-                                      logoType: key === 'light' ? 'dark' : 'light', // Light temada dark logo, diğerlerinde light logo
-                                      socialIconColor: theme.socialIconColor || theme.textSecondary,
-                                      tableHeader: theme.tableHeader || theme.border
-                                    });
-                                    setCurrentThemeName(key);
-                                    addNotification(`${theme.name} uygulandı ve kaydedildi`, 'success');
-                                  }}
-                                  className={`p-4 rounded-lg border-2 transition-all ${currentThemeName === key ? 'border-blue-500 ring-2 ring-blue-500/50' : 'border-white/10 hover:border-white/30'
-                                    }`}
-                                  style={{
-                                    backgroundColor: theme.background,
-                                    color: theme.text
-                                  }}
-                                >
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium">{theme.name}</span>
-                                    {currentThemeName === key && <span>✓</span>}
-                                  </div>
-                                  <div className="flex gap-1 mt-2">
-                                    <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.background }}></div>
-                                    <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.tableBackground || theme.background }}></div>
-                                    <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.accent }}></div>
-                                  </div>
-                                </button>
-                              ))}
+                              {Object.entries(predefinedThemes).map(([key, theme]) => {
+                                // Daha doygun buton arkaplanları
+                                let buttonBg = theme.background;
+                                if (key === 'blue') buttonBg = '#1e3a8a'; // Daha doygun mavi
+                                else if (key === 'purple') buttonBg = '#6b21a8'; // Daha doygun mor
+                                else if (key === 'green') buttonBg = '#166534'; // Daha doygun yeşil
+                                else if (key === 'orange') buttonBg = '#7c2d12'; // Daha doygun turuncu
+                                else if (key === 'dark') buttonBg = '#0f172a'; // Koyu tema
+                                else if (key === 'light') buttonBg = '#f8fafc'; // Açık tema
+
+                                return (
+                                  <button
+                                    key={key}
+                                    onClick={() => {
+                                      // Hazır tema seçildiğinde customTheme'i o temanın değerleriyle doldur
+                                      setCustomTheme({
+                                        ...theme,
+                                        logoType: key === 'light' ? 'dark' : 'light', // Light temada dark logo, diğerlerinde light logo
+                                        socialIconColor: theme.socialIconColor || theme.textSecondary,
+                                        tableHeader: theme.tableHeader || theme.border
+                                      });
+                                      setCurrentThemeName(key);
+                                      addNotification(`${theme.name} uygulandı ve kaydedildi`, 'success');
+                                    }}
+                                    className={`p-4 rounded-lg border-2 transition-all ${currentThemeName === key
+                                        ? 'ring-2 ring-offset-2'
+                                        : 'hover:opacity-90'
+                                      }`}
+                                    style={{
+                                      backgroundColor: buttonBg,
+                                      color: theme.text,
+                                      borderColor: currentThemeName === key ? currentTheme.accent : currentTheme.border,
+                                      ringColor: currentThemeName === key ? currentTheme.accent : 'transparent',
+                                      ringOffsetColor: currentThemeName === key ? currentTheme.background : 'transparent'
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="font-medium">{theme.name}</span>
+                                      {currentThemeName === key && <span style={{ color: currentTheme.accent }}>✓</span>}
+                                    </div>
+                                    <div className="flex gap-1 mt-2">
+                                      <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.background }}></div>
+                                      <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.tableBackground || theme.background }}></div>
+                                      <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.accent }}></div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
 
                           {/* Tema Özelleştirme */}
-                          <div className="rounded-xl p-6" style={{ backgroundColor: `${currentTheme.border}20` }}>
+                          <div className="rounded-xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                             <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>
                               Tema Özelleştirme
                               {currentThemeName !== 'custom' && (
@@ -4435,349 +4599,530 @@ function App() {
                                 </span>
                               )}
                             </h3>
-                            <div className="space-y-5">
-                              {/* Renk Seçimleri - Daha Kompakt Grid */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="space-y-4">
+                              {/* Renk Seçimleri - 2 Sütunlu Düzen (Sol 5, Sağ 5) */}
+                              <div className="grid grid-cols-2 gap-x-8 gap-y-4">
+                                {/* Sol Sütun - İlk 5 */}
                                 {/* Arkaplan Rengi */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Arkaplan</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.background}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, background: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Arkaplan rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.background}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, background: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#000000"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.background}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, background: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.background,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Arkaplan rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Arkaplan</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.background}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, background: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#000000"
+                                  />
                                 </div>
 
                                 {/* Tablo Arkaplan */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Tablo Arkaplan</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.tableBackground || customTheme.background}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, tableBackground: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Tablo arkaplan rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.tableBackground || customTheme.background}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, tableBackground: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#000000"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.tableBackground || customTheme.background}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, tableBackground: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.tableBackground || customTheme.background,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Tablo arkaplan rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Tablo Arkaplan</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.tableBackground || customTheme.background}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, tableBackground: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#000000"
+                                  />
                                 </div>
 
                                 {/* Tablo Satır Alternatif */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Tablo Satır Alt</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.tableRowAlt || customTheme.background}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, tableRowAlt: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Tablo satır alternatif rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.tableRowAlt || customTheme.background}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, tableRowAlt: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#000000"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.tableRowAlt || customTheme.background}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, tableRowAlt: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.tableRowAlt || customTheme.background,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Tablo satır alternatif rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Tablo Satır Alt</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.tableRowAlt || customTheme.background}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, tableRowAlt: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#000000"
+                                  />
                                 </div>
 
                                 {/* Tablo Başlığı */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Tablo Başlığı</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.tableHeader || customTheme.border}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, tableHeader: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Tablo başlığı rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.tableHeader || customTheme.border}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, tableHeader: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#000000"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.tableHeader || customTheme.border}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, tableHeader: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.tableHeader || customTheme.border,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Tablo başlığı rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Tablo Başlığı</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.tableHeader || customTheme.border}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, tableHeader: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#000000"
+                                  />
                                 </div>
 
                                 {/* Yazı Rengi */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Yazı</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.text}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, text: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Yazı rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.text}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, text: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#ffffff"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.text}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, text: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.text,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Yazı rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Yazı</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.text}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, text: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#ffffff"
+                                  />
                                 </div>
 
+                                {/* Sağ Sütun - Son 5 */}
                                 {/* İkincil Yazı */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>İkincil Yazı</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.textSecondary}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, textSecondary: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="İkincil yazı rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.textSecondary}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, textSecondary: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#cccccc"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.textSecondary}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, textSecondary: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.textSecondary,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="İkincil yazı rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>İkincil Yazı</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.textSecondary}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, textSecondary: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#cccccc"
+                                  />
                                 </div>
 
                                 {/* Vurgu Rengi */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Vurgu</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.accent}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, accent: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Vurgu rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.accent}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, accent: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#3b82f6"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.accent}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, accent: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.accent,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Vurgu rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Vurgu</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.accent}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, accent: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#3b82f6"
+                                  />
                                 </div>
 
                                 {/* Kenarlık */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Kenarlık</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.border}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, border: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Kenarlık rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.border}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, border: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#334155"
-                                    />
-                                  </div>
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.border}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, border: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.border,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Kenarlık rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Kenarlık</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.border}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, border: e.target.value };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#334155"
+                                  />
                                 </div>
 
                                 {/* Sosyal Medya İkon Rengi */}
-                                <div className="space-y-2">
-                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Sosyal Medya İkon</label>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="color"
-                                      value={customTheme.socialIconColor || customTheme.textSecondary}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, socialIconColor: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
-                                      title="Sosyal medya ikon rengi"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={customTheme.socialIconColor || customTheme.textSecondary}
-                                      onChange={(e) => {
-                                        const newTheme = { ...customTheme, socialIconColor: e.target.value };
-                                        setCustomTheme(newTheme);
-                                        setCurrentThemeName('custom');
-                                      }}
-                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
-                                      style={{ color: currentTheme.text }}
-                                      placeholder="#94a3b8"
-                                    />
-                                  </div>
-                                </div>
-
-                              </div>
-
-                              {/* Logo Tipi Seçimi */}
-                              <div className="pt-4 border-t" style={{ borderColor: currentTheme.border }}>
-                                <label className="block text-sm font-medium mb-3" style={{ color: currentTheme.textSecondary }}>Logo Tipi</label>
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => {
-                                      const newTheme = { ...customTheme, logoType: 'dark' };
+                                <div className="flex items-center gap-4">
+                                  <input
+                                    type="color"
+                                    value={customTheme.socialIconColor || customTheme.textSecondary}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, socialIconColor: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
                                     }}
-                                    className={`px-6 py-3 rounded-lg border-2 transition-all font-medium ${customTheme.logoType === 'dark'
-                                        ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/30'
-                                        : 'border-white/10 hover:border-white/30 bg-white/5'
-                                      }`}
-                                    style={{ color: currentTheme.text }}
-                                  >
-                                    Koyu Logo
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const newTheme = { ...customTheme, logoType: 'light' };
+                                    className="rounded-full cursor-pointer transition-all hover:scale-110"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.socialIconColor || customTheme.textSecondary,
+                                      border: 'none',
+                                      padding: '0'
+                                    }}
+                                    title="Sosyal medya ikon rengi"
+                                  />
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Sosyal Medya İkon</span>
+                                  <input
+                                    type="text"
+                                    value={customTheme.socialIconColor || customTheme.textSecondary}
+                                    onChange={(e) => {
+                                      const newTheme = { ...customTheme, socialIconColor: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
                                     }}
-                                    className={`px-6 py-3 rounded-lg border-2 transition-all font-medium ${customTheme.logoType === 'light'
-                                        ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/30'
-                                        : 'border-white/10 hover:border-white/30 bg-white/5'
-                                      }`}
-                                    style={{ color: currentTheme.text }}
+                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid',
+                                      minWidth: '100px'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                    placeholder="#94a3b8"
+                                  />
+                                </div>
+
+                                {/* Logo Tipi */}
+                                <div className="flex items-center gap-4">
+                                  <button
+                                    onClick={() => {
+                                      const newTheme = { ...customTheme, logoType: customTheme.logoType === 'dark' ? 'light' : 'dark' };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className="rounded-full transition-all cursor-pointer"
+                                    style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      minWidth: '48px',
+                                      minHeight: '48px',
+                                      backgroundColor: customTheme.logoType === 'dark' ? currentTheme.accent : currentTheme.border,
+                                      border: `2px solid ${currentTheme.border}`,
+                                      padding: '0',
+                                      position: 'relative'
+                                    }}
+                                    title="Koyu logo: koyu arkaplanlar için, Açık logo: açık arkaplanlar için"
+                                    onMouseEnter={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.transform = 'scale(1.1)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.transform = 'scale(1)';
+                                    }}
                                   >
-                                    Açık Logo
+                                    <span style={{ 
+                                      color: '#ffffff', 
+                                      fontSize: '10px',
+                                      fontWeight: 'bold',
+                                      position: 'absolute',
+                                      top: '50%',
+                                      left: '50%',
+                                      transform: 'translate(-50%, -50%)',
+                                      whiteSpace: 'nowrap',
+                                      lineHeight: '1.2',
+                                      textAlign: 'center',
+                                      padding: '2px'
+                                    }}>
+                                      Logo<br />Tipi
+                                    </span>
                                   </button>
+                                  <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Logo Tipi</span>
+                                  <div style={{ minWidth: '100px' }}></div>
                                 </div>
-                                <div className="mt-2 text-xs" style={{ color: currentTheme.textSecondary }}>
-                                  Koyu logo: koyu arkaplanlar için, Açık logo: açık arkaplanlar için
-                                </div>
+
                               </div>
 
-                              {/* Önizleme */}
-                              <div className="pt-4 border-t" style={{ borderColor: currentTheme.border }}>
-                                <div className="text-sm font-semibold mb-4" style={{ color: currentTheme.text }}>Önizleme</div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="p-4 rounded-lg border" style={{ borderColor: currentTheme.border, backgroundColor: currentTheme.background }}>
-                                    <div className="font-semibold mb-2" style={{ color: currentTheme.text }}>Örnek Başlık</div>
-                                    <div className="text-sm mb-3" style={{ color: currentTheme.textSecondary }}>Örnek ikincil metin</div>
-                                    <button className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90" style={{ backgroundColor: currentTheme.accent, color: '#ffffff' }}>
-                                      Örnek Buton
-                                    </button>
-                                  </div>
-                                  <div className="p-4 rounded-lg border" style={{ borderColor: currentTheme.border }}>
-                                    <div className="text-xs font-medium mb-3" style={{ color: currentTheme.textSecondary }}>Tablo Önizlemesi</div>
-                                    <div className="space-y-1">
-                                      <div className="p-2 rounded text-sm" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
-                                        <span style={{ color: currentTheme.text }}>Tablo Satırı</span>
-                                      </div>
-                                      <div className="p-2 rounded text-sm" style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background }}>
-                                        <span style={{ color: currentTheme.text }}>Tablo Satırı (Alt)</span>
-                                      </div>
-                                    </div>
-                                    <div className="mt-3 flex items-center gap-2">
-                                      <div className="text-xs" style={{ color: currentTheme.textSecondary }}>Sosyal İkon:</div>
-                                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" style={{ color: currentTheme.socialIconColor || currentTheme.textSecondary }}>
-                                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
                             </div>
                           </div>
                         </div>
@@ -4981,8 +5326,15 @@ function App() {
                             {newTask.assigned_users.map((userId) => {
                               const user = users.find(u => u.id === userId);
                               return (
-                                <span key={userId} className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                                  {user?.name || 'Bilinmeyen Kullanıcı'}
+                                <span
+                                  key={userId}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm transition-colors"
+                                  style={{
+                                    backgroundColor: currentTheme.accent + '20',
+                                    color: currentTheme.text
+                                  }}
+                                >
+                                  <span className="truncate max-w-[200px]">{user?.name || 'Bilinmeyen Kullanıcı'}</span>
                                   <button
                                     type="button"
                                     aria-label="Atananı kaldır"
@@ -4990,13 +5342,33 @@ function App() {
                                       // Manuel olarak kaldırılan kullanıcıyı ref'e ekle
                                       manuallyRemovedUsersRef.current.add(userId);
                                       setNewTask({
-                                        ...newTask,
-                                        assigned_users: newTask.assigned_users.filter(id => id !== userId)
+                                      ...newTask,
+                                      assigned_users: newTask.assigned_users.filter(id => id !== userId)
                                       });
                                     }}
-                                    className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                    className="flex items-center justify-center rounded-full transition-colors focus:outline-none"
+                                    style={{
+                                      width: '16px',
+                                      height: '16px',
+                                      minWidth: '16px',
+                                      minHeight: '16px',
+                                      backgroundColor: 'transparent',
+                                      color: currentTheme.textSecondary || currentTheme.text,
+                                      fontSize: '12px',
+                                      lineHeight: '1',
+                                      padding: '0',
+                                      marginLeft: '2px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.backgroundColor = currentTheme.accent;
+                                      e.target.style.color = '#ffffff';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.backgroundColor = 'transparent';
+                                      e.target.style.color = currentTheme.textSecondary || currentTheme.text;
+                                    }}
                                   >
-                                    ×
+                                    ✕
                                   </button>
                                 </span>
                               );
@@ -5228,7 +5600,7 @@ function App() {
                                   className="text-red-600 hover:text-red-800 ml-2 px-2 py-1 rounded hover:bg-red-50"
                                   title="Dosyayı kaldır"
                                 >
-                                  ×
+                                  ✕
                                 </button>
                               </div>
                             ))}
@@ -6140,7 +6512,7 @@ function App() {
                           style={{
                             backgroundColor: weeklySaveState === 'saving'
                               ? currentTheme.accent
-                              : weeklySaveState === 'saved'
+                            : weeklySaveState === 'saved'
                                 ? '#10b981'
                                 : '#10b981',
                             color: '#ffffff',
@@ -6189,53 +6561,103 @@ function App() {
               bottom: 0,
               pointerEvents: 'auto'
             }}>
-              <div className="absolute inset-0 bg-black/60" onClick={() => setShowGoalDescription(false)} style={{ pointerEvents: 'auto' }} />
-              <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
+              <div className="absolute inset-0" onClick={() => setShowGoalDescription(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
+              <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
                 style={{
                   maxHeight: '80vh',
                   transform: 'translate(0, 0)',
                   margin: 'auto',
                   paddingRight: '5px',
-                  pointerEvents: 'auto'
+                  pointerEvents: 'auto',
+                  backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                  borderColor: currentTheme.border,
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                  color: currentTheme.text
                 }} onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center px-6 py-4 border-b border-white/10 bg-[#0f172a]" style={{ paddingRight: '10px', paddingLeft: '10px' }}>
+                <div className="flex items-center px-6 py-4 border-b" style={{ paddingRight: '10px', paddingLeft: '10px', backgroundColor: currentTheme.background, borderColor: currentTheme.border }}>
                   <div className="flex-1"></div>
                   <div className="flex-1 text-center">
-                    <h3 className="text-xl font-semibold">Ek Açıklama</h3>
+                    <h3 className="text-xl font-semibold" style={{ color: currentTheme.text }}>Ek Açıklama</h3>
                   </div>
                   <div className="flex-1 flex justify-end">
                     <button
                       onClick={() => setShowGoalDescription(false)}
-                      className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10"
+                      className="rounded px-2 py-1 transition-colors"
+                      style={{
+                        color: currentTheme.textSecondary || currentTheme.text,
+                        backgroundColor: 'transparent'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.color = currentTheme.text;
+                        e.target.style.backgroundColor = `${currentTheme.border}30`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.color = currentTheme.textSecondary || currentTheme.text;
+                        e.target.style.backgroundColor = 'transparent';
+                      }}
                     >
                       ✕
                     </button>
                   </div>
                 </div>
 
-                <div className="p-8" style={{ maxHeight: 'calc(80vh - 80px)', paddingLeft: '10px', paddingRight: '10px', paddingBottom: '10px' }}>
-                  <div className="flex-1 gap-3 mb-6 p-6 bg-white/5 rounded-lg">
+                <div className="p-8" style={{ maxHeight: 'calc(80vh - 80px)', paddingLeft: '10px', paddingRight: '10px', paddingBottom: '10px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+                  <div className="flex-1 gap-3 mb-6 p-6 rounded-lg" style={{ backgroundColor: currentTheme.tableBackground }}>
                     {weeklyGoals.items[selectedGoalIndex].title && (
-                      <h3 className="text-xl font-medium text-blue-300 mb-3">Hedef: {weeklyGoals.items[selectedGoalIndex].title || 'Başlık belirtilmemiş'}</h3>
+                      <h3 className="text-xl font-medium mb-3" style={{ color: currentTheme.text }}>Hedef: {weeklyGoals.items[selectedGoalIndex].title || 'Başlık belirtilmemiş'}</h3>
                     )}
                     {weeklyGoals.items[selectedGoalIndex].action_plan && (
-                      <h3 className="text-xl font-medium text-blue-300 mb-3">Aksiyon Planı: {weeklyGoals.items[selectedGoalIndex].action_plan}</h3>
+                      <h3 className="text-xl font-medium mb-3" style={{ color: currentTheme.text }}>Aksiyon Planı: {weeklyGoals.items[selectedGoalIndex].action_plan}</h3>
                     )}
                   </div>
                   <div className="mb-6">
-                    <h3 className="text-xl font-medium text-blue-300 mb-3">Açıklama:</h3>
+                    <h3 className="text-xl font-medium mb-3" style={{ color: currentTheme.text }}>Açıklama:</h3>
                     <textarea
                       value={goalDescription}
                       onChange={(e) => setGoalDescription(e.target.value)}
-                      className="w-full !h-[200px] rounded bg-white/10 border border-white/10 px-4 py-3 text-[24px] text-white placeholder-neutral-400 resize-none text-base"
+                      className="w-full !h-[200px] rounded px-4 py-3 text-[24px] resize-none text-base focus:outline-none"
+                      style={{
+                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                        color: currentTheme.text,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = currentTheme.accent;
+                        e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = currentTheme.border;
+                        e.target.style.boxShadow = 'none';
+                      }}
                       placeholder="Ek açıklamalarınızı buraya yazabilirsiniz..."
                       disabled={user && user.role === 'observer'}
                     />
+                    <style>{`
+                      textarea::placeholder {
+                        color: var(--theme-placeholder) !important;
+                        opacity: 0.7 !important;
+                      }
+                    `}</style>
                   </div>
                   <div className="flex justify-end gap-4 pt-4">
                     <button
                       onClick={() => setShowGoalDescription(false)}
-                      className="w-full px-6 py-3 rounded bg-white/10 hover:bg-white/20 text-white transition-colors text-lg font-medium"
+                      className="w-full px-6 py-3 rounded transition-colors text-lg font-medium"
+                      style={{
+                        backgroundColor: currentTheme.border,
+                        color: currentTheme.text
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = currentTheme.accent;
+                        e.target.style.color = '#ffffff';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = currentTheme.border;
+                        e.target.style.color = currentTheme.text;
+                      }}
                     >
                       İptal
                     </button>
@@ -6259,7 +6681,24 @@ function App() {
                             }
                           }
                         }}
-                        className="w-full px-6 py-3 rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors text-lg font-medium"
+                        className="w-full px-6 py-3 rounded transition-colors text-lg font-medium"
+                        style={{
+                          backgroundColor: currentTheme.accent,
+                          color: '#ffffff'
+                        }}
+                        onMouseEnter={(e) => {
+                          const hex = currentTheme.accent.replace('#', '');
+                          const r = parseInt(hex.substr(0, 2), 16);
+                          const g = parseInt(hex.substr(2, 2), 16);
+                          const b = parseInt(hex.substr(4, 2), 16);
+                          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                          e.target.style.backgroundColor = brightness > 128
+                            ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                            : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = currentTheme.accent;
+                        }}
                       >
                         Kaydet
                       </button>
@@ -6774,8 +7213,8 @@ function App() {
                       <div className="justify-self-end">
                         <button
                           onClick={handleCloseModal}
-                          className="rounded-md px-2 py-1 transition-colors"
-                          style={{ color: currentTheme.textSecondary }}
+                          className="rounded-md px-2 py-1 transition-colors border border-red-500"
+                          style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                           onMouseEnter={(e) => {
                             e.target.style.color = currentTheme.text;
                             e.target.style.backgroundColor = `${currentTheme.border}30`;
@@ -6802,7 +7241,7 @@ function App() {
                         )}
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             NO
                           </label>
                           {(user?.role === 'admin' || user?.id === selectedTask.responsible?.id) ? (
@@ -6810,28 +7249,43 @@ function App() {
                               type="text"
                               value={detailDraft?.no || selectedTask.no || ''}
                               onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), no: e.target.value }))}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              style={{ minHeight: '35px' }}
+                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                              style={{
+                                minHeight: '35px',
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border,
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = currentTheme.accent;
+                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = currentTheme.border;
+                                e.target.style.boxShadow = 'none';
+                              }}
                               placeholder="NO girin..."
                             />
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {selectedTask.no || '-'}
                             </div>
                           )}
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Başlık
                           </label>
-                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                             {selectedTask.title ?? ""}
                           </div>
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Görev Türü
                           </label>
                           {user?.role === 'admin' ? (
@@ -6845,8 +7299,23 @@ function App() {
                                   status: 'waiting' // Görev türü değiştiğinde durumu Bekliyor'a reset et
                                 }));
                               }}
-                              className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              style={{ height: '40px' }}
+                              className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] focus:outline-none"
+                              style={{
+                                height: '40px',
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border,
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = currentTheme.accent;
+                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = currentTheme.border;
+                                e.target.style.boxShadow = 'none';
+                              }}
                             >
                               {getAllTaskTypes().map(taskType => (
                                 <option key={taskType.value} value={taskType.value}>
@@ -6855,14 +7324,14 @@ function App() {
                               ))}
                             </select>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {getTaskTypeText(selectedTask.task_type)}
                             </div>
                           )}
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Durum
                           </label>
                           {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || user?.role === 'admin' || (Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.some(u => (typeof u === 'object' ? u.id : u) === user?.id)))) ? (
@@ -6882,7 +7351,19 @@ function App() {
                                       setDetailDraft(prev => ({ ...(prev || {}), status: prevStatus.value }));
                                     }
                                   }}
-                                  className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                                  className="px-3 py-2 rounded-md transition-colors"
+                                  style={{
+                                    backgroundColor: currentTheme.border,
+                                    color: currentTheme.text
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = currentTheme.accent;
+                                    e.target.style.color = '#ffffff';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = currentTheme.border;
+                                    e.target.style.color = currentTheme.text;
+                                  }}
                                   title="Önceki özel durum"
                                   disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
                                 >
@@ -6893,8 +7374,23 @@ function App() {
                                   <select
                                     value={detailDraft?.status || ''}
                                     onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), status: e.target.value }))}
-                                    className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    style={{ height: '40px' }}
+                                    className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                    style={{
+                                      height: '40px',
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '1px',
+                                      borderStyle: 'solid'
+                                    }}
+                                    onFocus={(e) => {
+                                      e.target.style.borderColor = currentTheme.accent;
+                                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    }}
+                                    onBlur={(e) => {
+                                      e.target.style.borderColor = currentTheme.border;
+                                      e.target.style.boxShadow = 'none';
+                                    }}
                                   >
                                     <option value="">Durum seçin...</option>
                                     {getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').map(status => (
@@ -6904,7 +7400,7 @@ function App() {
                                     ))}
                                   </select>
                                 ) : (
-                                  <div className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-gray-100 text-gray-500 flex items-center" style={{ height: '40px' }}>
+                                  <div className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.textSecondary || currentTheme.text }}>
                                     Durum yok
                                   </div>
                                 )}
@@ -6922,7 +7418,19 @@ function App() {
                                       setDetailDraft(prev => ({ ...(prev || {}), status: nextStatus.value }));
                                     }
                                   }}
-                                  className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+                                  className="px-3 py-2 rounded-md transition-colors"
+                                  style={{
+                                    backgroundColor: currentTheme.border,
+                                    color: currentTheme.text
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.target.style.backgroundColor = currentTheme.accent;
+                                    e.target.style.color = '#ffffff';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.target.style.backgroundColor = currentTheme.border;
+                                    e.target.style.color = currentTheme.text;
+                                  }}
                                   title="Sonraki özel durum"
                                   disabled={getAllTaskStatuses(detailDraft?.task_type || selectedTask.task_type || selectedTask.type || 'development').length === 0}
                                 >
@@ -6931,7 +7439,7 @@ function App() {
                               </div>
                             </div>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {getStatusText(selectedTask.status, selectedTask)}
                             </div>
                           )}
@@ -6943,8 +7451,23 @@ function App() {
                             <select
                               value={detailDraft?.priority || 'medium'}
                               onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), priority: e.target.value }))}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              style={{ height: '40px' }}
+                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                              style={{
+                                height: '40px',
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border,
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = currentTheme.accent;
+                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = currentTheme.border;
+                                e.target.style.boxShadow = 'none';
+                              }}
                             >
                               <option value="low">Düşük</option>
                               <option value="medium">Orta</option>
@@ -6952,14 +7475,14 @@ function App() {
                               <option value="critical">Kritik</option>
                             </select>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ minHeight: '24px' }}>
+                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {getPriorityText(selectedTask.priority)}
                             </div>
                           )}
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Sorumlu
                           </label>
                           {(user?.role !== 'observer') ? (
@@ -6998,8 +7521,23 @@ function App() {
                                 // Önceki sorumluyu güncelle
                                 previousResponsibleIdDetailRef.current = rid;
                               }}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              style={{ height: '40px' }}
+                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none"
+                              style={{
+                                height: '40px',
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border,
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = currentTheme.accent;
+                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = currentTheme.border;
+                                e.target.style.boxShadow = 'none';
+                              }}
                             >
                               <option value="">Seçin</option>
                               {getEligibleResponsibleUsers().map(u => (
@@ -7007,26 +7545,26 @@ function App() {
                               ))}
                             </select>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center" style={{ height: '40px' }}>
+                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {selectedTask.responsible?.name || 'Atanmamış'}
                             </div>
                           )}
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Oluşturan
                           </label>
-                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 flex items-center" style={{ height: '40px' }}>
+                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                             {selectedTask.creator?.name || 'Bilinmiyor'}
                           </div>
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Atananlar
                           </label>
-                          <div className="w-full rounded-md p-3 sm:p-4 bg-white " style={{ minHeight: '24px', height: 'fit-content' }}>
+                          <div className="w-full rounded-md p-3 sm:p-4" style={{ minHeight: '24px', height: 'fit-content', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background }}>
                             {user?.role !== 'observer' ? (
                               <div className="assignee-dropdown-detail-container relative">
                                 {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 && (
@@ -7035,8 +7573,15 @@ function App() {
                                       const u = (users || []).find(x => x.id === id) || (selectedTask.assigned_users || []).find(x => (typeof x === 'object' ? x.id : x) === id);
                                       const name = u ? (typeof u === 'object' ? (u.name || u.email || `#${id}`) : String(u)) : `#${id}`;
                                       return (
-                                        <span key={id} className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 rounded-full text-sm max-w-full px-3 py-1">
-                                          <span className="truncate">{name}</span>
+                                        <span
+                                          key={id}
+                                          className="inline-flex items-center gap-1.5 rounded-full text-sm max-w-full px-3 py-1 transition-colors"
+                                          style={{
+                                            backgroundColor: currentTheme.accent + '20',
+                                            color: currentTheme.text
+                                          }}
+                                        >
+                                          <span className="truncate max-w-[200px]">{name}</span>
                                           <button
                                             type="button"
                                             aria-label="Atananı kaldır"
@@ -7045,9 +7590,29 @@ function App() {
                                               const nextIds = (detailDraft?.assigned_user_ids || []).filter(v => v !== id);
                                               setDetailDraft(prev => ({ ...(prev || {}), assigned_user_ids: nextIds }));
                                             }}
-                                            className="ml-1 w-5 h-5 flex items-center justify-center rounded-full text-xs text-blue-700 hover:bg-blue-200 hover:text-blue-800 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                            className="flex items-center justify-center rounded-full transition-colors focus:outline-none"
+                                            style={{
+                                              width: '16px',
+                                              height: '16px',
+                                              minWidth: '16px',
+                                              minHeight: '16px',
+                                              backgroundColor: 'transparent',
+                                              color: currentTheme.textSecondary || currentTheme.text,
+                                              fontSize: '12px',
+                                              lineHeight: '1',
+                                              padding: '0',
+                                              marginLeft: '2px'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.accent;
+                                              e.target.style.color = '#ffffff';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.target.style.backgroundColor = 'transparent';
+                                              e.target.style.color = currentTheme.textSecondary || currentTheme.text;
+                                            }}
                                           >
-                                            ×
+                                            ✕
                                           </button>
                                         </span>
                                       );
@@ -7060,15 +7625,28 @@ function App() {
                                   type="text"
                                   placeholder="Kullanıcı atayın..."
                                   value={assigneeSearchDetail}
-                                  className="w-[99%] rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ minHeight: '32px' }}
+                                  className="w-[99%] rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                  style={{
+                                    minHeight: '32px',
+                                    backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                    color: currentTheme.text,
+                                    borderColor: currentTheme.border,
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = currentTheme.accent;
+                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                    setShowAssigneeDropdownDetail(true);
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = currentTheme.border;
+                                    e.target.style.boxShadow = 'none';
+                                    setTimeout(() => setShowAssigneeDropdownDetail(false), 200);
+                                  }}
                                   onChange={(e) => {
                                     setAssigneeSearchDetail(e.target.value);
                                     setShowAssigneeDropdownDetail(true);
-                                  }}
-                                  onFocus={() => setShowAssigneeDropdownDetail(true)}
-                                  onBlur={() => {
-                                    setTimeout(() => setShowAssigneeDropdownDetail(false), 200);
                                   }}
                                 />
 
@@ -7076,7 +7654,7 @@ function App() {
                                   <div
                                     className="absolute w-full mt-1 border-2 border-gray-400 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
                                     style={{
-                                      backgroundColor: '#1f2937',
+                                      backgroundColor: currentTheme.tableBackground || currentTheme.background,
                                       opacity: 1,
                                       zIndex: 2147483647,
                                       filter: 'none',
@@ -7084,7 +7662,11 @@ function App() {
                                       WebkitBackdropFilter: 'none',
                                       mixBlendMode: 'normal',
                                       isolation: 'isolate',
-                                      pointerEvents: 'auto'
+                                      pointerEvents: 'auto',
+                                      borderColor: currentTheme.border,
+                                      borderWidth: '2px',
+                                      borderStyle: 'solid',
+                                      color: currentTheme.text
                                     }}
                                   >
                                     {getEligibleAssignedUsers(selectedTask.responsible?.id)
@@ -7099,7 +7681,17 @@ function App() {
                                       .map(u => (
                                         <div
                                           key={u.id}
-                                          className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-b border-gray-200 last:border-b-0 text-left"
+                                          className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer text-[24px] sm:text-[24px] text-left border-b last:border-b-0"
+                                          style={{
+                                            color: currentTheme.text,
+                                            borderColor: currentTheme.border
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.target.style.backgroundColor = currentTheme.accent + '20';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = 'transparent';
+                                          }}
                                           onMouseDown={(e) => e.preventDefault()}
                                           onClick={async () => {
                                             let usersToAdd = [u.id];
@@ -7132,7 +7724,7 @@ function App() {
                                       const already = (detailDraft?.assigned_user_ids || []).some(id => id === u.id);
                                       return matches && !already;
                                     }).length === 0 && (
-                                        <div className="px-3 sm:px-4 py-2 sm:py-3 text-gray-500 text-[16px] sm:text-[24px] border-b border-gray-200">
+                                        <div className="px-3 sm:px-4 py-2 sm:py-3 text-[16px] sm:text-[24px] border-b" style={{ color: currentTheme.textSecondary || currentTheme.text, borderColor: currentTheme.border }}>
                                           Kullanıcı bulunamadı
                                         </div>
                                       )}
@@ -7162,10 +7754,10 @@ function App() {
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-top ">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Dosyalar
                           </label>
-                          <div className="w-full !text-[18px] p-3 sm:p-4 bg-white" style={{ minHeight: '24px', height: 'fit-content' }}>
+                          <div className="w-full !text-[18px] p-3 sm:p-4" style={{ minHeight: '24px', height: 'fit-content', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background }}>
                             {uploadProgress && (
                               <div className="mb-3">
                                 <div className="w-full h-2 bg-gray-200 rounded overflow-hidden">
@@ -7215,13 +7807,30 @@ function App() {
                                     }}
                                     className="w-[150px] !text-[18px] sm:!text-[16px] text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-[18px] file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
                                   />
-                                  <div className="flex items-center justify-between bg-gray-50 rounded px-3 py-2 flex-1">
-                                    <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                                  <div className="flex items-center justify-between rounded px-3 py-2 flex-1" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+                                    <div style={{ paddingLeft: '12px', color: currentTheme.text }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
                                     {(selectedTask.attachments || []).length > 0 && (
                                       <button
                                         type="button"
                                         onClick={() => setAttachmentsExpanded(v => !v)}
-                                        className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                        className="rounded px-3 py-1 transition-colors"
+                                        style={{
+                                          backgroundColor: currentTheme.accent,
+                                          color: '#ffffff'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          const hex = currentTheme.accent.replace('#', '');
+                                          const r = parseInt(hex.substr(0, 2), 16);
+                                          const g = parseInt(hex.substr(2, 2), 16);
+                                          const b = parseInt(hex.substr(4, 2), 16);
+                                          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                          e.target.style.backgroundColor = brightness > 128
+                                            ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                            : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.target.style.backgroundColor = currentTheme.accent;
+                                        }}
                                       >
                                         {attachmentsExpanded ? '⮝' : '⮟'}
                                       </button>
@@ -7231,7 +7840,7 @@ function App() {
                                 {attachmentsExpanded && (selectedTask.attachments || []).length > 0 && (
                                   <div className="space-y-1">
                                     {(selectedTask.attachments || []).map(a => (
-                                      <div key={a.id} className="flex items-center justify-between bg-gray-50 border-gray-200 rounded px-2 py-1" style={{ paddingTop: '10px', paddingLeft: '10px' }}>
+                                      <div key={a.id} className="flex items-center justify-between rounded px-2 py-1" style={{ paddingTop: '10px', paddingLeft: '10px', backgroundColor: currentTheme.tableBackground || currentTheme.background, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                                         <div className="flex-1 min-w-0">
                                           <a
                                             href={(() => {
@@ -7286,13 +7895,30 @@ function App() {
                               </div>
                             ) : (
                               <div className="space-y-2">
-                                <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded px-3 py-2">
-                                  <div className="text-gray-800" style={{ paddingLeft: '12px' }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
+                                <div className="flex items-center justify-between rounded px-3 py-2" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
+                                  <div style={{ paddingLeft: '12px', color: currentTheme.text }}>Yüklenen dosya: <span className="font-semibold">{(selectedTask.attachments || []).length}</span> adet</div>
                                   {(selectedTask.attachments || []).length > 0 && (
                                     <button
                                       type="button"
                                       onClick={() => setAttachmentsExpanded(v => !v)}
-                                      className="rounded px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                      className="rounded px-3 py-1 transition-colors"
+                                      style={{
+                                        backgroundColor: currentTheme.accent,
+                                        color: '#ffffff'
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        const hex = currentTheme.accent.replace('#', '');
+                                        const r = parseInt(hex.substr(0, 2), 16);
+                                        const g = parseInt(hex.substr(2, 2), 16);
+                                        const b = parseInt(hex.substr(4, 2), 16);
+                                        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                        e.target.style.backgroundColor = brightness > 128
+                                          ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                          : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.target.style.backgroundColor = currentTheme.accent;
+                                      }}
                                     >
                                       {attachmentsExpanded ? '⮝' : '⮟'}
                                     </button>
@@ -7301,7 +7927,7 @@ function App() {
                                 {attachmentsExpanded && (selectedTask.attachments || []).length > 0 ? (
                                   <div className="space-y-1">
                                     {(selectedTask.attachments || []).map(a => (
-                                      <div key={a.id} className="bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                                      <div key={a.id} className="rounded px-2 py-1" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                                         <a
                                           href={(() => {
                                             // Kalıcı token tabanlı download URL - ZAMAN SINIRI YOK!
@@ -7339,12 +7965,12 @@ function App() {
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Tarihler
                           </label>
                           <div className="grid grid-cols-2 gap-2 sm:gap-4 min-w-0">
                             <div className="min-w-0">
-                              <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1">Başlangıç</label>
+                              <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1" style={{ color: currentTheme.text }}>Başlangıç</label>
                               {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin')) ? (
                                 <input
                                   type="date"
@@ -7355,18 +7981,33 @@ function App() {
                                       start_date: e.target.value
                                     }));
                                   }}
-                                  onBlur={(e) => handleDateChange(selectedTask.id, 'start_date', e.target.value)}
-                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ minHeight: '32px' }}
+                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                  style={{
+                                    minHeight: '32px',
+                                    backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                    color: currentTheme.text,
+                                    borderColor: currentTheme.border,
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = currentTheme.accent;
+                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = currentTheme.border;
+                                    e.target.style.boxShadow = 'none';
+                                    handleDateChange(selectedTask.id, 'start_date', e.target.value);
+                                  }}
                                 />
                               ) : (
-                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
+                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center truncate" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                                   {selectedTask.start_date ? formatDateOnly(selectedTask.start_date) : '-'}
                                 </div>
                               )}
                             </div>
                             <div className="min-w-0">
-                              <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1">Bitiş</label>
+                              <label className="block !text-[24px] sm:!text-[16px] !leading-[1.2] !font-medium text-left mb-1" style={{ color: currentTheme.text }}>Bitiş</label>
                               {(user?.role !== 'observer' && (user?.id === selectedTask.creator?.id || user?.role === 'admin' || user?.role === 'team_leader')) ? (
                                 <input
                                   type="date"
@@ -7377,12 +8018,28 @@ function App() {
                                       due_date: e.target.value
                                     }));
                                   }}
-                                  onBlur={(e) => handleDateChange(selectedTask.id, 'due_date', e.target.value)}
-                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  style={{ minHeight: '32px', paddingLeft: '6px' }}
+                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                  style={{
+                                    minHeight: '32px',
+                                    paddingLeft: '6px',
+                                    backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                    color: currentTheme.text,
+                                    borderColor: currentTheme.border,
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = currentTheme.accent;
+                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = currentTheme.border;
+                                    e.target.style.boxShadow = 'none';
+                                    handleDateChange(selectedTask.id, 'due_date', e.target.value);
+                                  }}
                                 />
                               ) : (
-                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 flex items-center truncate" style={{ minHeight: '24px' }}>
+                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center truncate" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                                   {selectedTask.due_date ? formatDateOnly(selectedTask.due_date) : '-'}
                                 </div>
                               )}
@@ -7391,7 +8048,7 @@ function App() {
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                          <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">
+                          <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Görev Açıklaması
                           </label>
                           <div className="w-[99%]">
@@ -7402,32 +8059,66 @@ function App() {
                                   setDescDraft(e.target.value);
                                 }}
                                 placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                                style={{
+                                  backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                  color: currentTheme.text,
+                                  borderColor: currentTheme.border,
+                                  borderWidth: '1px',
+                                  borderStyle: 'solid'
+                                }}
+                                onFocus={(e) => {
+                                  e.target.style.borderColor = currentTheme.accent;
+                                  e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                }}
+                                onBlur={(e) => {
+                                  e.target.style.borderColor = currentTheme.border;
+                                  e.target.style.boxShadow = 'none';
+                                }}
                               />
                             ) : (
                               <textarea
                                 readOnly
                                 value={selectedTask.description ?? ''}
                                 placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                                style={{
+                                  backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                  color: currentTheme.text,
+                                  borderColor: currentTheme.border,
+                                  borderWidth: '1px',
+                                  borderStyle: 'solid'
+                                }}
                               />
                             )}
                           </div>
                         </div>
                         {/* Sistem Durumları (Sabit Alt Butonlar) - Sadece Admin, Takım Lideri ve Sorumlu */}
                         {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.responsible?.id) && (
-                          <div className="bottom-0 left-0 right-0 bg-[#0f172a] p-4 z-[100200]" style={{ alignItems: 'center', paddingTop: '3%', paddingBottom: '1%' }}>
+                          <div className="bottom-0 left-0 right-0 p-4 z-[100200]" style={{ alignItems: 'center', paddingTop: '3%', paddingBottom: '1%', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                             <div className="flex gap-2 justify-center max-w-[1400px] mx-auto">
                               {getSystemTaskStatuses().map(status => (
                                 <button
                                   key={status.value}
                                   type="button"
                                   onClick={() => setDetailDraft(prev => ({ ...(prev || {}), status: status.value }))}
-                                  className={`px-6 py-3 rounded-md text-sm font-medium transition-colors flex-1 ${(detailDraft?.status || selectedTask.status) === status.value
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                  style={{ backgroundColor: (detailDraft?.status || selectedTask.status) === status.value ? status.color : undefined }}
+                                  className="px-6 py-3 rounded-md text-sm font-medium transition-colors flex-1"
+                                  style={{
+                                    backgroundColor: (detailDraft?.status || selectedTask.status) === status.value ? status.color : currentTheme.border,
+                                    color: (detailDraft?.status || selectedTask.status) === status.value ? '#ffffff' : currentTheme.text
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if ((detailDraft?.status || selectedTask.status) !== status.value) {
+                                      e.target.style.backgroundColor = currentTheme.accent;
+                                      e.target.style.color = '#ffffff';
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if ((detailDraft?.status || selectedTask.status) !== status.value) {
+                                      e.target.style.backgroundColor = currentTheme.border;
+                                      e.target.style.color = currentTheme.text;
+                                    }
+                                  }}
                                 >
                                   {status.label}
                                 </button>
@@ -7437,33 +8128,47 @@ function App() {
                         )}
                       </div>
                     </div>
-                    <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 bg-[#0f172a] flex flex-col overflow-hidden">
-                      <div className="border-b border-white/10 flex-none" style={{ padding: '10px' }}>
-                        <h3 className="text-lg md:text-xl font-semibold text-white">👁️ Son Görüntüleme</h3>
+                    <div className="w-[480px] md:w-[420px] lg:w-[480px] max-w-[48%] shrink-0 flex flex-col overflow-hidden" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+                      <div className="border-b flex-none" style={{ padding: '10px', borderColor: currentTheme.border }}>
+                        <h3 className="text-lg md:text-xl font-semibold" style={{ color: currentTheme.text }}>👁️ Son Görüntüleme</h3>
                         <div className="mt-3 space-y-2">
                           {Array.isArray(taskLastViews) && taskLastViews.length > 0 ? (
                             taskLastViews.map(v => (
                               <div key={v.user_id} className="flex items-center justify-between text-sm">
-                                <div className="text-neutral-200 truncate mr-3">
+                                <div className="truncate mr-3" style={{ color: currentTheme.text }}>
                                   {v.name}
-                                  {v.is_responsible ? <span className="ml-2 text-xs text-blue-300"></span> : null}
+                                  {v.is_responsible ? <span className="ml-2 text-xs" style={{ color: currentTheme.accent }}></span> : null}
                                 </div>
-                                <div className="text-neutral-400 whitespace-nowrap">{v.last_viewed_at ? formatDate(v.last_viewed_at) : '-'}</div>
+                                <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary || currentTheme.text }}>{v.last_viewed_at ? formatDate(v.last_viewed_at) : '-'}</div>
                               </div>
                             ))
                           ) : (
-                            <div className="text-neutral-400 text-sm">Kayıt bulunamadı</div>
+                            <div className="text-sm" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Kayıt bulunamadı</div>
                           )}
                         </div>
                       </div>
-                      <div className="border-b border-white/10 flex-none" style={{ padding: '1px' }}>
+                      <div className="border-b flex-none" style={{ padding: '1px', borderColor: currentTheme.border }}>
                         <div className="flex items-center justify-between" style={{ paddingLeft: '10px', paddingRight: '10px' }}>
-                          <h3 className="text-lg md:text-xl font-semibold text-white">📢 Görev Geçmişi</h3>
+                          <h3 className="text-lg md:text-xl font-semibold" style={{ color: currentTheme.text }}>📢 Görev Geçmişi</h3>
                           {user?.role === 'admin' && (
                             <button
                               onClick={() => { if (user?.role === 'admin') setHistoryDeleteMode(v => !v); }}
-                              className={`rounded px-2 py-1 ${user?.role === 'admin' ? 'text-neutral-300 hover:bg-white/10' : 'text-neutral-500 cursor-not-allowed'} inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect`}
-                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                              className="rounded px-2 py-1 inline-flex items-center justify-center text-[18px] transition-colors"
+                              style={{
+                                width: '45px',
+                                height: '45px',
+                                borderRadius: '9999px',
+                                backgroundColor: currentTheme.border,
+                                color: currentTheme.text
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.backgroundColor = currentTheme.accent;
+                                e.target.style.color = '#ffffff';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.backgroundColor = currentTheme.border;
+                                e.target.style.color = currentTheme.text;
+                              }}
                               title={user?.role === 'admin' ? (historyDeleteMode ? 'Silme modunu kapat' : 'Silme modunu aç') : 'Sadece admin'}
                             >🗑️</button>)}
                         </div>
@@ -7472,14 +8177,14 @@ function App() {
                       <div className="flex-1 overflow-y-auto no-scrollbar space-y-4" style={{ padding: '10px' }}>
                         {Array.isArray(taskHistory) && taskHistory.length > 0 ? (
                           taskHistory.filter(h => !h.field.includes('_color')).map((h) => (
-                            <div key={h.id} className="relative bg-white/5 border-white/10 p-3 rounded max-w-full overflow-hidden">
+                            <div key={h.id} className="relative p-3 rounded max-w-full overflow-hidden" style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex-1 min-w-0 max-w-full overflow-hidden pr-8">
-                                  <div className="text-[11px] text-blue-300 mb-1">{formatDateOnly(h.created_at)}</div>
+                                  <div className="text-[11px] mb-1" style={{ color: currentTheme.accent }}>{formatDateOnly(h.created_at)}</div>
                                   {h.field === 'comment' ? (
                                     <div className="text-sm max-w-full overflow-hidden">
-                                      <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
-                                      <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{renderHistoryValue(h.field, h.new_value)}</span>
+                                      <span className="font-medium" style={{ color: currentTheme.text }}>{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
+                                      <span className="break-words whitespace-normal block max-w-full" style={{ color: currentTheme.text }}>{renderHistoryValue(h.field, h.new_value)}</span>
                                     </div>
                                   ) : (h.new_value && typeof h.new_value === 'string' && h.new_value.trim().length > 0 &&
                                     !h.field.includes('status') && !h.field.includes('priority') &&
@@ -7493,11 +8198,11 @@ function App() {
                                     !h.new_value.toLowerCase().includes('değiştirildi') &&
                                     !h.new_value.toLowerCase().includes('→')) ? (
                                     <div className="text-sm max-w-full overflow-hidden">
-                                      <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
-                                      <span className="text-neutral-200 break-words whitespace-normal block max-w-full">{h.new_value}</span>
+                                      <span className="font-medium" style={{ color: currentTheme.text }}>{h.user?.name || 'Kullanıcı'}:<br></br></span>{' '}
+                                      <span className="break-words whitespace-normal block max-w-full" style={{ color: currentTheme.text }}>{h.new_value}</span>
                                     </div>
                                   ) : h.field === 'attachments' ? (
-                                    <div className="text-sm text-neutral-200">
+                                    <div className="text-sm" style={{ color: currentTheme.text }}>
                                       {(() => {
                                         const normalizeToNames = (val) => {
                                           let arr;
@@ -7531,10 +8236,10 @@ function App() {
                                         if (added.length > 0 && removed.length === 0) {
                                           return (
                                             <>
-                                              <span className="font-medium text-white">{actor}</span> dosya ekledi.
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                              <span className="font-medium" style={{ color: currentTheme.text }}>{actor}</span> dosya ekledi.
+                                              <ul className="mt-1 list-disc list-inside space-y-0.5">
                                                 {added.map((name, idx) => (
-                                                  <li key={`a-${idx}`} className="break-all">{name}</li>
+                                                  <li key={`a-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                 ))}
                                               </ul>
                                             </>
@@ -7543,10 +8248,10 @@ function App() {
                                         if (removed.length > 0 && added.length === 0) {
                                           return (
                                             <>
-                                              <span className="font-medium text-white">{actor}</span> dosya sildi.
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                              <span className="font-medium" style={{ color: currentTheme.text }}>{actor}</span> dosya sildi.
+                                              <ul className="mt-1 list-disc list-inside space-y-0.5">
                                                 {removed.map((name, idx) => (
-                                                  <li key={`r-${idx}`} className="break-all">{name}</li>
+                                                  <li key={`r-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                 ))}
                                               </ul>
                                             </>
@@ -7554,23 +8259,23 @@ function App() {
                                         }
                                         return (
                                           <>
-                                            <span className="font-medium text-white">{actor}</span> dosya ekledi/sildi.
+                                            <span className="font-medium" style={{ color: currentTheme.text }}>{actor}</span> dosya ekledi/sildi.
                                             {added.length > 0 && (
                                               <>
-                                                <div className="mt-1 text-neutral-400">Eklendi:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                                <div className="mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Eklendi:</div>
+                                                <ul className="list-disc list-inside space-y-0.5">
                                                   {added.map((name, idx) => (
-                                                    <li key={`a2-${idx}`} className="break-all">{name}</li>
+                                                    <li key={`a2-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                   ))}
                                                 </ul>
                                               </>
                                             )}
                                             {removed.length > 0 && (
                                               <>
-                                                <div className="mt-1 text-neutral-400">Silindi:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                                <div className="mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Silindi:</div>
+                                                <ul className="list-disc list-inside space-y-0.5">
                                                   {removed.map((name, idx) => (
-                                                    <li key={`r2-${idx}`} className="break-all">{name}</li>
+                                                    <li key={`r2-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                   ))}
                                                 </ul>
                                               </>
@@ -7603,11 +8308,11 @@ function App() {
                                         if (added.length > 0 && removed.length === 0) {
                                           return (
                                             <>
-                                              <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
-                                              <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                              <span className="font-medium" style={{ color: currentTheme.text }}>{actor}</span> atanan kullanıcıları güncelledi.
+                                              <div className="mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Atanan Kullanıcı:</div>
+                                              <ul className="mt-1 list-disc list-inside space-y-0.5">
                                                 {added.map((name, idx) => (
-                                                  <li key={`a-${idx}`} className="break-all">{name}</li>
+                                                  <li key={`a-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                 ))}
                                               </ul>
                                             </>
@@ -7616,11 +8321,11 @@ function App() {
                                         if (removed.length > 0 && added.length === 0) {
                                           return (
                                             <>
-                                              <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
-                                              <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
-                                              <ul className="mt-1 list-disc list-inside text-neutral-300 space-y-0.5">
+                                              <span className="font-medium" style={{ color: currentTheme.text }}>{actor}</span> atanan kullanıcıları güncelledi.
+                                              <div className="mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Kaldırılan Kullanıcı:</div>
+                                              <ul className="mt-1 list-disc list-inside space-y-0.5">
                                                 {removed.map((name, idx) => (
-                                                  <li key={`r-${idx}`} className="break-all">{name}</li>
+                                                  <li key={`r-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                 ))}
                                               </ul>
                                             </>
@@ -7628,23 +8333,23 @@ function App() {
                                         }
                                         return (
                                           <>
-                                            <span className="font-medium text-white">{actor}</span> atanan kullanıcıları güncelledi.
+                                            <span className="font-medium" style={{ color: currentTheme.text }}>{actor}</span> atanan kullanıcıları güncelledi.
                                             {added.length > 0 && (
                                               <>
-                                                <div className="mt-1 text-neutral-400">Atanan Kullanıcı:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                                <div className="mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Atanan Kullanıcı:</div>
+                                                <ul className="list-disc list-inside space-y-0.5">
                                                   {added.map((name, idx) => (
-                                                    <li key={`a2-${idx}`} className="break-all">{name}</li>
+                                                    <li key={`a2-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                   ))}
                                                 </ul>
                                               </>
                                             )}
                                             {removed.length > 0 && (
                                               <>
-                                                <div className="mt-1 text-neutral-400">Kaldırılan Kullanıcı:</div>
-                                                <ul className="list-disc list-inside text-neutral-300 space-y-0.5">
+                                                <div className="mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Kaldırılan Kullanıcı:</div>
+                                                <ul className="list-disc list-inside space-y-0.5">
                                                   {removed.map((name, idx) => (
-                                                    <li key={`r2-${idx}`} className="break-all">{name}</li>
+                                                    <li key={`r2-${idx}`} className="break-all" style={{ color: currentTheme.text }}>{name}</li>
                                                   ))}
                                                 </ul>
                                               </>
@@ -7655,50 +8360,66 @@ function App() {
                                     </div>
                                   ) : renderFieldLabel(h.field) ? (
                                     <div className="text-sm">
-                                      <span className="font-medium text-white">{h.user?.name || 'Kullanıcı'}</span>{' '}
-                                      {renderFieldLabel(h.field)} değiştirdi <br></br> "<span className="text-neutral-300">{renderHistoryValue(h.field, h.old_value)}</span> →{' '}
-                                      <span className="text-neutral-300">{renderHistoryValue(h.field, h.new_value)}</span>"
+                                      <span className="font-medium" style={{ color: currentTheme.text }}>{h.user?.name || 'Kullanıcı'}</span>{' '}
+                                      {renderFieldLabel(h.field)} değiştirdi <br></br> "<span style={{ color: currentTheme.text }}>{renderHistoryValue(h.field, h.old_value)}</span> →{' '}
+                                      <span style={{ color: currentTheme.text }}>{renderHistoryValue(h.field, h.new_value)}</span>"
                                     </div>
                                   ) : null}
                                 </div>
                                 {(user?.role === 'admin' && historyDeleteMode && h.field === 'comment') && (
                                   <button
                                     onClick={async () => { try { await Tasks.deleteHistory(selectedTask.id, h.id); const h2 = await Tasks.getHistory(selectedTask.id); setTaskHistory(Array.isArray(h2) ? h2 : []); setTaskHistories(prev => ({ ...prev, [selectedTask.id]: Array.isArray(h2) ? h2 : [] })); addNotification('Yorum silindi', 'success'); } catch (err) { console.error('Delete history error:', err); addNotification('Silinemedi', 'error'); } }}
-                                    className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
-                                    style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginRight: '3px', marginTop: '3px' }}
+                                    className="inline-flex items-center justify-center text-[18px] transition-colors"
+                                    style={{
+                                      width: '45px',
+                                      height: '45px',
+                                      borderRadius: '9999px',
+                                      backgroundColor: currentTheme.border,
+                                      color: currentTheme.text,
+                                      marginRight: '3px',
+                                      marginTop: '3px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.backgroundColor = currentTheme.accent;
+                                      e.target.style.color = '#ffffff';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.backgroundColor = currentTheme.border;
+                                      e.target.style.color = currentTheme.text;
+                                    }}
                                     title="Yorumu sil"
                                   >🗑️</button>
                                 )}
                               </div>
-                              <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                              <div className="sticky bottom-0 w-full border-t px-8 py-5" style={{ borderColor: currentTheme.border, backgroundColor: currentTheme.tableBackground || currentTheme.background }}></div>
                             </div>
                           ))
                         ) : (
-                          <div className="text-center text-neutral-400 py-4">Henüz görev geçmişi bulunmuyor</div>
+                          <div className="text-center py-4" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Henüz görev geçmişi bulunmuyor</div>
                         )}
 
                         {Array.isArray(comments) && comments.map((c) => (
-                          <div key={c.id} className="bg-white/5 border border-white/10 p-3 rounded">
-                            <div className="text-[11px] text-neutral-400 mb-1">{formatDate(c.timestamp)}</div>
+                          <div key={c.id} className="p-3 rounded" style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
+                            <div className="text-[11px] mb-1" style={{ color: currentTheme.textSecondary || currentTheme.text }}>{formatDate(c.timestamp)}</div>
                             <div className="text-sm">
-                              <span className="font-medium text-white">{c.author}</span> {c.text}
+                              <span className="font-medium" style={{ color: currentTheme.text }}>{c.author}</span> <span style={{ color: currentTheme.text }}>{c.text}</span>
                             </div>
                           </div>
                         ))}
                       </div>
                       {user?.role !== 'observer' && (
-                        <div className="border-t border-white/10 flex-none p-4">
-                          <div className="relative flex items-center bg-gray-800 rounded-2xl border-none border-gray-600 py-2">
+                        <div className="border-t flex-none p-4" style={{ borderColor: currentTheme.border }}>
+                          <div className="relative flex items-center rounded-2xl py-2" style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                             <textarea
                               value={newComment}
                               onChange={(e) => setNewComment(e.target.value)}
                               placeholder="Yorum yap/Not ekle"
-                              className="flex-1 bg-transparent border-none outline-none px-4 text-white placeholder-gray-400 resize-none"
+                              className="flex-1 bg-transparent border-none outline-none px-4 resize-none"
                               style={{
                                 height: '80px',
                                 overflowY: 'auto',
                                 fontSize: '16px',
-                                color: 'white',
+                                color: currentTheme.text,
                                 lineHeight: '1'
                               }}
                               onKeyDown={(e) => {
@@ -7708,32 +8429,40 @@ function App() {
                                 }
                               }}
                             />
-                            <div className="pr-3 flex items-center h-[100%] border-0" style={{ height: '80px', backgroundColor: '#1f2937' }}>
+                            <div className="pr-3 flex items-center h-[100%] border-0" style={{ height: '80px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background }}>
                               <button
                                 onClick={handleAddComment}
                                 disabled={!newComment.trim()}
                                 className="rounded-full flex items-center justify-center transition-all duration-300"
                                 style={{
                                   height: '80px',
-                                  backgroundColor: newComment.trim() ? '#10b981' : '#4b5563',
-                                  boxShadow: newComment.trim() ? '0 4px 12px rgba(16, 185, 129, 0.4)' : '0 2px 4px rgba(0, 0, 0, 0.2)',
-                                  transform: newComment.trim() ? 'scale(0.8)' : 'scale(0.8)',
+                                  backgroundColor: newComment.trim() ? currentTheme.accent : currentTheme.border,
+                                  boxShadow: newComment.trim() ? `0 4px 12px ${currentTheme.accent}66` : '0 2px 4px rgba(0, 0, 0, 0.2)',
+                                  transform: 'scale(0.8)',
                                   cursor: newComment.trim() ? 'pointer' : 'not-allowed',
-                                  border: newComment.trim() ? '2px solid rgba(255, 255, 255, 0.2)' : '2px solid rgba(255, 255, 255, 0.1)',
+                                  border: newComment.trim() ? `2px solid ${currentTheme.border}` : `2px solid ${currentTheme.border}`,
                                   opacity: newComment.trim() ? '1' : '0.6',
+                                  color: '#ffffff'
                                 }}
                                 onMouseEnter={(e) => {
                                   if (newComment.trim()) {
-                                    e.target.style.backgroundColor = '#059669';
+                                    const hex = currentTheme.accent.replace('#', '');
+                                    const r = parseInt(hex.substr(0, 2), 16);
+                                    const g = parseInt(hex.substr(2, 2), 16);
+                                    const b = parseInt(hex.substr(4, 2), 16);
+                                    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                    e.target.style.backgroundColor = brightness > 128
+                                      ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                      : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
                                     e.target.style.transform = 'scale(0.8)';
-                                    e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.5)';
+                                    e.target.style.boxShadow = `0 6px 16px ${currentTheme.accent}80`;
                                   }
                                 }}
                                 onMouseLeave={(e) => {
                                   if (newComment.trim()) {
-                                    e.target.style.backgroundColor = '#10b981';
+                                    e.target.style.backgroundColor = currentTheme.accent;
                                     e.target.style.transform = 'scale(0.8)';
-                                    e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                                    e.target.style.boxShadow = `0 4px 12px ${currentTheme.accent}66`;
                                   }
                                 }}
                               >
@@ -7774,7 +8503,7 @@ function App() {
                       <div className="justify-self-end">
                         <button onClick={() => setShowUserProfile(false)}
                           className="rounded px-2 py-1 transition-colors"
-                          style={{ color: currentTheme.textSecondary }}
+                          style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                           onMouseEnter={(e) => {
                             e.target.style.color = currentTheme.text;
                             e.target.style.backgroundColor = `${currentTheme.border}30`;
@@ -7905,8 +8634,8 @@ function App() {
                                 e.target.style.backgroundColor = currentTheme.accent;
                               }}
                               onClick={async () => {
-                                setShowTeamModal(false); setWeeklyUserId(m.id);
-                                setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
+                              setShowTeamModal(false); setWeeklyUserId(m.id);
+                              setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
                               }}>Hedefleri Aç</button>
                           </div>
                         ))
@@ -7945,7 +8674,7 @@ function App() {
                           <button
                             onClick={() => setShowUserPanel(false)}
                             className="rounded-md px-2 py-1 transition-colors"
-                            style={{ color: currentTheme.textSecondary }}
+                            style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                             onMouseEnter={(e) => {
                               e.target.style.color = currentTheme.text;
                               e.target.style.backgroundColor = `${currentTheme.border}30`;
@@ -7968,16 +8697,34 @@ function App() {
                           </div>
                         )}
                       </div>
-                      <div className="w-3/5 shrink-0 bg-[#0f172a] overflow-y-auto no-scrollbar" style={{ padding: '20px' }}>
+                      <div className="w-3/5 shrink-0 overflow-y-auto no-scrollbar" style={{ padding: '20px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                         <div className="flex text-[24px] font-semibold mb-4 space-y-3" style={{ marginBottom: '10px' }}>
-                          <span>Kullanıcılar</span> <span className="w-[50px]"></span>
+                          <span style={{ color: currentTheme.text }}>Kullanıcılar</span> <span className="w-[50px]"></span>
                           <input
                             type="text"
                             placeholder="Kullanıcı ara..."
                             value={userSearchTerm}
                             onChange={(e) => setUserSearchTerm(e.target.value)}
-                            className="w-full rounded border border-white/10 bg-white/5 px-3 py-2 !text-[24px] text-black placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ color: 'black' }}
+                            className="w-full rounded border px-3 py-2 !text-[24px] focus:outline-none"
+                            style={{
+                              color: currentTheme.text,
+                              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                              borderColor: currentTheme.border,
+                              borderWidth: '1px',
+                              borderStyle: 'solid'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = currentTheme.accent;
+                              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              e.target.setAttribute('autocomplete', 'off');
+                              e.target.setAttribute('autocorrect', 'off');
+                              e.target.setAttribute('autocapitalize', 'off');
+                              e.target.setAttribute('spellcheck', 'false');
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = currentTheme.border;
+                              e.target.style.boxShadow = 'none';
+                            }}
                             autoComplete="off"
                             autoCorrect="off"
                             autoCapitalize="off"
@@ -7986,12 +8733,6 @@ function App() {
                             data-form-type="other"
                             name="user-search"
                             id="user-search"
-                            onFocus={(e) => {
-                              e.target.setAttribute('autocomplete', 'off');
-                              e.target.setAttribute('autocorrect', 'off');
-                              e.target.setAttribute('autocapitalize', 'off');
-                              e.target.setAttribute('spellcheck', 'false');
-                            }}
                             onInput={(e) => {
                               if (e.target.value && !e.isTrusted) {
                                 e.target.value = '';
@@ -8001,15 +8742,34 @@ function App() {
                           />
                         </div>
                         <div className="text-[16px] font-semibold mb-4 space-y-3">
-                          <div className="flex items-center gap-3 bg-blue-500/20 border rounded-[20px] !w-[100%] justify-end" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px' }}>
-                            <span className="text-[18px] text-blue-300 whitespace-nowrap" style={{ marginRight: '30px' }}>
+                          <div className="flex items-center gap-3 border rounded-[20px] !w-[100%] justify-end" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px', backgroundColor: currentTheme.accent + '20', borderColor: currentTheme.border }}>
+                            <span className="text-[18px] whitespace-nowrap" style={{ marginRight: '30px', color: currentTheme.accent }}>
                               {selectedUsers.length} kullanıcı seçildi ▶
                             </span>
                             <select
                               value={bulkLeaderId}
                               onChange={(e) => setBulkLeaderId(e.target.value)}
-                              style={{ paddingLeft: '5px', marginRight: '30px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                              className="rounded border border-white/10 bg-white/5 !py-2 !text-[16px] text-white focus:outline-none focus:ring-2 focus:ring-blue-500 !h-[35px] !max-w-[250px] !w-[250px] truncate"
+                              style={{
+                                paddingLeft: '5px',
+                                marginRight: '30px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border,
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                              className="rounded !py-2 !text-[16px] focus:outline-none !h-[35px] !max-w-[250px] !w-[250px] truncate"
+                              onFocus={(e) => {
+                                e.target.style.borderColor = currentTheme.accent;
+                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = currentTheme.border;
+                                e.target.style.boxShadow = 'none';
+                              }}
                               title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçin'}
                             >
                               <option value="">Lider Seçin</option>
@@ -8064,23 +8824,58 @@ function App() {
                                 }
                               }}
                               disabled={!bulkLeaderId}
-                              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded text-white text-sm"
-                              style={{ marginRight: '20px' }}
+                              className="px-4 py-2 rounded text-sm transition-colors"
+                              style={{
+                                marginRight: '20px',
+                                backgroundColor: !bulkLeaderId ? currentTheme.border : currentTheme.accent,
+                                color: '#ffffff',
+                                cursor: !bulkLeaderId ? 'not-allowed' : 'pointer',
+                                opacity: !bulkLeaderId ? '0.6' : '1'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (bulkLeaderId) {
+                                  const hex = currentTheme.accent.replace('#', '');
+                                  const r = parseInt(hex.substr(0, 2), 16);
+                                  const g = parseInt(hex.substr(2, 2), 16);
+                                  const b = parseInt(hex.substr(4, 2), 16);
+                                  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                  e.target.style.backgroundColor = brightness > 128
+                                    ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                    : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (bulkLeaderId) {
+                                  e.target.style.backgroundColor = currentTheme.accent;
+                                }
+                              }}
                             >
                               Uygula
                             </button>
                             <span className="!px-3"></span>
                             <button
                               onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
-                              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
-                              style={{ marginRight: '20px' }}
+                              className="px-3 py-2 rounded text-sm transition-colors"
+                              style={{
+                                marginRight: '20px',
+                                backgroundColor: currentTheme.border,
+                                color: currentTheme.text
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.backgroundColor = currentTheme.accent;
+                                e.target.style.color = '#ffffff';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.backgroundColor = currentTheme.border;
+                                e.target.style.color = currentTheme.text;
+                              }}
                             >
                               İptal
                             </button>
                           </div>
                         </div>
 
-                        <div className="sticky bottom-0 w-full bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
+                        <div className="sticky bottom-0 w-full px-8 py-5" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}></div>
                         {user?.role === 'admin' ? (
                           <div className="space-y-3">
                             {Array.isArray(users) && users
@@ -8102,8 +8897,19 @@ function App() {
                                 return (
                                   <div
                                     key={u.id}
-                                    className="bg-white/5 rounded-lg px-4 py-4 gap-4 hover:bg-white/10 transition-colors"
-                                    style={hasResetRequest ? { border: '2px solid red' } : { border: '1px solid rgba(255,255,255,0.1)' }}
+                                    className="rounded-lg px-4 py-4 gap-4 transition-colors"
+                                    style={{
+                                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                      borderColor: hasResetRequest ? '#ef4444' : currentTheme.border,
+                                      borderWidth: hasResetRequest ? '2px' : '1px',
+                                      borderStyle: 'solid'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = currentTheme.accent + '20';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background;
+                                    }}
                                   >
                                     <div className="flex items-center justify-between" style={{ paddingRight: '5px' }}>
                                       <div className="min-w-0 flex text-[16px] items-center gap-3">
@@ -8118,21 +8924,28 @@ function App() {
                                               setSelectedUsers(prev => prev.filter(id => id !== u.id));
                                             }
                                           }}
-                                          className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'
+                                          className={`w-4 h-4 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'team_leader' || u.role === 'observer'
                                             ? 'opacity-50 cursor-not-allowed'
                                             : 'cursor-pointer'
                                             }`}
-                                          style={{ scale: '3', marginLeft: '15px', marginRight: '20px' }}
+                                          style={{
+                                            scale: '3',
+                                            marginLeft: '15px',
+                                            marginRight: '20px',
+                                            backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                            borderColor: currentTheme.border,
+                                            accentColor: currentTheme.accent
+                                          }}
                                         />
                                         <div className="flex-1 min-w-0 max-w-[300px]">
-                                          <div className="text-base font-medium truncate text-white" title={u.name}>{u.name}</div>
-                                          <div className="text-xs text-gray-400 truncate mt-1" title={u.email}>{u.email}</div>
+                                          <div className="text-base font-medium truncate" style={{ color: currentTheme.text }} title={u.name}>{u.name}</div>
+                                          <div className="text-xs truncate mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }} title={u.email}>{u.email}</div>
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-3 shrink-0">
                                         {(u.role === 'team_member') && (
                                           <select
-                                            className="!text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[200px] !w-[200px] truncate"
+                                            className="!text-[16px] rounded px-3 py-2 focus:outline-none !max-w-[200px] !w-[200px] truncate transition-colors"
                                             value={u.leader_id || ''}
                                             onChange={async (e) => {
                                               const val = e.target.value ? parseInt(e.target.value) : null;
@@ -8145,7 +8958,31 @@ function App() {
                                                 addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
                                               }
                                             }}
-                                            style={{ padding: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                            style={{
+                                              padding: '5px',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap',
+                                              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                              color: currentTheme.text,
+                                              borderColor: currentTheme.border,
+                                              borderWidth: '1px',
+                                              borderStyle: 'solid'
+                                            }}
+                                            onFocus={(e) => {
+                                              e.target.style.borderColor = currentTheme.accent;
+                                              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                            }}
+                                            onBlur={(e) => {
+                                              e.target.style.borderColor = currentTheme.border;
+                                              e.target.style.boxShadow = 'none';
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.accent + '20';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background;
+                                            }}
                                             title={u.leader_id ? users.find(x => x.id === u.leader_id)?.name + ' (' + getRoleText(users.find(x => x.id === u.leader_id)?.role) + ')' : 'Lider Yok'}
                                           >
                                             <option value="">Lider Yok</option>
@@ -8170,18 +9007,62 @@ function App() {
                                               setLoading(false);
                                             }
                                           }}
-                                          className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px] buttonHoverEffect"
-                                          style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                          className="inline-flex items-center justify-center text-[14px] transition-colors"
+                                          style={{
+                                            width: '35px',
+                                            height: '35px',
+                                            borderRadius: '9999px',
+                                            backgroundColor: currentTheme.accent,
+                                            color: '#ffffff'
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            const hex = currentTheme.accent.replace('#', '');
+                                            const r = parseInt(hex.substr(0, 2), 16);
+                                            const g = parseInt(hex.substr(2, 2), 16);
+                                            const b = parseInt(hex.substr(4, 2), 16);
+                                            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                            e.target.style.backgroundColor = brightness > 128
+                                              ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                              : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = currentTheme.accent;
+                                          }}
                                           title='Şifreyi "123456" olarak sıfırla'
                                         >
                                           ↺
                                         </button>
                                         <div className="flex items-center gap-2">
                                           <select
-                                            className="text-[16px] rounded px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 !max-w-[120px] !w-[120px]"
+                                            className="text-[16px] rounded px-3 py-2 focus:outline-none !max-w-[120px] !w-[120px] transition-colors"
                                             value={u.role}
                                             onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
-                                            style={{ padding: '5px', marginLeft: '10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                            style={{
+                                              padding: '5px',
+                                              marginLeft: '10px',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              whiteSpace: 'nowrap',
+                                              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                              color: currentTheme.text,
+                                              borderColor: currentTheme.border,
+                                              borderWidth: '1px',
+                                              borderStyle: 'solid'
+                                            }}
+                                            onFocus={(e) => {
+                                              e.target.style.borderColor = currentTheme.accent;
+                                              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                            }}
+                                            onBlur={(e) => {
+                                              e.target.style.borderColor = currentTheme.border;
+                                              e.target.style.boxShadow = 'none';
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.accent + '20';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background;
+                                            }}
                                             title={getRoleText(u.role)}
                                           >
                                             <option value="admin">Yönetici</option>
@@ -8190,8 +9071,24 @@ function App() {
                                             <option value="observer">Gözlemci</option>
                                           </select>
                                         </div>
-                                        <button className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[14px] buttonHoverEffect"
-                                          style={{ width: '35px', height: '35px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '10px' }}
+                                        <button
+                                          className="inline-flex items-center justify-center text-[14px] transition-colors"
+                                          style={{
+                                            width: '35px',
+                                            height: '35px',
+                                            borderRadius: '9999px',
+                                            backgroundColor: currentTheme.border,
+                                            color: currentTheme.text,
+                                            marginLeft: '10px'
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.target.style.backgroundColor = currentTheme.accent;
+                                            e.target.style.color = '#ffffff';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.target.style.backgroundColor = currentTheme.border;
+                                            e.target.style.color = currentTheme.text;
+                                          }}
                                           onClick={async () => {
                                             if (!confirm('Silinsin mi?')) return; try {
                                               await deleteUserAdmin(u.id);
@@ -8224,13 +9121,13 @@ function App() {
                               // Lider filtresi
                               return true;
                             }).length === 0 && userSearchTerm && (
-                                <div className="text-center py-4 text-gray-400">
+                                <div className="text-center py-4" style={{ color: currentTheme.textSecondary || currentTheme.text }}>
                                   {userSearchTerm ? `"${userSearchTerm}" için kullanıcı bulunamadı` : 'Seçilen filtreye uygun kullanıcı bulunamadı'}
                                 </div>
                               )}
                           </div>
                         ) : (
-                          <div className="text-xs text-neutral-400">Yalnızca admin kullanıcı listesi görüntüler.</div>
+                          <div className="text-xs" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Yalnızca admin kullanıcı listesi görüntüler.</div>
                         )}
                       </div>
                     </div>
@@ -8264,7 +9161,7 @@ function App() {
                           <button
                             onClick={() => setShowTaskSettings(false)}
                             className="rounded-md px-2 py-1 transition-colors"
-                            style={{ color: currentTheme.textSecondary }}
+                            style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                             onMouseEnter={(e) => {
                               e.target.style.color = currentTheme.text;
                               e.target.style.backgroundColor = `${currentTheme.border}30`;
@@ -8653,8 +9550,8 @@ function App() {
                             <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>
                               {(() => {
                                 const allTypes = getAllTaskTypes();
-                                const foundType = allTypes.find(type =>
-                                  type.value == selectedTaskTypeForStatuses ||
+                                const foundType = allTypes.find(type => 
+                                  type.value == selectedTaskTypeForStatuses || 
                                   type.id == selectedTaskTypeForStatuses
                                 );
                                 return foundType ? foundType.label : 'Geliştirme';
