@@ -235,6 +235,32 @@ export async function deleteUserAdmin(id) {
   }
 }
 
+export async function getTheme() {
+  try {
+    const response = await api.get('/theme');
+    return response.data.theme_preferences;
+  } catch (error) {
+    console.error('Get theme error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+export async function saveTheme(themeName, customTheme = null) {
+  try {
+    const payload = {
+      theme_name: themeName,
+    };
+    if (themeName === 'custom' && customTheme) {
+      payload.custom_theme = customTheme;
+    }
+    const response = await api.post('/theme', payload);
+    return response.data;
+  } catch (error) {
+    console.error('Save theme error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
 export const Tasks = {
   list: async () => {
     try {

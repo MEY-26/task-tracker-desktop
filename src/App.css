@@ -1,8 +1,127 @@
+:root {
+  --theme-bg: #0f172a;
+  --theme-window: #1e293b;
+  --theme-text: #e2e8f0;
+  --theme-text-secondary: #94a3b8;
+  --theme-accent: #3b82f6;
+  --theme-border: #334155;
+  --theme-placeholder: #94a3b8;
+}
+
+/* Placeholder renkleri */
+input::placeholder,
+textarea::placeholder {
+  color: var(--theme-placeholder) !important;
+  opacity: 0.7 !important;
+}
+
+/* Arama kutusu için özel placeholder rengi */
+#task-search::placeholder {
+  color: var(--theme-placeholder) !important;
+  opacity: 0.7 !important;
+}
+
+/* Input alanları için tablo satır alt rengi - Modal içindeki input'lar */
+/* Haftalık Hedefler modal'ı (.weekly-goals-modal) hariç - inline style'lar kullanılıyor */
+/* Genel kurallar - Haftalık Hedefler modal'ı için özel kurallar aşağıda override ediliyor */
+/* Not: .weekly-goals-modal içindeki input'lar için inline style'lar kullanılıyor, CSS kuralları uygulanmıyor */
+input[type="text"],
+input[type="date"],
+input[type="email"],
+input[type="password"],
+input[type="file"],
+input[type="number"],
+textarea,
+select {
+  background-color: var(--theme-table-row-alt) !important;
+  color: var(--theme-text) !important;
+}
+
+/* Modal içindeki input alanları için özel stil - Daha spesifik selector'lar */
+/* Haftalık Hedefler modal'ı (.weekly-goals-modal) hariç */
+.fixed:not(.weekly-goals-modal) input[type="text"],
+.fixed:not(.weekly-goals-modal) input[type="date"],
+.fixed:not(.weekly-goals-modal) input[type="email"],
+.fixed:not(.weekly-goals-modal) input[type="password"],
+.fixed:not(.weekly-goals-modal) input[type="file"],
+.fixed:not(.weekly-goals-modal) input[type="number"],
+.fixed:not(.weekly-goals-modal) textarea,
+.fixed:not(.weekly-goals-modal) select,
+.z-\[999999\]:not(.weekly-goals-modal) input[type="text"],
+.z-\[999999\]:not(.weekly-goals-modal) input[type="date"],
+.z-\[999999\]:not(.weekly-goals-modal) input[type="email"],
+.z-\[999999\]:not(.weekly-goals-modal) input[type="password"],
+.z-\[999999\]:not(.weekly-goals-modal) input[type="file"],
+.z-\[999999\]:not(.weekly-goals-modal) input[type="number"],
+.z-\[999999\]:not(.weekly-goals-modal) textarea,
+.z-\[999999\]:not(.weekly-goals-modal) select,
+.z-\[999996\]:not(.weekly-goals-modal) input[type="text"],
+.z-\[999996\]:not(.weekly-goals-modal) input[type="date"],
+.z-\[999996\]:not(.weekly-goals-modal) input[type="email"],
+.z-\[999996\]:not(.weekly-goals-modal) input[type="password"],
+.z-\[999996\]:not(.weekly-goals-modal) input[type="file"],
+.z-\[999996\]:not(.weekly-goals-modal) input[type="number"],
+.z-\[999996\]:not(.weekly-goals-modal) textarea,
+.z-\[999996\]:not(.weekly-goals-modal) select {
+  background-color: var(--theme-table-row-alt) !important;
+  color: var(--theme-text) !important;
+}
+
+/* Haftalık Hedefler modal'ı için CSS kuralları kaldırıldı - inline style'lar kullanılıyor */
+/* Bu kurallar inline style'ların çalışmasını sağlamak için CSS'deki genel kuralları override eder */
+/* CSS specificity: .weekly-goals-modal input daha spesifik olduğu için genel kuralları override eder */
+/* Inline style'lar CSS'deki !important kurallarından daha güçlü olduğu için burada CSS kurallarını kaldırıyoruz */
+/* Ancak CSS'deki genel kurallar çok spesifik olduğu için burada da aynı specificity ile override ediyoruz */
+.weekly-goals-modal input[type="text"],
+.weekly-goals-modal input[type="date"],
+.weekly-goals-modal input[type="email"],
+.weekly-goals-modal input[type="password"],
+.weekly-goals-modal input[type="file"],
+.weekly-goals-modal input[type="number"],
+.weekly-goals-modal textarea,
+.weekly-goals-modal select {
+  /* Inline style'ların çalışması için CSS kurallarını kaldırıyoruz */
+  /* Inline style'lar CSS'deki !important kurallarından daha güçlü olduğu için burada CSS kurallarını kaldırıyoruz */
+  background-color: unset !important;
+  color: unset !important;
+}
+
+/* Profil modal'ı için CSS kuralları kaldırıldı - inline style'lar kullanılıyor */
+.z-\[100210\] input[type="text"],
+.z-\[100210\] input[type="date"],
+.z-\[100210\] input[type="email"],
+.z-\[100210\] input[type="password"],
+.z-\[100210\] input[type="file"],
+.z-\[100210\] input[type="number"],
+.z-\[100210\] textarea,
+.z-\[100210\] select {
+  /* Inline style'ların çalışması için CSS kurallarını kaldırıyoruz */
+  background-color: unset !important;
+  color: unset !important;
+}
+
+/* Görev Ayarları modal'ı için CSS kuralları kaldırıldı - inline style'lar kullanılıyor */
+/* Modal container'ın z-index'i z-[999993] */
+.z-\[999993\] input[type="text"],
+.z-\[999993\] input[type="date"],
+.z-\[999993\] input[type="email"],
+.z-\[999993\] input[type="password"],
+.z-\[999993\] input[type="file"],
+.z-\[999993\] input[type="number"],
+.z-\[999993\] textarea,
+.z-\[999993\] select {
+  /* Inline style'ların çalışması için CSS kurallarını kaldırıyoruz */
+  background-color: unset !important;
+  color: unset !important;
+}
+
 #root {
   max-width: 1600px;
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
 }
 
 /* Hide native scrollbars but allow wheel scrolling */
@@ -53,21 +172,8 @@
   gap: 24px;
 }
 
-.app-footer__inner>* {
+.app-footer__inner > * {
   flex-shrink: 0;
-}
-
-.update-screen {
-  max-width: 1600px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.update-screen__inner {
-  padding: 10px;
-  width: 100%;
-  width: 1430px;
 }
 
 .app-footer__social {
@@ -91,10 +197,6 @@
   transition: transform 0.3s ease;
 }
 
-.buttonHoverEffect {
-  transition: transform 0.3s ease;
-}
-
 .app-footer__social-link:hover {
   color: #ff0000;
   transform: rotateZ(-10deg) scale(1.1);
@@ -104,142 +206,248 @@
   transform: scale(1.03);
 }
 
+/* Notification styles */
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification {
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+  min-width: 300px;
+  max-width: 500px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification.success {
+  background-color: #10b981;
+  color: white;
+}
+
+.notification.error {
+  background-color: #ef4444;
+  color: white;
+}
+
+.notification.info {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.notification.warning {
+  background-color: #f59e0b;
+  color: white;
+}
+
+/* Update Notes Modal Styles */
+.updates-modal {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  line-height: 1.6;
+}
+
+.updates-modal h1 {
+  font-size: 2em;
+  margin-bottom: 0.5em;
+  font-weight: bold;
+}
+
+.updates-modal h2 {
+  font-size: 1.5em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: bold;
+}
+
+.updates-modal h3 {
+  font-size: 1.25em;
+  margin-top: 0.75em;
+  margin-bottom: 0.5em;
+  font-weight: bold;
+}
+
+.updates-modal ul {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+  list-style-type: disc;
+}
+
+.updates-modal ul ul {
+  margin: 0.5rem 0;
+  padding-left: 2rem;
+  list-style-type: circle;
+}
+
+.updates-modal ul ul ul {
+  margin: 0.5rem 0;
+  padding-left: 2rem;
+  list-style-type: circle;
+}
+
+.updates-modal li {
+  margin: 0.25em 0;
+}
+
+.updates-modal strong {
+  font-weight: bold;
+}
+
+.updates-modal hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1.5em 0;
+}
+
+/* Notification badge */
+.notification-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  border: 2px solid var(--theme-bg);
+}
+
+/* Button hover effects */
 .buttonHoverEffect:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+.buttonHoverEffect:active {
+  transform: scale(0.95);
+}
+
+/* Social media icons */
+.social-icon {
+  transition: transform 0.2s ease;
+}
+
+.social-icon:hover {
   transform: scale(1.1);
 }
 
-/* Announcement Form Styles */
-.announcement-form-container {
-  padding: 1.5rem !important;
-  margin-bottom: 1.5rem;
+/* Task priority colors */
+.priority-high {
+  color: #ef4444;
 }
 
-.announcement-form-title {
-  font-size: 1.125rem !important;
-  font-weight: 600 !important;
-  margin-bottom: 1.25rem !important;
+.priority-medium {
+  color: #f59e0b;
 }
 
-.announcement-form-label {
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-  margin-bottom: 0.5rem !important;
-  display: block;
-  color: #d1d5db;
+.priority-low {
+  color: #10b981;
 }
 
-.announcement-form-input,
-.announcement-form-textarea,
-.announcement-form-select {
-  width: 100% !important;
-  padding: 0.875rem 1rem !important;
-  min-height: 44px !important;
-  font-size: 0.875rem !important;
-  border-radius: 0.375rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  box-sizing: border-box;
+/* Task status colors */
+.status-active {
+  color: #3b82f6;
 }
 
-.announcement-form-textarea {
-  min-height: 150px !important;
-  padding-top: 0.875rem !important;
-  padding-bottom: 0.875rem !important;
+.status-completed {
+  color: #10b981;
 }
 
-.announcement-form-select {
-  min-height: 44px !important;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1.25em 1.25em;
-  padding-right: 2.5rem !important;
+.status-deleted {
+  color: #ef4444;
 }
 
-.announcement-form-input:focus,
-.announcement-form-textarea:focus,
-.announcement-form-select:focus {
-  outline: none !important;
-  border-color: rgba(59, 130, 246, 0.5) !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+/* Loading spinner */
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
 }
 
-.announcement-form-input::placeholder,
-.announcement-form-textarea::placeholder {
-  color: #9ca3af;
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.announcement-form-button {
-  padding: 0.875rem 1.25rem !important;
-  min-height: 44px !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-  border-radius: 0.375rem;
+/* Tablo başlıkları için tema desteği */
+.border-b[style*="backgroundColor"] {
+  background-color: var(--theme-table-header) !important;
 }
 
-/* Feedback Form Styles - Same as Announcement Form */
-.feedback-form-container {
-  padding: 1.5rem !important;
-  margin-bottom: 1.5rem;
+/* Ana ekran tablo başlıkları için özel kural */
+.flex.justify-center > .border-b[style*="backgroundColor"] {
+  background-color: var(--theme-table-header) !important;
 }
 
-.feedback-form-label {
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-  margin-bottom: 0.5rem !important;
-  display: block;
-  color: #d1d5db;
+/* Tablo başlık grid container için tema desteği */
+.flex.justify-center > .border-b > .grid[style*="backgroundColor"] {
+  background-color: var(--theme-table-header) !important;
 }
 
-.feedback-form-input,
-.feedback-form-textarea,
-.feedback-form-select {
-  width: 100% !important;
-  padding: 0.875rem 1rem !important;
-  min-height: 44px !important;
-  font-size: 0.875rem !important;
-  border-radius: 0.375rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  box-sizing: border-box;
+/* Tablo başlık butonları için tema desteği */
+.flex.justify-center > .border-b button {
+  background-color: transparent !important;
 }
 
-.feedback-form-textarea {
-  min-height: 150px !important;
-  padding-top: 0.875rem !important;
-  padding-bottom: 0.875rem !important;
+/* Arama kutusu için özel stil */
+#task-search {
+  background-color: var(--theme-table-row-alt) !important;
+  color: var(--theme-text) !important;
 }
 
-.feedback-form-select {
-  min-height: 44px !important;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  background-size: 1.25em 1.25em;
-  padding-right: 2.5rem !important;
+#task-search::placeholder {
+  color: var(--theme-placeholder) !important;
+  opacity: 0.7 !important;
 }
 
-.feedback-form-input:focus,
-.feedback-form-textarea:focus,
-.feedback-form-select:focus {
-  outline: none !important;
-  border-color: rgba(59, 130, 246, 0.5) !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+/* Update Notes Modal Positioning */
+.update-screen {
+  max-width: 1600px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
-.feedback-form-input::placeholder,
-.feedback-form-textarea::placeholder {
-  color: #9ca3af;
+.update-screen__inner {
+  padding: 10px;
+  width: 100%;
+  width: 1430px;
 }
 
-.feedback-form-button {
-  padding: 0.875rem 1.25rem !important;
-  min-height: 44px !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-  border-radius: 0.375rem;
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .notification-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .notification {
+    min-width: auto;
+    max-width: 100%;
+  }
 }

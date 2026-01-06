@@ -84,4 +84,56 @@ class UserController extends Controller
         $user->delete();
         return response()->json(['message' => 'Kullanıcı silindi.']);
     }
+
+    public function getTheme(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Yetkisiz'], 401);
+        }
+
+        $themePreferences = $user->theme_preferences ?? null;
+        return response()->json([
+            'theme_preferences' => $themePreferences
+        ]);
+    }
+
+    public function saveTheme(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Yetkisiz'], 401);
+        }
+
+        $request->validate([
+            'theme_name' => 'required|string|in:dark,light,blue,green,purple,orange,custom',
+            'custom_theme' => 'nullable|array',
+            'custom_theme.background' => 'nullable|string',
+            'custom_theme.text' => 'nullable|string',
+            'custom_theme.textSecondary' => 'nullable|string',
+            'custom_theme.accent' => 'nullable|string',
+            'custom_theme.border' => 'nullable|string',
+            'custom_theme.tableBackground' => 'nullable|string',
+            'custom_theme.tableRowAlt' => 'nullable|string',
+            'custom_theme.tableHeader' => 'nullable|string',
+            'custom_theme.logoType' => 'nullable|string|in:dark,light',
+            'custom_theme.socialIconColor' => 'nullable|string',
+        ]);
+
+        $themePreferences = [
+            'theme_name' => $request->input('theme_name'),
+        ];
+
+        if ($request->input('theme_name') === 'custom' && $request->has('custom_theme')) {
+            $themePreferences['custom_theme'] = $request->input('custom_theme');
+        }
+
+        $user->theme_preferences = $themePreferences;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Tema kaydedildi.',
+            'theme_preferences' => $user->theme_preferences
+        ]);
+    }
 }

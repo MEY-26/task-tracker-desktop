@@ -60,6 +60,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
     Route::get('/team-members', [UserController::class, 'teamMembers']);
+    
+    // Theme preferences
+    Route::get('/theme', [UserController::class, 'getTheme']);
+    Route::post('/theme', [UserController::class, 'saveTheme']);
 
     // Weekly Goals
     Route::get('/weekly-goals/leaderboard', [WeeklyGoalController::class, 'leaderboard']);

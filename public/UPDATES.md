@@ -1,11 +1,11 @@
-## v2.10.4 - 2026-01-02
+## v2.10.4 - 05.01.2026
 
 ### Düzeltmeler
 **Görev Ekleme Sorunu Düzeltildi**: Manuel olarak kaldırılan kullanıcılar, görev oluşturulurken otomatik ekleme sırasında tekrar eklenmiyor. Artık sadece seçtiğiniz kişiler göreve atanacak ve gereksiz bildirimler gönderilmeyecek.
 
 ---
 
-## v2.10.3 - 2026-01-02
+## v2.10.3 - 05.01.2026
 
 ### Değişiklikler
 **Haftalık Hedefler Kilitleme Kuralları Güncellendi**:

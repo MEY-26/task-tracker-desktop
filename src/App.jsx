@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses } from './api';
+import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, WeeklyGoals, Team, TaskTypes, TaskStatuses, getTheme, saveTheme } from './api';
 import { api } from './api';
 import './App.css'
 import { createPortal } from 'react-dom';
 import * as ExcelJS from 'exceljs';
 import logo from './assets/VadenLogo.svg';
+import darkLogo from './assets/Dark_VadenLogo.svg';
+import lightLogo from './assets/Light_VadenLogo.svg';
 import { computeWeeklyScore } from './utils/computeWeeklyScore';
 
 
@@ -312,6 +314,237 @@ function App() {
   const [detailDraft, setDetailDraft] = useState(null);
   const assigneeDetailInputRef = useRef(null);
   const [weeklySaveState, setWeeklySaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const [showThemePanel, setShowThemePanel] = useState(false);
+  const isInitialThemeLoadRef = useRef(true);
+
+  // Hazır temalar
+  const predefinedThemes = {
+    dark: {
+      name: 'Koyu Tema',
+      background: '#0f172a',
+      text: '#e2e8f0',
+      textSecondary: '#94a3b8',
+      accent: '#3b82f6',
+      border: '#334155',
+      tableBackground: '#1e293b',
+      tableRowAlt: '#1a2332',
+      tableHeader: '#334155',
+      socialIconColor: '#94a3b8'
+    },
+    light: {
+      name: 'Açık Tema',
+      background: '#f8fafc',
+      text: '#1e293b',
+      textSecondary: '#64748b',
+      accent: '#3b82f6',
+      border: '#e2e8f0',
+      tableBackground: '#ffffff',
+      tableRowAlt: '#f1f5f9',
+      tableHeader: '#e2e8f0',
+      socialIconColor: '#475569'
+    },
+    blue: {
+      name: 'Mavi Tema',
+      background: '#0c1226',
+      text: '#e0e7ff',
+      textSecondary: '#a5b4fc',
+      accent: '#6366f1',
+      border: '#312e81',
+      tableBackground: '#1a2332',
+      tableRowAlt: '#162038',
+      tableHeader: '#312e81',
+      socialIconColor: '#a5b4fc'
+    },
+    green: {
+      name: 'Yeşil Tema',
+      background: '#0a1f0a',
+      text: '#d1fae5',
+      textSecondary: '#86efac',
+      accent: '#10b981',
+      border: '#166534',
+      tableBackground: '#1a2e1a',
+      tableRowAlt: '#0f2410',
+      tableHeader: '#166534',
+      socialIconColor: '#86efac'
+    },
+    purple: {
+      name: 'Mor Tema',
+      background: '#1a0a2e',
+      text: '#f3e8ff',
+      textSecondary: '#c084fc',
+      accent: '#a855f7',
+      border: '#581c87',
+      tableBackground: '#2d1b3d',
+      tableRowAlt: '#241530',
+      tableHeader: '#581c87',
+      socialIconColor: '#c084fc'
+    },
+    orange: {
+      name: 'Turuncu Tema',
+      background: '#1f0f0a',
+      text: '#ffe4d6',
+      textSecondary: '#fdba74',
+      accent: '#f97316',
+      border: '#7c2d12',
+      tableBackground: '#2e1f1a',
+      tableRowAlt: '#251810',
+      tableHeader: '#7c2d12',
+      socialIconColor: '#fdba74'
+    }
+  };
+
+  // Özel tema state'i (başlangıçta dark tema değerleriyle)
+  const [customTheme, setCustomTheme] = useState({
+    background: '#0f172a',
+    text: '#e2e8f0',
+    textSecondary: '#94a3b8',
+    accent: '#3b82f6',
+    border: '#334155',
+    tableBackground: '#1e293b',
+    tableRowAlt: '#1a2332',
+    tableHeader: '#334155',
+    logoType: 'dark', // 'dark' veya 'light'
+    socialIconColor: '#94a3b8'
+  });
+
+  // Mevcut tema (hazır tema adı veya 'custom')
+  const [currentThemeName, setCurrentThemeName] = useState('dark');
+  const [isThemeLoading, setIsThemeLoading] = useState(true);
+
+  // Tema objesi (hazır tema veya özel tema)
+  const currentTheme = useMemo(() => {
+    if (currentThemeName === 'custom') {
+      return customTheme;
+    }
+    return predefinedThemes[currentThemeName] || predefinedThemes.dark;
+  }, [currentThemeName, customTheme]);
+
+  // Logo seçimi (tema değişkenine göre)
+  // Light temada dark logo, dark temada light logo kullanılır (ters mantık)
+  const currentLogo = useMemo(() => {
+    // Custom tema için kullanıcının seçtiği logo tipini kullan
+    if (currentThemeName === 'custom') {
+      return customTheme.logoType === 'light' ? lightLogo : darkLogo;
+    }
+
+    // Hazır temalar için: light temada dark logo, dark temalarda light logo
+    const isLightTheme = currentThemeName === 'light';
+    return isLightTheme ? darkLogo : lightLogo;
+  }, [currentThemeName, customTheme.logoType]);
+
+  // Backend'den temayı yükle
+  useEffect(() => {
+    const loadUserTheme = async () => {
+      if (!user) {
+        setIsThemeLoading(false);
+        isInitialThemeLoadRef.current = false;
+        return;
+      }
+
+      isInitialThemeLoadRef.current = true;
+      setIsThemeLoading(true);
+      try {
+        const themePrefs = await getTheme();
+        console.log('Theme loaded from backend:', themePrefs);
+        if (themePrefs && themePrefs.theme_name) {
+          setCurrentThemeName(themePrefs.theme_name);
+          if (themePrefs.theme_name === 'custom' && themePrefs.custom_theme) {
+            // Eski window değerini tableBackground'a migrate et
+            const customThemeData = { ...themePrefs.custom_theme };
+            if (customThemeData.window && !customThemeData.tableBackground) {
+              customThemeData.tableBackground = customThemeData.window;
+              delete customThemeData.window;
+            }
+            // logoType yoksa varsayılan olarak 'dark' ekle
+            if (!customThemeData.logoType) {
+              customThemeData.logoType = 'dark';
+            }
+            // tableHeader yoksa varsayılan olarak border rengini kullan
+            if (!customThemeData.tableHeader) {
+              customThemeData.tableHeader = customThemeData.border || '#334155';
+            }
+            // socialIconColor yoksa textSecondary'den al
+            if (!customThemeData.socialIconColor) {
+              customThemeData.socialIconColor = customThemeData.textSecondary || '#94a3b8';
+            }
+            setCustomTheme(customThemeData);
+          }
+        } else {
+          // Backend'de tema yoksa varsayılan temayı kullan ama kaydetme
+          console.log('No theme found in backend, using default');
+          setCurrentThemeName('dark');
+        }
+      } catch (error) {
+        console.error('Failed to load theme from backend:', error);
+        // Fallback to localStorage if backend fails
+        const saved = localStorage.getItem('appTheme');
+        if (saved) {
+          setCurrentThemeName(saved);
+        }
+      } finally {
+        setIsThemeLoading(false);
+        // İlk yükleme tamamlandıktan sonra flag'i false yap
+        setTimeout(() => {
+          isInitialThemeLoadRef.current = false;
+          console.log('Initial theme load completed, saving enabled');
+        }, 1000);
+      }
+    };
+
+    loadUserTheme();
+  }, [user]);
+
+  // Tema değiştiğinde backend'e kaydet (sadece kullanıcı manuel değiştirdiğinde)
+  useEffect(() => {
+    if (!user || isThemeLoading || isInitialThemeLoadRef.current) {
+      if (isInitialThemeLoadRef.current) {
+        console.log('Skipping save - initial theme load in progress');
+      }
+      return;
+    }
+
+    const saveUserTheme = async () => {
+      try {
+        console.log('Saving theme to backend:', currentThemeName, currentThemeName === 'custom' ? customTheme : null);
+        await saveTheme(currentThemeName, currentThemeName === 'custom' ? customTheme : null);
+        console.log('Theme saved successfully:', currentThemeName);
+      } catch (error) {
+        console.error('Failed to save theme to backend:', error);
+        // Fallback to localStorage if backend fails
+        localStorage.setItem('appTheme', currentThemeName);
+        if (currentThemeName === 'custom') {
+          localStorage.setItem('customTheme', JSON.stringify(customTheme));
+        }
+      }
+    };
+
+    saveUserTheme();
+  }, [currentThemeName, customTheme, user, isThemeLoading]);
+
+  // Tema CSS değişkenlerini uygula
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+
+    // CSS değişkenlerini ayarla
+    root.style.setProperty('--theme-bg', currentTheme.background);
+    root.style.setProperty('--theme-window', currentTheme.background); // Window = Background
+    root.style.setProperty('--theme-text', currentTheme.text);
+    root.style.setProperty('--theme-text-secondary', currentTheme.textSecondary);
+    root.style.setProperty('--theme-accent', currentTheme.accent);
+    root.style.setProperty('--theme-border', currentTheme.border);
+    root.style.setProperty('--theme-table-bg', currentTheme.tableBackground || currentTheme.background);
+    root.style.setProperty('--theme-table-header', currentTheme.tableHeader || currentTheme.tableBackground || currentTheme.background);
+    root.style.setProperty('--theme-table-row-alt', currentTheme.tableRowAlt || currentTheme.background);
+    root.style.setProperty('--theme-social-icon', currentTheme.socialIconColor || currentTheme.textSecondary);
+
+    // Placeholder rengi için CSS değişkeni
+    root.style.setProperty('--theme-placeholder', currentTheme.textSecondary);
+
+    // Body ve HTML arkaplan rengini ayarla
+    root.style.backgroundColor = currentTheme.background;
+    body.style.backgroundColor = currentTheme.background;
+  }, [currentTheme]);
 
   function getMonday(date = new Date()) {
     const d = new Date(date);
@@ -1032,7 +1265,7 @@ function App() {
       document.body.style.overflow = 'unset';
     };
   }, [showAddForm, showDetailModal, showWeeklyGoals, showGoalDescription,
-    showUserProfile, showTeamModal, showUserPanel, showNotifications, showTaskSettings]);
+    showUserProfile, showTeamModal, showUserPanel, showNotifications, showTaskSettings, showThemePanel]);
 
   useEffect(() => {
     if (user?.role !== 'admin' && showWeeklyOverview) {
@@ -3015,7 +3248,7 @@ function App() {
     );
   }
 
-  function PasswordChangeForm({ onDone }) {
+  function PasswordChangeForm({ onDone, currentTheme }) {
     const [form, setForm] = useState({ current: '', next: '', again: '' });
     const [loading, setLoading] = useState(false);
     const can = form.current && form.next && form.again && form.next === form.again;
@@ -3051,7 +3284,7 @@ function App() {
         <div className="space-y-6">
           <input
             type="password"
-            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] sm:!text-[16px] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
+            className="w-full rounded-md focus:outline-none transition-all px-6 py-4"
             placeholder="Mevcut şifrenizi girin"
             value={form.current}
             onChange={e => setForm({ ...form, current: e.target.value })}
@@ -3062,14 +3295,30 @@ function App() {
             data-lpignore="true"
             data-form-type="password"
             name="current-password"
-            style={{ height: '40px' }}
+            style={{
+              height: '40px',
+              fontSize: '16px',
+              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+              color: currentTheme.text,
+              borderColor: currentTheme.border,
+              borderWidth: '1px',
+              borderStyle: 'solid'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = currentTheme.accent;
+              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = currentTheme.border;
+              e.target.style.boxShadow = 'none';
+            }}
           />
         </div>
 
         <div className="space-y-6">
           <input
             type="password"
-            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
+            className="w-full rounded-xl focus:outline-none transition-all px-6 py-4"
             placeholder="Yeni şifrenizi girin"
             value={form.next}
             onChange={e => setForm({ ...form, next: e.target.value })}
@@ -3080,14 +3329,30 @@ function App() {
             data-lpignore="true"
             data-form-type="password"
             name="new-password"
-            style={{ height: '40px' }}
+            style={{
+              height: '40px',
+              fontSize: '16px',
+              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+              color: currentTheme.text,
+              borderColor: currentTheme.border,
+              borderWidth: '1px',
+              borderStyle: 'solid'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = currentTheme.accent;
+              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = currentTheme.border;
+              e.target.style.boxShadow = 'none';
+            }}
           />
         </div>
 
         <div className="space-y-6">
           <input
             type="password"
-            className="w-full border border-white/20 bg-white/10 text-white !text-[24px] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all px-6 py-4"
+            className="w-full rounded-xl focus:outline-none transition-all px-6 py-4"
             placeholder="Yeni şifrenizi tekrar girin"
             value={form.again}
             onChange={e => setForm({ ...form, again: e.target.value })}
@@ -3098,7 +3363,23 @@ function App() {
             data-lpignore="true"
             data-form-type="password"
             name="confirm-password"
-            style={{ height: '40px' }}
+            style={{
+              height: '40px',
+              fontSize: '16px',
+              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+              color: currentTheme.text,
+              borderColor: currentTheme.border,
+              borderWidth: '1px',
+              borderStyle: 'solid'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = currentTheme.accent;
+              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = currentTheme.border;
+              e.target.style.boxShadow = 'none';
+            }}
           />
         </div>
 
@@ -3106,8 +3387,26 @@ function App() {
           <button
             type="submit"
             disabled={!can || loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-blue-400 disabled:to-blue-400 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl px-8 py-4"
-            style={{ height: '48px' }}
+            className="w-full rounded-xl transition-all shadow-lg hover:shadow-xl px-8 py-4 font-semibold"
+            style={{
+              height: '48px',
+              backgroundColor: (!can || loading) ? `${currentTheme.border}60` : currentTheme.accent,
+              color: '#ffffff'
+            }}
+            onMouseEnter={(e) => {
+              if (!(!can || loading)) {
+                const hex = currentTheme.accent.replace('#', '');
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!(!can || loading)) {
+                e.target.style.backgroundColor = currentTheme.accent;
+              }
+            }}
           >
             {loading ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
           </button>
@@ -3378,7 +3677,7 @@ function App() {
         <div className="bg-black/20 backdrop-blur-sm rounded-2xl border-gray-800/50 p-8 shadow-2xl w-full max-w-md" style={{ minWidth: '400px', maxWidth: '400px' }}>
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">
-              <img src={logo} alt="Logo" className="w-16 h-16" />
+              <img src={currentLogo || logo} alt="Logo" className="w-16 h-16" onError={(e) => { e.target.src = logo; }} />
             </div>
             <h2 className="text-4xl font-bold text-white tracking-wider">Görev Takip Sistemi</h2>
           </div>
@@ -3479,19 +3778,18 @@ function App() {
   }
 
   return (
-    <div className="app-shell bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden no-scrollbar">
+    <div className="app-shell overflow-hidden no-scrollbar" style={{ backgroundColor: currentTheme.background }}>
       <main className="main-content">
-        <div className="bg-white shadow-lg w-full">
-          <div className="bg-white shadow-lg w-full AppContent">
+        <div className="shadow-lg w-full" style={{ backgroundColor: currentTheme.background }}>
+          <div className="shadow-lg w-full AppContent" style={{ backgroundColor: currentTheme.background }}>
             <div className="flex justify-between w-full max-w-7xl mx-auto px-4" style={{ maxWidth: '1440px' }}>
               <img
-                src={logo}
+                src={currentLogo || logo}
                 alt="Vaden Logo"
                 style={{ width: '300px', height: '100px' }}
                 className="!w-8 !h-8 xs:!w-10 xs:!h-10 sm:!w-12 sm:!h-12"
                 onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'block';
+                  e.target.src = logo; // Fallback to default logo
                 }}
               />
               <h2 className="text-[42px] font-semibold text-gray-900">
@@ -3506,8 +3804,22 @@ function App() {
                       resetNewTask();
                       setShowAddForm(!showAddForm);
                     }}
-                    className="add-task-button bg-[#0f172a] from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-md"
-                    style={{ marginRight: '5px' }}
+                    className="add-task-button rounded-lg transition-all duration-200 shadow-md"
+                    style={{
+                      marginRight: '5px',
+                      backgroundColor: currentTheme.accent,
+                      color: '#ffffff'
+                    }}
+                    onMouseEnter={(e) => {
+                      const hex = currentTheme.accent.replace('#', '');
+                      const r = parseInt(hex.substr(0, 2), 16);
+                      const g = parseInt(hex.substr(2, 2), 16);
+                      const b = parseInt(hex.substr(4, 2), 16);
+                      e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = currentTheme.accent;
+                    }}
                   >
                     <span className="add-icon">➕</span>
                   </button>
@@ -3517,9 +3829,23 @@ function App() {
                 <div className="relative profile-menu">
                   <button
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="profile-icon text-xs sm:text-sm font-medium text-white bg-[#0f172a] hover:bg-blue-700 rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+                    className="profile-icon text-xs sm:text-sm font-medium rounded-lg transition-colors flex items-center space-x-2 shadow-md"
                     title={user?.email || ''}
-                    style={{ marginRight: '5px' }}
+                    style={{
+                      marginRight: '5px',
+                      backgroundColor: currentTheme.accent,
+                      color: '#ffffff'
+                    }}
+                    onMouseEnter={(e) => {
+                      const hex = currentTheme.accent.replace('#', '');
+                      const r = parseInt(hex.substr(0, 2), 16);
+                      const g = parseInt(hex.substr(2, 2), 16);
+                      const b = parseInt(hex.substr(4, 2), 16);
+                      e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = currentTheme.accent;
+                    }}
                   >
                     <span className="user-icon">👤</span>
                     <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
@@ -3528,8 +3854,15 @@ function App() {
 
                   {showProfileMenu && (
                     <div
-                      className="absolute right-0 top-full mt-2 w-48 !bg-[#0f172a] rounded-lg shadow-xl border border-red-600 py-1 z-[9999]"
-                      style={{ display: 'block', padding: '5px' }}
+                      className="absolute right-0 top-full mt-2 w-48 rounded-lg shadow-xl py-1 z-[9999]"
+                      style={{
+                        display: 'block',
+                        padding: '5px',
+                        backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}
                     >
                       {/* Profil yönetimi */}
                       <button
@@ -3537,12 +3870,47 @@ function App() {
                           setShowProfileMenu(false);
                           setShowUserProfile(true);
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                        style={{ padding: '10px' }}
+                        className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 transition-colors"
+                        style={{
+                          padding: '10px',
+                          color: currentTheme.text,
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = `${currentTheme.border}30`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                        }}
                       >
                         <span className="flex items-center gap-2">
                           <span>👤</span>
                           <span>Profil</span>
+                        </span>
+                      </button>
+
+                      {/* Tema Ayarları */}
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          setShowThemePanel(true);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 transition-colors"
+                        style={{
+                          padding: '10px',
+                          color: currentTheme.text,
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = `${currentTheme.border}30`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>🎨</span>
+                          <span>Tema Ayarları</span>
                         </span>
                       </button>
 
@@ -3553,8 +3921,18 @@ function App() {
                             setShowProfileMenu(false);
                             setShowTaskSettings(true);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                          style={{ padding: '10px' }}
+                          className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 transition-colors"
+                          style={{
+                            padding: '10px',
+                            color: currentTheme.text,
+                            backgroundColor: 'transparent'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = `${currentTheme.border}30`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                          }}
                         >
                           <span className="flex items-center gap-2">
                             <span>📋</span>
@@ -3571,8 +3949,18 @@ function App() {
                             await loadTeamMembers(user?.id);
                             setShowTeamModal(true);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                          style={{ padding: '10px' }}
+                          className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 transition-colors"
+                          style={{
+                            padding: '10px',
+                            color: currentTheme.text,
+                            backgroundColor: 'transparent'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = `${currentTheme.border}30`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                          }}
                         >
                           <span className="flex items-center gap-2 whitespace-nowrap">
                             <span>👥</span>
@@ -3588,8 +3976,18 @@ function App() {
                             setShowProfileMenu(false);
                             setShowUserPanel(true);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                          style={{ padding: '10px' }}
+                          className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 transition-colors"
+                          style={{
+                            padding: '10px',
+                            color: currentTheme.text,
+                            backgroundColor: 'transparent'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = `${currentTheme.border}30`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                          }}
                         >
                           <span className="flex items-center gap-2 whitespace-nowrap">
                             <span>⚙️</span>
@@ -3604,8 +4002,18 @@ function App() {
                           setShowProfileMenu(false);
                           handleLogout();
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 bg-[#0f172a]"
-                        style={{ padding: '10px' }}
+                        className="w-full text-left px-4 py-2 text-sm flex items-center space-x-2 transition-colors"
+                        style={{
+                          padding: '10px',
+                          color: currentTheme.text,
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = `${currentTheme.border}30`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                        }}
                       >
                         <span className="flex items-center gap-2 whitespace-nowrap">
                           <span>🚪</span>
@@ -3624,9 +4032,23 @@ function App() {
                     if (next) await loadNotifications();
                     setShowNotifications(next);
                   }}
-                  className="notification-bell relative rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
+                  className="notification-bell relative rounded-lg overflow-visible transition-colors"
                   aria-label="Bildirimler"
-                  style={{marginRight: '5px'}}
+                  style={{
+                    marginRight: '5px',
+                    backgroundColor: currentTheme.accent,
+                    color: '#ffffff'
+                  }}
+                  onMouseEnter={(e) => {
+                    const hex = currentTheme.accent.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = currentTheme.accent;
+                  }}
                 >
                   {badgeCount > 0 && (
                     <span className="notification-badge">
@@ -3639,28 +4061,52 @@ function App() {
 
                 {/* Güncelleme Notları Butonu */}
                 <button
-                  onClick={async () => {
-                    if (!updatesContent) {
-                      try {
-                        const response = await fetch('/UPDATES.md');
-                        const text = await response.text();
-                        setUpdatesContent(text);
-                      } catch {
-                        setUpdatesContent('# Güncelleme Notları\n\nGüncelleme notları yüklenemedi.');
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      if (!updatesContent) {
+                        try {
+                          const response = await fetch('/UPDATES.md');
+                          const text = await response.text();
+                          setUpdatesContent(text);
+                        } catch (err) {
+                          console.error('Failed to load updates:', err);
+                          setUpdatesContent('# Güncelleme Notları\n\nGüncelleme notları yüklenemedi.');
+                        }
                       }
+                      setShowUpdatesModal(true);
+                    } catch (err) {
+                      console.error('Error opening updates modal:', err);
                     }
-                    setShowUpdatesModal(true);
                   }}
-                  className="add-task-button rounded-lg text-gray-300 hover:bg-white/5 hover:text-white overflow-visible bg-[#0f172a]"
+                  className="add-task-button rounded-lg overflow-visible transition-colors"
                   aria-label="Güncelleme Notları"
                   title="Güncelleme Notları"
+                  style={{
+                    marginRight: '5px',
+                    backgroundColor: currentTheme.accent || '#3b82f6',
+                    color: '#ffffff',
+                    cursor: 'pointer',
+                    pointerEvents: 'auto'
+                  }}
+                  onMouseEnter={(e) => {
+                    const hex = (currentTheme.accent || '#3b82f6').replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = currentTheme.accent || '#3b82f6';
+                  }}
                 >
                   <span>📋</span>
                 </button>
                 {showNotifications && createPortal(
                   <>
-                    <div className="fixed inset-0 z-[999992] bg-black/80"
-                      onClick={() => setShowNotifications(false)} style={{ pointerEvents: 'auto' }} />
+                    <div className="fixed inset-0 z-[999992]"
+                      onClick={() => setShowNotifications(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
 
                     <div
                       ref={notifPanelRef}
@@ -3674,8 +4120,14 @@ function App() {
                       }}
                     >
                       <div
-                        className="w-[500px] max-h-[600px] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
-                        style={{ pointerEvents: 'auto' }}
+                        className="w-[500px] max-h-[600px] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+                        style={{
+                          pointerEvents: 'auto',
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                          borderColor: currentTheme.border,
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
                       >
                         {/* İçerik Alanı - Sadece Bildirimler */}
                         <div
@@ -3683,28 +4135,41 @@ function App() {
                           style={{ padding: '10px' }}
                         >
                           <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-semibold text-neutral-100">Bildirimler</h3>
+                            <h3 className="text-sm font-semibold" style={{ color: currentTheme.text }}>Bildirimler</h3>
                             <button
                               onClick={markAllNotificationsAsRead}
                               disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
-                              className="text-xs px-3 py-1 rounded-md bg-white/10 hover:bg-white/20 text-neutral-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              style={{
+                                backgroundColor: `${currentTheme.border}40`,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border
+                              }}
+                              onMouseEnter={(e) => e.target.style.backgroundColor = `${currentTheme.border}60`}
+                              onMouseLeave={(e) => e.target.style.backgroundColor = `${currentTheme.border}40`}
                             >
                               Tümünü Oku
                             </button>
                           </div>
                           {(!Array.isArray(notifications) || notifications.length === 0) ? (
-                            <div className="p-4 text-center text-neutral-400">Bildirim bulunmuyor</div>
+                            <div className="p-4 text-center" style={{ color: currentTheme.textSecondary }}>Bildirim bulunmuyor</div>
                           ) : (
                             notifications.map(n => (
                               <div
                                 key={n.id}
-                                className={`p-3 border-b border-white/10 last:border-b-0 ${n.read_at ? 'bg-white/5' : 'bg-blue-500/10'} hover:bg-white/10 transition-colors cursor-pointer`}
+                                className={`p-3 last:border-b-0 transition-colors cursor-pointer`}
+                                style={{
+                                  borderBottom: `1px solid ${currentTheme.border}`,
+                                  backgroundColor: n.read_at ? `${currentTheme.border}20` : `${currentTheme.accent}20`
+                                }}
                                 onClick={() => handleNotificationClick(n)}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${currentTheme.border}30`}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = n.read_at ? `${currentTheme.border}20` : `${currentTheme.accent}20`}
                               >
                                 <div className="flex items-start">
                                   <div className="flex-1">
-                                    <p className="text-sm text-white">{n.message}</p>
-                                    <p className="text-xs text-neutral-400 mt-1">{formatDate(n.created_at)}</p>
+                                    <p className="text-sm" style={{ color: currentTheme.text }}>{n.message}</p>
+                                    <p className="text-xs mt-1" style={{ color: currentTheme.textSecondary }}>{formatDate(n.created_at)}</p>
                                   </div>
                                 </div>
                               </div>
@@ -3720,22 +4185,41 @@ function App() {
                 )}
                 {showUpdatesModal && createPortal(
                   <>
-                    <div className="fixed inset-0 z-[999992] bg-black/80"
-                      onClick={() => setShowUpdatesModal(false)} style={{ pointerEvents: 'auto' }} />
+                    <div className="fixed inset-0 z-[999992]"
+                      onClick={() => setShowUpdatesModal(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
 
                     <div className="fixed z-[99999] p-3 update-screen">
                       <div
-                        className="max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#111827] flex flex-col"
+                        className="max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+                        style={{
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                          borderColor: currentTheme.border,
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
                       >
                         {/* Başlık */}
-                        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-gradient-to-r from-blue-600/20 to-purple-600/20">
-                          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <div className="flex items-center justify-between p-4"
+                          style={{
+                            borderBottom: `1px solid ${currentTheme.border}`,
+                            backgroundColor: `${currentTheme.accent}20`
+                          }}>
+                          <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: currentTheme.text }}>
                             <span>📋</span>
                             Güncelleme Notları
                           </h2>
                           <button
                             onClick={() => setShowUpdatesModal(false)}
-                            className="text-white/70 hover:text-white text-2xl font-bold w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+                            className="text-2xl font-bold w-8 h-8 flex items-center justify-center rounded transition-colors"
+                            style={{ color: currentTheme.textSecondary }}
+                            onMouseEnter={(e) => {
+                              e.target.style.color = currentTheme.text;
+                              e.target.style.backgroundColor = `${currentTheme.border}30`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.color = currentTheme.textSecondary;
+                              e.target.style.backgroundColor = 'transparent';
+                            }}
                             aria-label="Kapat"
                           >
                             ×
@@ -3746,15 +4230,15 @@ function App() {
                         <div
                           className="overflow-y-auto flex-1 p-6 no-scrollbar update-screen__inner"
                           style={{
-                            backgroundColor: '#0f172a',
-                            color: '#e5e7eb',
+                            backgroundColor: currentTheme.background,
+                            color: currentTheme.text,
                             fontFamily: 'system-ui, -apple-system, sans-serif'
                           }}
                         >
                           <div
                             className="prose prose-invert max-w-none"
                             style={{
-                              color: '#e5e7eb',
+                              color: currentTheme.text,
                               lineHeight: '1.6',
                             }}
                             dangerouslySetInnerHTML={{
@@ -3865,6 +4349,443 @@ function App() {
                   </>,
                   document.body
                 )}
+
+                {/* Tema Ayarları Modal */}
+                {showThemePanel && createPortal(
+                  <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
+                    <div className="absolute inset-0" onClick={() => setShowThemePanel(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
+                    <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+                      <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+                        pointerEvents: 'auto',
+                        backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid',
+                        color: currentTheme.text
+                      }} onClick={(e) => e.stopPropagation()}>
+                        <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-3"
+                          style={{
+                            borderBottom: `1px solid ${currentTheme.border}`,
+                            backgroundColor: currentTheme.background
+                          }}>
+                          <div></div>
+                          <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Tema Ayarları</h2>
+                          <div className="justify-self-end">
+                            <button onClick={() => setShowThemePanel(false)}
+                              className="rounded px-2 py-1 transition-colors"
+                              style={{ color: currentTheme.textSecondary }}
+                              onMouseEnter={(e) => {
+                                e.target.style.color = currentTheme.text;
+                                e.target.style.backgroundColor = `${currentTheme.border}30`;
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.color = currentTheme.textSecondary;
+                                e.target.style.backgroundColor = 'transparent';
+                              }}>✕</button>
+                          </div>
+                        </div>
+
+                        <div className="p-4 xs:p-6 sm:p-8 space-y-6 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+                          {/* Hazır Temalar */}
+                          <div className="bg-white/5 rounded-xl p-6">
+                            <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>Hazır Temalar</h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                              {Object.entries(predefinedThemes).map(([key, theme]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => {
+                                    // Hazır tema seçildiğinde customTheme'i o temanın değerleriyle doldur
+                                    setCustomTheme({
+                                      ...theme,
+                                      logoType: key === 'light' ? 'dark' : 'light', // Light temada dark logo, diğerlerinde light logo
+                                      socialIconColor: theme.socialIconColor || theme.textSecondary,
+                                      tableHeader: theme.tableHeader || theme.border
+                                    });
+                                    setCurrentThemeName(key);
+                                    addNotification(`${theme.name} uygulandı ve kaydedildi`, 'success');
+                                  }}
+                                  className={`p-4 rounded-lg border-2 transition-all ${currentThemeName === key ? 'border-blue-500 ring-2 ring-blue-500/50' : 'border-white/10 hover:border-white/30'
+                                    }`}
+                                  style={{
+                                    backgroundColor: theme.background,
+                                    color: theme.text
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-medium">{theme.name}</span>
+                                    {currentThemeName === key && <span>✓</span>}
+                                  </div>
+                                  <div className="flex gap-1 mt-2">
+                                    <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.background }}></div>
+                                    <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.tableBackground || theme.background }}></div>
+                                    <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.accent }}></div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Tema Özelleştirme */}
+                          <div className="rounded-xl p-6" style={{ backgroundColor: `${currentTheme.border}20` }}>
+                            <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>
+                              Tema Özelleştirme
+                              {currentThemeName !== 'custom' && (
+                                <span className="ml-2 text-sm font-normal" style={{ color: currentTheme.textSecondary }}>
+                                  ({predefinedThemes[currentThemeName]?.name || 'Seçili Tema'} temel alınarak özelleştiriliyor)
+                                </span>
+                              )}
+                            </h3>
+                            <div className="space-y-5">
+                              {/* Renk Seçimleri - Daha Kompakt Grid */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {/* Arkaplan Rengi */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Arkaplan</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.background}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, background: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Arkaplan rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.background}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, background: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#000000"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Tablo Arkaplan */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Tablo Arkaplan</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.tableBackground || customTheme.background}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, tableBackground: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Tablo arkaplan rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.tableBackground || customTheme.background}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, tableBackground: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#000000"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Tablo Satır Alternatif */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Tablo Satır Alt</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.tableRowAlt || customTheme.background}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, tableRowAlt: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Tablo satır alternatif rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.tableRowAlt || customTheme.background}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, tableRowAlt: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#000000"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Tablo Başlığı */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Tablo Başlığı</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.tableHeader || customTheme.border}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, tableHeader: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Tablo başlığı rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.tableHeader || customTheme.border}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, tableHeader: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#000000"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Yazı Rengi */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Yazı</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.text}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, text: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Yazı rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.text}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, text: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#ffffff"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* İkincil Yazı */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>İkincil Yazı</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.textSecondary}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, textSecondary: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="İkincil yazı rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.textSecondary}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, textSecondary: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#cccccc"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Vurgu Rengi */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Vurgu</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.accent}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, accent: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Vurgu rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.accent}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, accent: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#3b82f6"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Kenarlık */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Kenarlık</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.border}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, border: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Kenarlık rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.border}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, border: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#334155"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Sosyal Medya İkon Rengi */}
+                                <div className="space-y-2">
+                                  <label className="block text-sm font-medium" style={{ color: currentTheme.textSecondary }}>Sosyal Medya İkon</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={customTheme.socialIconColor || customTheme.textSecondary}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, socialIconColor: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="w-12 h-12 rounded-lg border-2 border-white/20 cursor-pointer hover:border-white/40 transition-colors"
+                                      title="Sosyal medya ikon rengi"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={customTheme.socialIconColor || customTheme.textSecondary}
+                                      onChange={(e) => {
+                                        const newTheme = { ...customTheme, socialIconColor: e.target.value };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-sm"
+                                      style={{ color: currentTheme.text }}
+                                      placeholder="#94a3b8"
+                                    />
+                                  </div>
+                                </div>
+
+                              </div>
+
+                              {/* Logo Tipi Seçimi */}
+                              <div className="pt-4 border-t" style={{ borderColor: currentTheme.border }}>
+                                <label className="block text-sm font-medium mb-3" style={{ color: currentTheme.textSecondary }}>Logo Tipi</label>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => {
+                                      const newTheme = { ...customTheme, logoType: 'dark' };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className={`px-6 py-3 rounded-lg border-2 transition-all font-medium ${customTheme.logoType === 'dark'
+                                        ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/30'
+                                        : 'border-white/10 hover:border-white/30 bg-white/5'
+                                      }`}
+                                    style={{ color: currentTheme.text }}
+                                  >
+                                    Koyu Logo
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const newTheme = { ...customTheme, logoType: 'light' };
+                                      setCustomTheme(newTheme);
+                                      setCurrentThemeName('custom');
+                                    }}
+                                    className={`px-6 py-3 rounded-lg border-2 transition-all font-medium ${customTheme.logoType === 'light'
+                                        ? 'border-blue-500 bg-blue-500/20 ring-2 ring-blue-500/30'
+                                        : 'border-white/10 hover:border-white/30 bg-white/5'
+                                      }`}
+                                    style={{ color: currentTheme.text }}
+                                  >
+                                    Açık Logo
+                                  </button>
+                                </div>
+                                <div className="mt-2 text-xs" style={{ color: currentTheme.textSecondary }}>
+                                  Koyu logo: koyu arkaplanlar için, Açık logo: açık arkaplanlar için
+                                </div>
+                              </div>
+
+                              {/* Önizleme */}
+                              <div className="pt-4 border-t" style={{ borderColor: currentTheme.border }}>
+                                <div className="text-sm font-semibold mb-4" style={{ color: currentTheme.text }}>Önizleme</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div className="p-4 rounded-lg border" style={{ borderColor: currentTheme.border, backgroundColor: currentTheme.background }}>
+                                    <div className="font-semibold mb-2" style={{ color: currentTheme.text }}>Örnek Başlık</div>
+                                    <div className="text-sm mb-3" style={{ color: currentTheme.textSecondary }}>Örnek ikincil metin</div>
+                                    <button className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90" style={{ backgroundColor: currentTheme.accent, color: '#ffffff' }}>
+                                      Örnek Buton
+                                    </button>
+                                  </div>
+                                  <div className="p-4 rounded-lg border" style={{ borderColor: currentTheme.border }}>
+                                    <div className="text-xs font-medium mb-3" style={{ color: currentTheme.textSecondary }}>Tablo Önizlemesi</div>
+                                    <div className="space-y-1">
+                                      <div className="p-2 rounded text-sm" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+                                        <span style={{ color: currentTheme.text }}>Tablo Satırı</span>
+                                      </div>
+                                      <div className="p-2 rounded text-sm" style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background }}>
+                                        <span style={{ color: currentTheme.text }}>Tablo Satırı (Alt)</span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3 flex items-center gap-2">
+                                      <div className="text-xs" style={{ color: currentTheme.textSecondary }}>Sosyal İkon:</div>
+                                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" style={{ color: currentTheme.socialIconColor || currentTheme.textSecondary }}>
+                                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>,
+                  document.body
+                )}
               </div>
             </div>
           </div>
@@ -3873,22 +4794,48 @@ function App() {
             <div className="fixed inset-0 z-[999999]" style={{ pointerEvents: 'auto' }}>
               <div
                 className="absolute inset-0"
-                style={{ backgroundColor: 'rgba(0, 0, 0, 1)', pointerEvents: 'auto' }}
+                style={{ backgroundColor: `${currentTheme.background}CC`, pointerEvents: 'auto' }}
                 onClick={() => {
                   setShowAddForm(false);
                   resetNewTask();
                 }}
               />
               <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'auto' }}>
-                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto', paddingRight: '5px' }} onClick={(e) => e.stopPropagation()}>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
+                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+                  pointerEvents: 'auto',
+                  paddingRight: '5px',
+                  backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                  borderColor: currentTheme.border,
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                  color: currentTheme.text
+                }} onClick={(e) => e.stopPropagation()}>
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-3"
+                    style={{
+                      borderBottom: `1px solid ${currentTheme.border}`,
+                      backgroundColor: currentTheme.background
+                    }}>
                     <div></div>
-                    <h2 className="font-semibold text-neutral-100 text-center">Yeni Görev</h2>
+                    <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Yeni Görev</h2>
                     <div className="justify-self-end">
                       <button onClick={() => {
                         setShowAddForm(false);
                         resetNewTask();
-                      }} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
+                      }} className="rounded px-2 py-1 transition-colors font-bold"
+                        style={{
+                          color: currentTheme.text,
+                          backgroundColor: 'transparent',
+                          fontSize: '20px',
+                          lineHeight: '1'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.color = '#ffffff';
+                          e.target.style.backgroundColor = currentTheme.accent;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.color = currentTheme.text;
+                          e.target.style.backgroundColor = 'transparent';
+                        }}>✕</button>
                     </div>
                   </div>
                   <div className="overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
@@ -3899,24 +4846,54 @@ function App() {
                     )}
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Başlık</label>
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>Başlık</label>
                       <input
                         type="text"
                         placeholder="Görev başlığını girin..."
                         value={newTask.title}
                         onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                        className="rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border shadow-sm"
-                        style={{ minHeight: '48px' }}
+                        className="rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2 shadow-sm"
+                        style={{
+                          minHeight: '48px',
+                          backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border,
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = currentTheme.accent;
+                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = currentTheme.border;
+                          e.target.style.boxShadow = 'none';
+                        }}
                       />
                     </div>
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Görev Türü</label>
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>Görev Türü</label>
                       <select
                         value={newTask.task_type}
                         onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
+                        style={{
+                          minHeight: '48px',
+                          backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border,
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = currentTheme.accent;
+                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = currentTheme.border;
+                          e.target.style.boxShadow = 'none';
+                        }}
                       >
                         {getAllTaskTypes().map(taskType => (
                           <option key={taskType.value} value={taskType.value}>
@@ -3932,8 +4909,23 @@ function App() {
                         id="new-task-priority"
                         value={newTask.priority}
                         onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
+                        style={{
+                          minHeight: '48px',
+                          backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border,
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = currentTheme.accent;
+                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = currentTheme.border;
+                          e.target.style.boxShadow = 'none';
+                        }}
                       >
                         <option value="low">Düşük</option>
                         <option value="medium">Orta</option>
@@ -3943,12 +4935,27 @@ function App() {
                     </div>
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Sorumlu</label>
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>Sorumlu</label>
                       <select
                         value={newTask.responsible_id || ''}
                         onChange={(e) => setNewTask({ ...newTask, responsible_id: e.target.value ? parseInt(e.target.value) : null })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        style={{ minHeight: '48px' }}
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
+                        style={{
+                          minHeight: '48px',
+                          backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border,
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = currentTheme.accent;
+                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = currentTheme.border;
+                          e.target.style.boxShadow = 'none';
+                        }}
                       >
                         <option value="">Sorumlu Seçin</option>
                         {getEligibleResponsibleUsers().length > 0 ? (
@@ -3960,8 +4967,15 @@ function App() {
                     </div>
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Atananlar</label>
-                      <div className="rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '48px', height: 'fit-content' }}>
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>Atananlar</label>
+                      <div className="rounded-md p-3 sm:p-4" style={{
+                        minHeight: '48px',
+                        height: 'fit-content',
+                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}>
                         {newTask.assigned_users.length > 0 && (
                           <div className="flex flex-wrap gap-2 mb-3">
                             {newTask.assigned_users.map((userId) => {
@@ -3995,19 +5009,30 @@ function App() {
                             type="text"
                             placeholder="Kullanıcı atayın..."
                             value={assigneeSearch}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ minHeight: '48px' }}
+                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
+                            style={{
+                              minHeight: '48px',
+                              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                              color: currentTheme.text,
+                              borderColor: currentTheme.border,
+                              borderWidth: '1px',
+                              borderStyle: 'solid'
+                            }}
                             onChange={(e) => {
                               setAssigneeSearch(e.target.value);
                               setShowAssigneeDropdown(true);
                             }}
-                            onFocus={() => {
+                            onFocus={(e) => {
+                              e.target.style.borderColor = currentTheme.accent;
+                              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
                               if ((!users || users.length === 0) && user?.role !== 'observer') {
                                 loadUsers();
                               }
                               setShowAssigneeDropdown(true);
                             }}
-                            onBlur={() => {
+                            onBlur={(e) => {
+                              e.target.style.borderColor = currentTheme.border;
+                              e.target.style.boxShadow = 'none';
                               setTimeout(() => setShowAssigneeDropdown(false), 200);
                             }}
                           />
@@ -4089,27 +5114,57 @@ function App() {
                     </div>
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <label className="!text-[24px] sm:!text-[24px] font-medium text-slate-200 text-left">Tarihler</label>
+                      <label className="!text-[24px] sm:!text-[24px] font-medium text-left" style={{ color: currentTheme.text }}>Tarihler</label>
                       <div className="flex flex-row gap-2 sm:gap-4">
                         <div className="flex-1">
-                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Başlangıç</label>
+                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1" style={{ color: currentTheme.text }}>Başlangıç</label>
                           <input
                             type="date"
                             value={newTask.start_date}
                             onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ minHeight: '48px' }}
+                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
+                            style={{
+                              minHeight: '48px',
+                              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                              color: currentTheme.text,
+                              borderColor: currentTheme.border,
+                              borderWidth: '1px',
+                              borderStyle: 'solid'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = currentTheme.accent;
+                              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = currentTheme.border;
+                              e.target.style.boxShadow = 'none';
+                            }}
                           />
                         </div>
                         <span className="w-[20px]"></span>
                         <div className="flex-1">
-                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1">Bitiş</label>
+                          <label className="block !text-[24px] sm:!text-[20px] !leading-[1.1] !font-medium text-left mb-1" style={{ color: currentTheme.text }}>Bitiş</label>
                           <input
                             type="date"
                             value={newTask.due_date}
                             onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            style={{ minHeight: '48px' }}
+                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
+                            style={{
+                              minHeight: '48px',
+                              backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                              color: currentTheme.text,
+                              borderColor: currentTheme.border,
+                              borderWidth: '1px',
+                              borderStyle: 'solid'
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = currentTheme.accent;
+                              e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = currentTheme.border;
+                              e.target.style.boxShadow = 'none';
+                            }}
                           />
                         </div>
                       </div>
@@ -4117,8 +5172,17 @@ function App() {
 
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                      <label className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left">Dosyalar</label>
-                      <div className="w-full border border-gray-300 rounded-md p-3 sm:p-4 bg-white" style={{ minHeight: '24px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '5px' }}>
+                      <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>Dosyalar</label>
+                      <div className="w-full rounded-md p-3 sm:p-4" style={{
+                        minHeight: '24px',
+                        paddingTop: '10px',
+                        paddingBottom: '10px',
+                        paddingLeft: '5px',
+                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}>
                         <input
                           type="file"
                           multiple
@@ -4174,12 +5238,27 @@ function App() {
                     </div>
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
-                      <label className="!text-[24px] font-medium text-slate-200 text-left">Görev Açıklaması</label>
+                      <label className="!text-[24px] font-medium text-left" style={{ color: currentTheme.text }}>Görev Açıklaması</label>
                       <textarea
                         placeholder="Görev açıklamasını girin..."
                         value={newTask.description}
                         onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
+                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none focus:ring-2 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
+                        style={{
+                          backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border,
+                          borderWidth: '1px',
+                          borderStyle: 'solid'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = currentTheme.accent;
+                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = currentTheme.border;
+                          e.target.style.boxShadow = 'none';
+                        }}
                       />
                     </div>
                     <br />
@@ -4196,7 +5275,27 @@ function App() {
                       <button
                         onClick={handleAddTask}
                         disabled={addingTask || !newTask.title}
-                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
+                        style={{
+                          backgroundColor: (addingTask || !newTask.title) ? `${currentTheme.border}50` : currentTheme.accent,
+                          color: '#ffffff',
+                          cursor: (addingTask || !newTask.title) ? 'not-allowed' : 'pointer',
+                          opacity: (addingTask || !newTask.title) ? 0.6 : 1
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!addingTask && newTask.title) {
+                            const hex = currentTheme.accent.replace('#', '');
+                            const r = parseInt(hex.substr(0, 2), 16);
+                            const g = parseInt(hex.substr(2, 2), 16);
+                            const b = parseInt(hex.substr(4, 2), 16);
+                            e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!addingTask && newTask.title) {
+                            e.target.style.backgroundColor = currentTheme.accent;
+                          }
+                        }}
                       >
                         {addingTask ? (uploadProgress ? `Yükleniyor... ${uploadProgress.percent ?? 0}%` : 'Ekleniyor...') : 'Ekle'}
                       </button>
@@ -4212,12 +5311,22 @@ function App() {
             <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
               <div className="absolute inset-0 bg-black/60" onClick={() => setShowWeeklyGoals(false)} style={{ pointerEvents: 'auto' }} />
               <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                <div className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[90vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-                  style={{ paddingBottom: '10px', pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
+                <div className="fixed z-[100260] weekly-goals-modal left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[90vh] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
+                  style={{
+                    paddingBottom: '10px',
+                    pointerEvents: 'auto',
+                    backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                    borderColor: currentTheme.border,
+                    color: currentTheme.text
+                  }} onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between px-5 py-3 border-b relative"
+                    style={{
+                      backgroundColor: currentTheme.tableHeader || currentTheme.border,
+                      borderColor: currentTheme.border
+                    }}>
                     <div className="flex-1">
                       {weeklyUserId && Array.isArray(users) ? (
-                        <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
+                        <div className="text-sm" style={{ paddingLeft: '10px', color: currentTheme.text }}>
                           {(() => {
                             const targetUser = users.find(u => u.id === weeklyUserId);
                             return targetUser ? (
@@ -4230,19 +5339,25 @@ function App() {
                           })()}
                         </div>
                       ) : (
-                        <div className="text-sm text-neutral-300" style={{ paddingLeft: '10px' }}>
+                        <div className="text-sm" style={{ paddingLeft: '10px', color: currentTheme.text }}>
                           {user?.name} <br /> {user?.email}
                         </div>
                       )}
                     </div>
                     <div className="flex-1 text-center">
-                      <h3 className="!text-[24px] font-semibold">Haftalık Hedefler</h3>
+                      <h3 className="!text-[24px] font-semibold" style={{ color: currentTheme.text }}>Haftalık Hedefler</h3>
                     </div>
                     <div className="flex-1 flex justify-end">
-                      <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]" style={{ paddingRight: '20px' }}>
+                      <div className="ml-auto flex items-center gap-4 text-sm text-[24px]" style={{ paddingRight: '20px', color: currentTheme.text }}>
                         <span>{combinedLocks.targets_locked ? 'Hedef kilitli' : 'Hedef açık'} • {combinedLocks.actuals_locked ? 'Gerçekleşme kilitli' : 'Gerçekleşme açık'}</span>
                         <span
-                          className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 cursor-default ml-2"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-full cursor-default ml-2 transition-colors"
+                          style={{
+                            backgroundColor: `${currentTheme.border}30`,
+                            color: currentTheme.text
+                          }}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = `${currentTheme.border}50`}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = `${currentTheme.border}30`}
                           title={
                             'Kural: \nGelecek haftalar tamamen açık. Geçmiş haftalar tamamen kapalı. \nHer hafta Pazartesi 13:30\'a kadar içinde bulunulan haftanın hedefleri açık, 13:30\'dan sonra hedefler kapalı. \nGerçekleşme alanı sürekli açık.'
                           }
@@ -4250,7 +5365,17 @@ function App() {
                           ℹ️
                         </span>
                       </div>
-                      <button onClick={() => setShowWeeklyGoals(false)} className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">
+                      <button onClick={() => setShowWeeklyGoals(false)} className="rounded px-2 py-1 transition-colors"
+                        style={{
+                          color: currentTheme.text,
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = `${currentTheme.border}30`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = 'transparent';
+                        }}>
                         ✕
                       </button>
                     </div>
@@ -4258,21 +5383,58 @@ function App() {
                   <div className="p-6 space-y-5 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
                     <div className="flex items-center gap-3 flex-wrap" style={{ paddingBottom: '10px' }}>
                       <span className="w-[10px]"></span>
-                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20"
+                      <button className="rounded px-3 py-1 transition-colors"
+                        style={{
+                          backgroundColor: currentTheme.accent,
+                          color: '#ffffff'
+                        }}
+                        onMouseEnter={(e) => {
+                          const hex = currentTheme.accent.replace('#', '');
+                          const r = parseInt(hex.substr(0, 2), 16);
+                          const g = parseInt(hex.substr(2, 2), 16);
+                          const b = parseInt(hex.substr(4, 2), 16);
+                          e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = currentTheme.accent;
+                        }}
                         onClick={() => {
                           const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() - 7);
                           loadWeeklyGoals(fmtYMD(getMonday(base)));
                         }}>◀ Önceki</button><span className="w-[10px]"></span>
                       <div>
-                        <input type="date" className="ml-2 rounded bg-white/10 border border-white/20 px-2 py-1 text-[24px]" value={weeklyWeekStart} onChange={(e) => loadWeeklyGoals(e.target.value)} />
+                        <input type="date" className="ml-2 rounded px-2 py-1 text-[24px]"
+                          style={{
+                            backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                            color: currentTheme.text,
+                            borderColor: currentTheme.border,
+                            borderWidth: '1px',
+                            borderStyle: 'solid'
+                          }}
+                          value={weeklyWeekStart} onChange={(e) => loadWeeklyGoals(e.target.value)} />
                       </div>
                       <span className="w-[10px]"></span>
-                      <button className="rounded px-3 py-1 bg-white/10 hover:bg-white/20" onClick={() => { const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() + 7); loadWeeklyGoals(fmtYMD(getMonday(base))); }}>Sonraki ▶</button>
-                      <div className="text-sm text-neutral-300 text-[24px]" style={{ paddingLeft: '30px' }}>
+                      <button className="rounded px-3 py-1 transition-colors"
+                        style={{
+                          backgroundColor: currentTheme.accent,
+                          color: '#ffffff'
+                        }}
+                        onMouseEnter={(e) => {
+                          const hex = currentTheme.accent.replace('#', '');
+                          const r = parseInt(hex.substr(0, 2), 16);
+                          const g = parseInt(hex.substr(2, 2), 16);
+                          const b = parseInt(hex.substr(4, 2), 16);
+                          e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = currentTheme.accent;
+                        }}
+                        onClick={() => { const base = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); base.setDate(base.getDate() + 7); loadWeeklyGoals(fmtYMD(getMonday(base))); }}>Sonraki ▶</button>
+                      <div className="text-sm text-[24px]" style={{ paddingLeft: '30px', color: currentTheme.text }}>
                         {(() => { const cur = weeklyWeekStart ? new Date(weeklyWeekStart) : getMonday(); const next = new Date(cur); next.setDate(next.getDate() + 7); return `Bu hafta: ${isoWeekNumber(cur)} • Gelecek hafta: ${isoWeekNumber(next)}`; })()}
                       </div>
-                      <div className="ml-auto flex items-center gap-4 text-sm text-neutral-300 text-[24px]">
-                        <label className="whitespace-nowrap text-[24px]">İzin (dk)</label>
+                      <div className="ml-auto flex items-center gap-4 text-sm text-[24px]" style={{ color: currentTheme.text }}>
+                        <label className="whitespace-nowrap text-[24px]" style={{ color: currentTheme.text }}>İzin (dk)</label>
                         <input
                           type="number"
                           inputMode="numeric"
@@ -4281,14 +5443,32 @@ function App() {
                           max={WEEKLY_BASE_MINUTES}
                           value={weeklyLeaveMinutesInput}
                           onChange={handleWeeklyLeaveMinutesChange}
-                          onBlur={handleWeeklyLeaveMinutesBlur}
                           disabled={user?.role === 'observer'}
-                          className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
+                          className="w-28 text-center rounded px-3 py-1 text-[22px]"
                           placeholder="0"
                           title="Planlanan hafta için izinli olacağınız toplam dakika"
-                          style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
+                          style={{
+                            width: '70px',
+                            height: '40px',
+                            textAlign: 'center',
+                            marginLeft: '10px',
+                            backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                            color: currentTheme.text,
+                            borderColor: currentTheme.border,
+                            borderWidth: '1px',
+                            borderStyle: 'solid'
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = currentTheme.accent;
+                            e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = currentTheme.border;
+                            e.target.style.boxShadow = 'none';
+                            handleWeeklyLeaveMinutesBlur(e);
+                          }}
                         />
-                        <label className="whitespace-nowrap text-[24px]" style={{ marginLeft: '20px' }}>Mesai (dk)</label>
+                        <label className="whitespace-nowrap text-[24px]" style={{ marginLeft: '20px', color: currentTheme.text }}>Mesai (dk)</label>
                         <input
                           type="number"
                           inputMode="numeric"
@@ -4296,32 +5476,50 @@ function App() {
                           min="0"
                           value={weeklyOvertimeMinutesInput}
                           onChange={handleWeeklyOvertimeMinutesChange}
-                          onBlur={handleWeeklyOvertimeMinutesBlur}
                           disabled={user?.role === 'observer'}
-                          className="w-28 text-center rounded bg-white/5 border border-white/10 px-3 py-1 text-[22px]"
+                          className="w-28 text-center rounded px-3 py-1 text-[22px]"
                           placeholder="0"
                           title="Mesaiye kalma durumunda 2700 dakikayı aşmak için mesai süresi"
-                          style={{ width: '70px', height: '40px', textAlign: 'center', marginLeft: '10px' }}
+                          style={{
+                            width: '70px',
+                            height: '40px',
+                            textAlign: 'center',
+                            marginLeft: '10px',
+                            backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                            color: currentTheme.text,
+                            borderColor: currentTheme.border,
+                            borderWidth: '1px',
+                            borderStyle: 'solid'
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = currentTheme.accent;
+                            e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = currentTheme.border;
+                            e.target.style.boxShadow = 'none';
+                            handleWeeklyOvertimeMinutesBlur(e);
+                          }}
                         />
                       </div>
                     </div>
-                    <div className="mt-3 border-t border-white/10" />
-                    <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Planlı İşler</div>
-                    <div className="mt-3 border-t border-white/10" />
-                    <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px' }}>
+                    <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
+                    <div className="font-medium mb-2 text-[32px] text-center" style={{ color: currentTheme.text }}>Planlı İşler</div>
+                    <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
+                    <div className="rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                       <div className="overflow-x-auto">
                         <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 8px' }}>
-                          <thead className="bg-white/10">
-                            <tr>
-                              <th className="px-2 py-2 text-left text-[14px]" style={{ width: '20%' }}>Başlık</th>
-                              <th className="px-2 py-2 text-left text-[14px]" style={{ width: '30%' }}>Aksiyon Planları</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef(dk)</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Hedef(%)</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Gerçekleşme(dk)</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Gerçekleşme(%)</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Tamamlandı</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Açıklama</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Sil</th>
+                          <thead>
+                            <tr style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+                              <th className="px-2 py-2 text-left text-[14px]" style={{ width: '20%', color: currentTheme.text }}>Başlık</th>
+                              <th className="px-2 py-2 text-left text-[14px]" style={{ width: '30%', color: currentTheme.text }}>Aksiyon Planları</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Hedef(dk)</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Hedef(%)</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Gerçekleşme(dk)</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%', color: currentTheme.text }}>Gerçekleşme(%)</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Tamamlandı</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%', color: currentTheme.text }}>Açıklama</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Sil</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -4361,7 +5559,9 @@ function App() {
                               const eff = effectiveActual > 0 ? (t / effectiveActual) : 0; // ceza ile verimlilik
                               const rate = (eff * w).toFixed(1); // satırın performans katkısı (%)
                               return (
-                                <tr key={row.id || `p-${idx}`} className="odd:bg-white/[0.02]">
+                                <tr key={row.id || `p-${idx}`} style={{
+                                  backgroundColor: currentTheme.tableBackground || currentTheme.background
+                                }}>
                                   <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
                                     <textarea
                                       disabled={lockedTargets || user?.role === 'observer'}
@@ -4371,9 +5571,25 @@ function App() {
                                         items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
                                         setWeeklyGoals({ ...weeklyGoals, items });
                                       }}
-                                      className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
+                                      className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
                                       placeholder="Başlık girin..."
-                                      style={{ overflow: 'auto', wordWrap: 'break-word' }}
+                                      style={{
+                                        overflow: 'auto',
+                                        wordWrap: 'break-word',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
+                                      onFocus={(e) => {
+                                        e.target.style.borderColor = currentTheme.accent;
+                                        e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
@@ -4385,8 +5601,23 @@ function App() {
                                         items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
                                         setWeeklyGoals({ ...weeklyGoals, items });
                                       }}
-                                      className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 min-h-[60px] min-w-[250px] text-[16px] resize-y"
+                                      className="w-full rounded px-3 py-2 min-h-[60px] min-w-[250px] text-[16px] resize-y"
                                       placeholder="Aksiyon planı girin..."
+                                      style={{
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
+                                      onFocus={(e) => {
+                                        e.target.style.borderColor = currentTheme.accent;
+                                        e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
@@ -4396,27 +5627,83 @@ function App() {
                                         items.find((r, i) => i === weeklyGoals.items.indexOf(row)).target_minutes = Number(e.target.value || 0);
                                         setWeeklyGoals({ ...weeklyGoals, items });
                                       }}
-                                      className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
-                                      style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                      className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
+                                      style={{
+                                        width: '60px',
+                                        height: '60px',
+                                        textAlign: 'center',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
+                                      onFocus={(e) => {
+                                        if (!lockedTargets && user?.role !== 'observer') {
+                                          e.target.style.borderColor = currentTheme.accent;
+                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled={true} value={capacity > 0 ? ((t / capacity) * 100).toFixed(1) : '0.0'}
-                                      className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
-                                      style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                      className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
+                                      style={{
+                                        width: '60px',
+                                        height: '60px',
+                                        textAlign: 'center',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
                                       onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
-                                      className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
-                                      style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                      className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
+                                      style={{
+                                        width: '60px',
+                                        height: '60px',
+                                        textAlign: 'center',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
+                                      onFocus={(e) => {
+                                        if (!lockedActuals && user?.role !== 'observer') {
+                                          e.target.style.borderColor = currentTheme.accent;
+                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled={true} value={rate}
-                                      className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
-                                      style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                      className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
+                                      style={{
+                                        width: '60px',
+                                        height: '60px',
+                                        textAlign: 'center',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top' }}>
@@ -4480,14 +5767,52 @@ function App() {
                       </div>
                       {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
                         <div className="mt-2" style={{ paddingBottom: '10px' }}>
-                          <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px]"
+                          <button className="w-full rounded px-4 py-2 text-[24px] transition-colors"
                             disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
+                            style={{
+                              backgroundColor: (combinedLocks.targets_locked && user?.role !== 'admin') ? `${currentTheme.border}50` : currentTheme.accent,
+                              color: '#ffffff',
+                              opacity: (combinedLocks.targets_locked && user?.role !== 'admin') ? 0.6 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!(combinedLocks.targets_locked && user?.role !== 'admin')) {
+                                const hex = currentTheme.accent.replace('#', '');
+                                const r = parseInt(hex.substr(0, 2), 16);
+                                const g = parseInt(hex.substr(2, 2), 16);
+                                const b = parseInt(hex.substr(4, 2), 16);
+                                e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!(combinedLocks.targets_locked && user?.role !== 'admin')) {
+                                e.target.style.backgroundColor = currentTheme.accent;
+                              }
+                            }}
                             onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
                           >
                             İş Ekle</button>
                           <button
-                            className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px] mt-2"
+                            className="w-full rounded px-4 py-2 text-[24px] mt-2 transition-colors"
                             disabled={(combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...'}
+                            style={{
+                              backgroundColor: ((combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...') ? `${currentTheme.border}50` : currentTheme.accent,
+                              color: '#ffffff',
+                              opacity: ((combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...') ? 0.6 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!(combinedLocks.targets_locked && user?.role !== 'admin') && transferButtonText !== 'Aktarılıyor...') {
+                                const hex = currentTheme.accent.replace('#', '');
+                                const r = parseInt(hex.substr(0, 2), 16);
+                                const g = parseInt(hex.substr(2, 2), 16);
+                                const b = parseInt(hex.substr(4, 2), 16);
+                                e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!(combinedLocks.targets_locked && user?.role !== 'admin') && transferButtonText !== 'Aktarılıyor...') {
+                                e.target.style.backgroundColor = currentTheme.accent;
+                              }
+                            }}
                             onClick={transferIncompleteTasksFromPreviousWeek}
                             title="Önceki haftadan tamamlanmamış (Tamamlandı olarak işaretlenmemiş) planlı işleri mevcut haftaya aktarır. Aktarılan işlerin gerçekleşme süreleri sıfırlanır ve tamamlanmamış olarak işaretlenir."
                           >
@@ -4495,20 +5820,20 @@ function App() {
                         </div>
                       )}
                     </div>
-                    <div className="mt-3 border-t border-white/10" />
-                    <div className="text-neutral-200 font-medium mb-2 text-[32px] text-center">Plana Dahil Olmayan İşler</div>
-                    <div className="mt-3 border-t border-white/10" />
-                    <div className="bg-white/5 rounded p-3" style={{ marginLeft: '2px', marginRight: '2px' }}>
+                    <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
+                    <div className="font-medium mb-2 text-[32px] text-center" style={{ color: currentTheme.text }}>Plana Dahil Olmayan İşler</div>
+                    <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
+                    <div className="rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                       <div className="overflow-x-auto">
                         <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
-                          <thead className="bg-white/10">
-                            <tr>
-                              <th className="px-2 py-2 text-left text-[14px]" colSpan="2" style={{ width: '30%' }}>Başlık</th>
-                              <th className="px-2 py-2 text-left text-[14px]" colSpan="3" style={{ width: '40%' }}>İş Ayrıntısı</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Süre(dk)</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Ağırlık(%)</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%' }}>Açıklama</th>
-                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%' }}>Sil</th>
+                          <thead>
+                            <tr style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+                              <th className="px-2 py-2 text-left text-[14px]" colSpan="2" style={{ width: '30%', color: currentTheme.text }}>Başlık</th>
+                              <th className="px-2 py-2 text-left text-[14px]" colSpan="3" style={{ width: '40%', color: currentTheme.text }}>İş Ayrıntısı</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%', color: currentTheme.text }}>Süre(dk)</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Ağırlık(%)</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%', color: currentTheme.text }}>Açıklama</th>
+                              <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Sil</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -4517,7 +5842,9 @@ function App() {
                               const a = Math.max(0, Number(row.actual_minutes || 0));
                               const weightPercent = capacity > 0 ? (a / capacity) * 100 : 0;
                               return (
-                                <tr key={row.id || `u-${idx}`} className="odd:bg-white/[0.02]">
+                                <tr key={row.id || `u-${idx}`} style={{
+                                  backgroundColor: currentTheme.tableBackground || currentTheme.background
+                                }}>
                                   <td className="px-3 py-2 align-top" colSpan="2" style={{ verticalAlign: 'top' }}>
                                     <textarea
                                       disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
@@ -4527,9 +5854,27 @@ function App() {
                                         items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
                                         setWeeklyGoals({ ...weeklyGoals, items });
                                       }}
-                                      className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
-                                      style={{ overflow: 'auto', wordWrap: 'break-word' }}
+                                      className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
+                                      style={{
+                                        overflow: 'auto',
+                                        wordWrap: 'break-word',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
                                       placeholder="Başlık girin..."
+                                      onFocus={(e) => {
+                                        if (!(combinedLocks.actuals_locked && user?.role !== 'admin') && user?.role !== 'observer') {
+                                          e.target.style.borderColor = currentTheme.accent;
+                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-top" colSpan="3" style={{ verticalAlign: 'top' }}>
@@ -4541,9 +5886,27 @@ function App() {
                                         items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
                                         setWeeklyGoals({ ...weeklyGoals, items });
                                       }}
-                                      className="w-full rounded bg-white/10 border border-white/10 px-3 py-2 h-[60px] text-[16px] resize-none"
-                                      style={{ overflow: 'auto', wordWrap: 'break-word' }}
+                                      className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
+                                      style={{
+                                        overflow: 'auto',
+                                        wordWrap: 'break-word',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
                                       placeholder="İş ayrıntısı girin..."
+                                      onFocus={(e) => {
+                                        if (!(combinedLocks.actuals_locked && user?.role !== 'admin') && user?.role !== 'observer') {
+                                          e.target.style.borderColor = currentTheme.accent;
+                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
@@ -4553,13 +5916,42 @@ function App() {
                                         items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
                                         setWeeklyGoals({ ...weeklyGoals, items });
                                       }}
-                                      className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
-                                      style={{ width: '60px', height: '60px', textAlign: 'center' }} />
+                                      className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
+                                      style={{
+                                        width: '60px',
+                                        height: '60px',
+                                        textAlign: 'center',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
+                                      onFocus={(e) => {
+                                        if (!(combinedLocks.actuals_locked && user?.role !== 'admin') && user?.role !== 'observer') {
+                                          e.target.style.borderColor = currentTheme.accent;
+                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                        }
+                                      }}
+                                      onBlur={(e) => {
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
+                                      }}
+                                    />
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled={true} value={weightPercent.toFixed(1)}
-                                      className="w-24 text-center rounded bg-white/10 border border-white/10 px-2 py-2 h-10 text-[24px]"
-                                      style={{ width: '60px', height: '60px', textAlign: 'center' }}
+                                      className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
+                                      style={{
+                                        width: '60px',
+                                        height: '60px',
+                                        textAlign: 'center',
+                                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                        color: currentTheme.text,
+                                        borderColor: currentTheme.border,
+                                        borderWidth: '1px',
+                                        borderStyle: 'solid'
+                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
@@ -4603,18 +5995,37 @@ function App() {
                       </div>
                       {user?.role !== 'observer' && (!combinedLocks.actuals_locked || user?.role === 'admin') && (
                         <div className="mt-2" style={{ paddingBottom: '10px' }}>
-                          <button className="w-full rounded px-4 py-2 bg-white/10 hover:bg-white/20 text-[24px]"
+                          <button className="w-full rounded px-4 py-2 text-[24px] transition-colors"
                             disabled={combinedLocks.actuals_locked && user?.role !== 'admin'}
+                            style={{
+                              backgroundColor: (combinedLocks.actuals_locked && user?.role !== 'admin') ? `${currentTheme.border}50` : currentTheme.accent,
+                              color: '#ffffff',
+                              opacity: (combinedLocks.actuals_locked && user?.role !== 'admin') ? 0.6 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!(combinedLocks.actuals_locked && user?.role !== 'admin')) {
+                                const hex = currentTheme.accent.replace('#', '');
+                                const r = parseInt(hex.substr(0, 2), 16);
+                                const g = parseInt(hex.substr(2, 2), 16);
+                                const b = parseInt(hex.substr(4, 2), 16);
+                                e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!(combinedLocks.actuals_locked && user?.role !== 'admin')) {
+                                e.target.style.backgroundColor = currentTheme.accent;
+                              }
+                            }}
                             onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true, is_completed: false }] }); }}
                           >
                             İş Ekle</button>
                         </div>
                       )}
                     </div>
-                    <div className="mt-3 border-t border-white/10" />
-                    <div className="text-neutral-200 font-semibold text-[32px] text-center">Hedef Ayrıntısı</div>
-                    <div className="mt-3 border-t border-white/10" />
-                    <div className="mt-6 bg-white/5 rounded p-8" style={{ paddingLeft: '10px', paddingRight: '10px' }}>
+                    <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
+                    <div className="font-semibold text-[32px] text-center" style={{ color: currentTheme.text }}>Hedef Ayrıntısı</div>
+                    <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
+                    <div className="mt-6 rounded p-8" style={{ paddingLeft: '10px', paddingRight: '10px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                       {(() => {
                         const items = Array.isArray(weeklyGoals.items) ? weeklyGoals.items : [];
                         const plannedItems = items.filter(x => !x.is_unplanned);
@@ -4644,57 +6055,57 @@ function App() {
                             <div className="flex flex-col gap-3"></div>
                             {/* İlk Sütun - Label'lar */}
                             <div className="flex flex-col gap-3">
-                              <div className="text-white/70 whitespace-nowrap">İzin Süresi:</div>
-                              <div className="text-white/70 whitespace-nowrap">Mesai Süresi:</div>
-                              <div className="text-white/70 whitespace-nowrap">Kullanılabilir Süre:</div>
-                              <div className="text-white/70 whitespace-nowrap">Planlı Süre:</div>
-                              <div className="text-white/70 whitespace-nowrap">Plandışı Süre:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>İzin Süresi:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Mesai Süresi:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılabilir Süre:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı Süre:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Plandışı Süre:</div>
                             </div>
 
                             {/* İkinci Sütun - Değerler (sola yaslı) */}
                             <div className="flex flex-col gap-3">
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.leaveMinutes} dk</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.overtimeMinutes} dk</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.availableMinutes} dk</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.unplannedMinutes} dk</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.leaveMinutes} dk</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.overtimeMinutes} dk</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.availableMinutes} dk</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.unplannedMinutes} dk</div>
                             </div>
 
                             {/* Üçüncü Sütun - Label'lar */}
                             <div className="flex flex-col gap-3 ml-4">
-                              <div className="text-white/70 whitespace-nowrap">Kullanılan Süre:</div>
-                              <div className="text-white/70 whitespace-nowrap">Kalan Süre:</div>
-                              <div className="text-white/70 whitespace-nowrap">Planlı İş:</div>
-                              <div className="text-white/70 whitespace-nowrap">Plandışı İş:</div>
-                              <div className="text-white/70 whitespace-nowrap">Toplam İş:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılan Süre:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kalan Süre:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı İş:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Plandışı İş:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Toplam İş:</div>
                             </div>
 
                             {/* Dördüncü Sütun - Değerler (sola yaslı) */}
                             <div className="flex flex-col gap-3">
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.totalActual} dk</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{remainingTime} dk</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{plannedCount} Adet</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{unplannedCount} Adet</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{totalCount} Adet</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.totalActual} dk</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{remainingTime} dk</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{plannedCount} Adet</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{unplannedCount} Adet</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{totalCount} Adet</div>
                             </div>
 
                             {/* Beşinci Sütun - Label'lar */}
                             <div className="flex flex-col gap-3 ml-4">
-                              <div className="text-white/70 whitespace-nowrap">Planlı Skor:</div>
-                              <div className="text-white/70 whitespace-nowrap">Plandışı Skor:</div>
-                              <div className="text-white/70 whitespace-nowrap" title={tip}>Kesinti/Bonus:</div>
-                              <div className="text-white/70 whitespace-nowrap">Performans Skoru:</div>
-                              <div className="text-white/70 whitespace-nowrap">Değerlendirme:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı Skor:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Plandışı Skor:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }} title={tip}>Kesinti/Bonus:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Performans Skoru:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Değerlendirme:</div>
                             </div>
 
                             {/* Altıncı Sütun - Değerler (sağa yaslı) */}
                             <div className="flex flex-col gap-3">
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.plannedScore}%</div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{Number(weeklyLive.unplannedPercent || 0)}%</div>
-                              <div className={`font-semibold whitespace-nowrap text-left ${net >= 0 ? 'text-green-400' : 'text-red-400'}`} title={tip}>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.plannedScore}%</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{Number(weeklyLive.unplannedPercent || 0)}%</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: net >= 0 ? '#10b981' : '#ef4444' }} title={tip}>
                                 {net >= 0 ? '+' : ''}{net.toFixed(2)}%
                               </div>
-                              <div className="font-semibold text-white whitespace-nowrap text-left">{weeklyLive.finalScore}%</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.finalScore}%</div>
                               <div className="font-bold whitespace-nowrap text-left" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
                                 {getPerformanceGrade(weeklyLive.finalScore).description}
                               </div>
@@ -4704,18 +6115,37 @@ function App() {
                         );
                       })()}
                     </div>
-                    <div className="mt-3 border-t border-white/10" />
+                    <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
                     <div className="flex items-center gap-3 w-[98%]" style={{ marginTop: '10px', marginLeft: '16px', marginRight: '16px', marginBottom: '12px' }}>
-                      <button className="flex-1 rounded px-4 py-2 bg-white/10 hover:bg-white/20" onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
+                      <button className="flex-1 rounded px-4 py-2 transition-colors"
+                        style={{
+                          backgroundColor: currentTheme.accent,
+                          color: '#ffffff'
+                        }}
+                        onMouseEnter={(e) => {
+                          const hex = currentTheme.accent.replace('#', '');
+                          const r = parseInt(hex.substr(0, 2), 16);
+                          const g = parseInt(hex.substr(2, 2), 16);
+                          const b = parseInt(hex.substr(4, 2), 16);
+                          e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = currentTheme.accent;
+                        }}
+                        onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
                       <span className="w-[10px]"></span>
                       {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_leader') && (
                         <button
-                          className={`flex-1 rounded px-4 py-2 transition-colors ${weeklySaveState === 'saving'
-                            ? 'bg-blue-500 cursor-wait'
-                            : weeklySaveState === 'saved'
-                              ? 'bg-emerald-600 hover:bg-emerald-700'
-                              : 'bg-green-600 hover:bg-green-700'
-                            } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                          className="flex-1 rounded px-4 py-2 transition-colors disabled:cursor-not-allowed"
+                          style={{
+                            backgroundColor: weeklySaveState === 'saving'
+                              ? currentTheme.accent
+                              : weeklySaveState === 'saved'
+                                ? '#10b981'
+                                : '#10b981',
+                            color: '#ffffff',
+                            opacity: (weeklySaveState === 'saving' || (user?.role !== 'admin' && weeklyLive.overActualCapacity)) ? 0.6 : 1
+                          }}
                           disabled={
                             // Kaydetme işlemi devam ediyorsa butonu devre dışı bırak
                             weeklySaveState === 'saving' ||
@@ -4724,6 +6154,16 @@ function App() {
                             // Planlı süre kontrolü yok - sadece gerçekleşen süre kontrolü var
                             (user?.role !== 'admin' && weeklyLive.overActualCapacity)
                           }
+                          onMouseEnter={(e) => {
+                            if (!(weeklySaveState === 'saving' || (user?.role !== 'admin' && weeklyLive.overActualCapacity))) {
+                              e.target.style.backgroundColor = weeklySaveState === 'saved' ? '#059669' : '#059669';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!(weeklySaveState === 'saving' || (user?.role !== 'admin' && weeklyLive.overActualCapacity))) {
+                              e.target.style.backgroundColor = weeklySaveState === 'saved' ? '#10b981' : '#10b981';
+                            }
+                          }}
                           onClick={saveWeeklyGoals}
                         >
                           {weeklySaveState === 'saving' ? 'Kaydediliyor...' : weeklySaveState === 'saved' ? 'Kaydedildi ✓' : 'Kaydet'}
@@ -4830,24 +6270,34 @@ function App() {
             </div>,
             document.body
           )}
-          <div className="bg-white">
+          <div style={{ backgroundColor: currentTheme.background }}>
             {showWeeklyOverview ? (
               <div className="flex justify-center">
                 <div className="px-2 xs:px-3 sm:px-4 lg:px-6" style={{ width: '1440px' }}>
                   <div className="space-y-4" style={{ minWidth: '1440px', paddingTop: '10px', paddingBottom: '10px' }}>
-                    <div className="flex flex-wrap items-center gap-3 border-b border-gray-200 pb-3 overflow-x-auto" style={{ paddingBottom: '10px' }}>
+                    <div className="flex flex-wrap items-center gap-3 border-b pb-3 overflow-x-auto" style={{ paddingBottom: '10px', borderColor: currentTheme.border }}>
                       <button
                         onClick={() => {
                           setShowWeeklyOverview(false);
                           setWeeklyOverviewError(null);
                         }}
-                        className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap border"
+                        style={{
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border
+                        }}
                       >
                         Görev Listesine Dön
                       </button>
                       <span className="w-[10px]"></span>
                       <button
-                        className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
+                        className="rounded px-3 py-1 border text-sm transition-colors"
+                        style={{
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border
+                        }}
                         onClick={() => {
                           const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
                           base.setDate(base.getDate() - 7);
@@ -4859,13 +6309,23 @@ function App() {
                       <span className="w-[10px]"></span>
                       <input
                         type="date"
-                        className="rounded border border-gray-300 bg-white px-3 py-1 text-[24px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="rounded border px-3 py-1 text-[24px] focus:outline-none focus:ring-2"
+                        style={{
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border
+                        }}
                         value={effectiveWeeklyOverviewWeekStart}
                         onChange={(e) => loadWeeklyOverview(e.target.value)}
                       />
                       <span className="w-[10px]"></span>
                       <button
-                        className="rounded px-3 py-1 bg-white border border-gray-200 hover:bg-gray-100 text-sm"
+                        className="rounded px-3 py-1 border text-sm transition-colors"
+                        style={{
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                          color: currentTheme.text,
+                          borderColor: currentTheme.border
+                        }}
                         onClick={() => {
                           const base = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
                           base.setDate(base.getDate() + 7);
@@ -4874,7 +6334,7 @@ function App() {
                       >
                         Sonraki ▶
                       </button>
-                      <div className="ml-auto text-sm text-gray-500 whitespace-nowrap">
+                      <div className="ml-auto text-sm whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>
                         {(() => {
                           const cur = effectiveWeeklyOverviewWeekStart ? new Date(effectiveWeeklyOverviewWeekStart) : getMonday();
                           const next = new Date(cur);
@@ -4884,35 +6344,35 @@ function App() {
                       </div>
                     </div>
                     {weeklyOverviewError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                      <div className="border px-4 py-3 rounded-lg" style={{ backgroundColor: '#fee2e2', borderColor: '#fca5a5', color: '#991b1b' }}>
                         {weeklyOverviewError}
                       </div>
                     )}
-                    <div className="bg-[#1f2937] rounded-lg shadow-lg overflow-hidden">
+                    <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: currentTheme.background }}>
                       {weeklyOverviewLoading ? (
-                        <div className="py-12 text-center text-gray-500 text-sm">
+                        <div className="py-12 text-center text-sm" style={{ color: currentTheme.textSecondary }}>
                           Haftalık hedef listesi yükleniyor...
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-white/10 text-[16px] cursor-pointer">
-                            <thead className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white text-[18px]">
+                          <table className="min-w-full divide-y text-[16px] cursor-pointer" style={{ borderColor: currentTheme.border }}>
+                            <thead className="text-white text-[18px]" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                               <tr>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('name')} role="button">Kullanıcı</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('leader_name')} role="button">Lider</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_target_minutes')} role="button">Hedef (dk)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Gerçekleşme (dk)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_minutes')} role="button">Plandışı (dk)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('planned_score')} role="button">Planlı (%)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('unplanned_bonus')} role="button">Plandışı (%)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('final_score')} role="button">Final Skor (%)</th>
-                                <th className="px-4 py-3 text-center font-semibold text-white uppercase tracking-wide" onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Toplam Süre (DK)</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('name')} role="button">Kullanıcı</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('leader_name')} role="button">Lider</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('total_target_minutes')} role="button">Hedef (dk)</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Gerçekleşme (dk)</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('unplanned_minutes')} role="button">Plandışı (dk)</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('planned_score')} role="button">Planlı (%)</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('unplanned_bonus')} role="button">Plandışı (%)</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('final_score')} role="button">Final Skor (%)</th>
+                                <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('total_actual_minutes')} role="button">Toplam Süre (DK)</th>
                               </tr>
                             </thead>
-                            <tbody className="text-white">
+                            <tbody>
                               {weeklyOverview.items.length === 0 ? (
                                 <tr>
-                                  <td colSpan={9} className="px-4 py-6 text-center text-gray-500 text-sm">
+                                  <td colSpan={9} className="px-4 py-6 text-center text-sm" style={{ color: currentTheme.textSecondary }}>
                                     Listelenecek kullanıcı bulunamadı.
                                   </td>
                                 </tr>
@@ -4920,7 +6380,9 @@ function App() {
                                 sortedWeeklyOverview.map((item, index) => {
                                   const grade = getPerformanceGrade(Number(item.final_score || 0));
                                   const targetWeek = weeklyOverview.week_start || effectiveWeeklyOverviewWeekStart;
-                                  const baseBg = index % 2 === 0 ? 'rgba(55, 65, 81, 0.92)' : 'rgba(75, 85, 99, 0.88)';
+                                  const baseBg = index % 2 === 0
+                                    ? (currentTheme.tableBackground || currentTheme.background)
+                                    : (currentTheme.tableRowAlt || currentTheme.background);
                                   return (
                                     <tr
                                       key={item.user_id}
@@ -4929,19 +6391,27 @@ function App() {
                                         loadWeeklyGoals(targetWeek, item.user_id);
                                       }}
                                       className="transition-colors"
-                                      style={{ backgroundColor: baseBg, height: '50px' }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(129, 140, 248, 0.45)'; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = baseBg; }}
+                                      style={{
+                                        backgroundColor: baseBg,
+                                        height: '50px',
+                                        borderColor: currentTheme.border
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = currentTheme.accent + '40';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = baseBg;
+                                      }}
                                     >
-                                      <td className="px-4 py-3 text-sm text-left text-white text-indigo-400">{item.name}</td>
-                                      <td className="px-4 py-3 text-sm text-left text-white">{item.leader_name || '-'}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_target_minutes || 0).toLocaleString('tr-TR')}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.total_actual_minutes || 0).toLocaleString('tr-TR')}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_minutes || 0).toLocaleString('tr-TR')}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.planned_score || 0).toFixed(1)}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number(item.unplanned_bonus || 0).toFixed(1)}</td>
+                                      <td className="px-4 py-3 text-sm text-left" style={{ color: currentTheme.accent }}>{item.name}</td>
+                                      <td className="px-4 py-3 text-sm text-left" style={{ color: currentTheme.text }}>{item.leader_name || '-'}</td>
+                                      <td className="px-4 py-3 text-sm text-center" style={{ color: currentTheme.text }}>{Number(item.total_target_minutes || 0).toLocaleString('tr-TR')}</td>
+                                      <td className="px-4 py-3 text-sm text-center" style={{ color: currentTheme.text }}>{Number(item.total_actual_minutes || 0).toLocaleString('tr-TR')}</td>
+                                      <td className="px-4 py-3 text-sm text-center" style={{ color: currentTheme.text }}>{Number(item.unplanned_minutes || 0).toLocaleString('tr-TR')}</td>
+                                      <td className="px-4 py-3 text-sm text-center" style={{ color: currentTheme.text }}>{Number(item.planned_score || 0).toFixed(1)}</td>
+                                      <td className="px-4 py-3 text-sm text-center" style={{ color: currentTheme.text }}>{Number(item.unplanned_bonus || 0).toFixed(1)}</td>
                                       <td className="px-4 py-3 text-sm text-center font-semibold" style={{ color: grade.color }}>{Number(item.final_score || 0).toFixed(1)}</td>
-                                      <td className="px-4 py-3 text-sm text-center text-white">{Number((item.total_actual_minutes || 0) + (item.unplanned_minutes || 0))}</td>
+                                      <td className="px-4 py-3 text-sm text-center" style={{ color: currentTheme.text }}>{Number((item.total_actual_minutes || 0) + (item.unplanned_minutes || 0))}</td>
                                     </tr>
                                   );
                                 })
@@ -4966,8 +6436,13 @@ function App() {
                             setShowWeeklyOverview(true);
                             loadWeeklyOverview(null);
                           }}
-                          className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
-                          style={{ marginRight: '5px' }}
+                          className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap border"
+                          style={{
+                            marginRight: '5px',
+                            backgroundColor: 'transparent',
+                            color: currentTheme.text,
+                            borderColor: currentTheme.border
+                          }}
                         >
                           <span className="flex items-center gap-2 whitespace-nowrap">
                             <span>🎯</span>
@@ -4977,31 +6452,37 @@ function App() {
                       )}
                       <button
                         onClick={() => setActiveTab('active')}
-                        className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'active'
-                          ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                          }`}
+                        className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap border"
+                        style={{
+                          backgroundColor: activeTab === 'active' ? currentTheme.accent : 'transparent',
+                          color: activeTab === 'active' ? '#ffffff' : currentTheme.text,
+                          borderColor: activeTab === 'active' ? currentTheme.accent : currentTheme.border
+                        }}
                       >
                         Aktif ({taskCounts.active})
                       </button>
                       <button
                         onClick={() => setActiveTab('completed')}
-                        className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'completed'
-                          ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                          }`}
-                        style={{ marginLeft: '5px' }}
+                        className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap border"
+                        style={{
+                          marginLeft: '5px',
+                          backgroundColor: activeTab === 'completed' ? '#10b981' : 'transparent',
+                          color: activeTab === 'completed' ? '#ffffff' : currentTheme.text,
+                          borderColor: activeTab === 'completed' ? '#10b981' : currentTheme.border
+                        }}
                       >
                         Tamamlanan ({taskCounts.completed})
                       </button>
                       {user?.role === 'admin' && (
                         <button
                           onClick={() => setActiveTab('deleted')}
-                          className={`px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${activeTab === 'deleted'
-                            ? 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
-                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100 border border-transparent'
-                            }`}
-                          style={{ marginLeft: '5px' }}
+                          className="px-4 xs:px-5 sm:px-6 py-2.5 text-xs xs:text-sm font-medium rounded-lg transition-colors whitespace-nowrap border"
+                          style={{
+                            marginLeft: '5px',
+                            backgroundColor: activeTab === 'deleted' ? '#ef4444' : 'transparent',
+                            color: activeTab === 'deleted' ? '#ffffff' : currentTheme.text,
+                            borderColor: activeTab === 'deleted' ? '#ef4444' : currentTheme.border
+                          }}
                         >
                           İptal ({taskCounts.deleted})
                         </button>
@@ -5010,8 +6491,14 @@ function App() {
                         <select
                           value={selectedTaskType}
                           onChange={(e) => setSelectedTaskType(e.target.value)}
-                          className="px-3 xs:px-4 sm:px-4 py-2.5 text-[16px] xs:text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm appearance-none cursor-pointer"
-                          style={{ height: '40px', minWidth: '140px' }}
+                          className="px-3 xs:px-4 sm:px-4 py-2.5 text-[16px] xs:text-sm text-center border rounded-lg focus:outline-none focus:ring-2 appearance-none cursor-pointer shadow-sm"
+                          style={{
+                            height: '40px',
+                            minWidth: '140px',
+                            backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                            color: currentTheme.text,
+                            borderColor: currentTheme.border
+                          }}
                         >
                           <option value="all">Tüm Türler</option>
                           {getAllTaskTypes().map(taskType => (
@@ -5032,8 +6519,26 @@ function App() {
                           placeholder="Görev ara..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                          style={{ height: '30px', fontSize: '16px' }}
+                          className="!w-48 xs:!w-56 sm:!w-64 px-4 py-2.5 text-xs xs:text-sm border rounded-lg focus:outline-none focus:ring-2 shadow-sm"
+                          style={{
+                            height: '30px',
+                            fontSize: '16px',
+                            backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                            color: currentTheme.text,
+                            borderColor: currentTheme.border
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = currentTheme.accent;
+                            e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                            e.target.setAttribute('autocomplete', 'off');
+                            e.target.setAttribute('autocorrect', 'off');
+                            e.target.setAttribute('autocapitalize', 'off');
+                            e.target.setAttribute('spellcheck', 'false');
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = currentTheme.border;
+                            e.target.style.boxShadow = 'none';
+                          }}
                           autoComplete="off"
                           autoCorrect="off"
                           autoCapitalize="off"
@@ -5042,12 +6547,6 @@ function App() {
                           data-form-type="other"
                           name="search"
                           id="task-search"
-                          onFocus={(e) => {
-                            e.target.setAttribute('autocomplete', 'off');
-                            e.target.setAttribute('autocorrect', 'off');
-                            e.target.setAttribute('autocapitalize', 'off');
-                            e.target.setAttribute('spellcheck', 'false');
-                          }}
                           onInput={(e) => {
                             if (e.target.value && !e.isTrusted) {
                               e.target.value = '';
@@ -5060,35 +6559,65 @@ function App() {
                   </div>
                 </div>
                 <div className="flex justify-center">
-                  <div className="bg-gray-50 border-b border-gray-200" style={{ minWidth: '1440px' }}>
-                    <div className={`grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium text-gray-500 uppercase tracking-wider grid-cols-[120px_460px_160px_160px_120px_120px_120px_180px]`}>
-                      <button onClick={() => toggleSort('no')} className="flex items-center justify-center px-2">
+                  <div className="border-b" style={{ minWidth: '1440px', backgroundColor: currentTheme.tableHeader || currentTheme.tableBackground || currentTheme.background, borderColor: currentTheme.border }}>
+                    <div className="grid gap-0 px-2 xs:px-3 sm:px-4 lg:px-6 pt-2 xs:pt-3 text-xs xs:text-sm font-medium uppercase tracking-wider grid-cols-[120px_460px_160px_160px_120px_120px_120px_180px]" style={{ color: currentTheme.text, backgroundColor: currentTheme.tableHeader || currentTheme.tableBackground || currentTheme.background }}>
+                      <button onClick={() => toggleSort('no')} className="flex items-center justify-center px-2 transition-colors"
+                        style={{ color: currentTheme.text }}
+                        onMouseEnter={(e) => e.target.style.color = currentTheme.accent}
+                        onMouseLeave={(e) => e.target.style.color = currentTheme.text}>
                         <span>NO</span>
                       </button>
-                      <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2">
+                      <button onClick={() => toggleSort('title')} className="flex items-center justify-center px-2 transition-colors"
+                        style={{ color: currentTheme.text }}
+                        onMouseEnter={(e) => e.target.style.color = currentTheme.accent}
+                        onMouseLeave={(e) => e.target.style.color = currentTheme.text}>
                         <span>Başlık</span>
                       </button>
-                      <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2">
+                      <button onClick={() => toggleSort('priority')} className="flex items-center justify-center px-2 transition-colors"
+                        style={{ color: currentTheme.text }}
+                        onMouseEnter={(e) => e.target.style.color = currentTheme.accent}
+                        onMouseLeave={(e) => e.target.style.color = currentTheme.text}>
                         <span>Öncelik</span>
                       </button>
-                      <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2">
+                      <button onClick={() => toggleSort('task_type')} className="flex items-center justify-center px-2 transition-colors"
+                        style={{ color: currentTheme.text }}
+                        onMouseEnter={(e) => e.target.style.color = currentTheme.accent}
+                        onMouseLeave={(e) => e.target.style.color = currentTheme.text}>
                         <span>Tür</span>
                       </button>
-                      <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2">
+                      <button onClick={() => toggleSort('start_date')} className="flex items-center justify-center px-2 transition-colors"
+                        style={{ color: currentTheme.text }}
+                        onMouseEnter={(e) => e.target.style.color = currentTheme.accent}
+                        onMouseLeave={(e) => e.target.style.color = currentTheme.text}>
                         <span>Başlangıç</span>
                       </button>
-                      <button onClick={() => toggleSort('due_date')} className="flex items-center justify-center px-2">
+                      <button onClick={() => toggleSort('due_date')} className="flex items-center justify-center px-2 transition-colors"
+                        style={{ color: currentTheme.text }}
+                        onMouseEnter={(e) => e.target.style.color = currentTheme.accent}
+                        onMouseLeave={(e) => e.target.style.color = currentTheme.text}>
                         <span>Bitiş</span>
                       </button>
-                      <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2">
+                      <button onClick={() => toggleSort('attachments_count')} className="flex items-center justify-center px-2 transition-colors"
+                        style={{ color: currentTheme.text, backgroundColor: 'transparent' }}
+                        onMouseEnter={(e) => {
+                          e.target.style.color = currentTheme.accent;
+                          e.target.style.backgroundColor = 'transparent';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.color = currentTheme.text;
+                          e.target.style.backgroundColor = 'transparent';
+                        }}>
                         <span>Dosyalar</span>
                       </button>
                       {activeTab === 'active' || activeTab === 'completed' ? (
-                        <button className="flex items-center justify-center px-2">
+                        <button className="flex items-center justify-center px-2 transition-colors"
+                          style={{ color: currentTheme.text }}
+                          onMouseEnter={(e) => e.target.style.color = currentTheme.accent}
+                          onMouseLeave={(e) => e.target.style.color = currentTheme.text}>
                           <span>Güncel Durum</span>
                         </button>
                       ) : (
-                        <div className="flex items-center justify-center px-2 select-none cursor-default">
+                        <div className="flex items-center justify-center px-2 select-none cursor-default" style={{ color: currentTheme.text }}>
                           <span>Eylem</span>
                         </div>
                       )}
@@ -5098,18 +6627,33 @@ function App() {
 
                 <div className="flex justify-center">
                   <div style={{ width: '1440px' }}>
-                    {filteredTasks.map((task) => (
+                    {filteredTasks.map((task, index) => (
                       <div
                         key={task.id}
                         onClick={() => handleTaskClick(task)}
-                        className={`grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-200 grid-cols-[120px_460px_160px_160px_120px_120px_120px_180px]`}
-                        style={{ paddingTop: '10px', paddingBottom: '10px' }}
+                        className="grid gap-0 px-3 xs:px-4 sm:px-6 py-3 xs:py-4 sm:py-5 cursor-pointer transition-colors border-b grid-cols-[120px_460px_160px_160px_120px_120px_120px_180px]"
+                        style={{
+                          paddingTop: '10px',
+                          paddingBottom: '10px',
+                          backgroundColor: index % 2 === 0
+                            ? (currentTheme.tableBackground || currentTheme.background)
+                            : (currentTheme.tableRowAlt || currentTheme.background),
+                          borderColor: currentTheme.border
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = currentTheme.accent + '20';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = index % 2 === 0
+                            ? (currentTheme.tableBackground || currentTheme.background)
+                            : (currentTheme.tableRowAlt || currentTheme.background);
+                        }}
                       >
-                        <div className="px-2 text-xs xs:text-sm text-gray-900 text-center">
+                        <div className="px-2 text-xs xs:text-sm text-center" style={{ color: currentTheme.text }}>
                           {task.no || `-`}
                         </div>
                         <div className="px-2 text-left">
-                          <div className="text-xs xs:text-sm font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap overflow-hidden text-ellipsis">
+                          <div className="text-xs xs:text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: currentTheme.accent }}>
                             {task.title || `Görev ${task.id}`}
                           </div>
                         </div>
@@ -5202,28 +6746,44 @@ function App() {
 
           {showDetailModal && selectedTask && createPortal(
             <div className="fixed inset-0 z-[999996]" style={{ pointerEvents: 'auto' }}>
-              <div className="absolute inset-0 bg-black/70" onClick={handleCloseModal} style={{ pointerEvents: 'auto' }} />
+              <div className="absolute inset-0" onClick={handleCloseModal} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
               <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'auto' }}>
                 <div className="fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px]
-                  h-[80vh] rounded-2xl border border-white/10 box-border
+                  h-[80vh] rounded-2xl box-border
                 shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
               "
-                  style={{ backgroundColor: '#111827', color: '#e5e7eb', pointerEvents: 'auto' }}
+                  style={{
+                    backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                    color: currentTheme.text,
+                    pointerEvents: 'auto',
+                    borderColor: currentTheme.border,
+                    borderWidth: '1px',
+                    borderStyle: 'solid'
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div
                     className="border-b flex-none"
-                    style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}
+                    style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.border, padding: '0px 10px' }}
                   >
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                       <div className="justify-self-start">
 
                       </div>
-                      <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Detayı</h2>
+                      <h2 className="text-xl md:text-2xl font-semibold text-center" style={{ color: currentTheme.text }}>Görev Detayı</h2>
                       <div className="justify-self-end">
                         <button
                           onClick={handleCloseModal}
-                          className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                          className="rounded-md px-2 py-1 transition-colors"
+                          style={{ color: currentTheme.textSecondary }}
+                          onMouseEnter={(e) => {
+                            e.target.style.color = currentTheme.text;
+                            e.target.style.backgroundColor = `${currentTheme.border}30`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.color = currentTheme.textSecondary;
+                            e.target.style.backgroundColor = 'transparent';
+                          }}
                           aria-label="Kapat"
                         >
                           ✕
@@ -5232,7 +6792,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden divide-x divide-white/10">
+                  <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden" style={{ borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}` }}>
                     <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar" style={{ padding: '0px 24px' }}>
                       <div className="py-6 flex flex-col gap-4 sm:gap-6">
                         {error && (
@@ -6194,37 +7754,68 @@ function App() {
           {
             showUserProfile && createPortal(
               <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto' }} />
+                <div className="absolute inset-0" onClick={() => setShowUserProfile(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
                 <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-white/10 bg-[#0f172a] px-4 py-3">
+                  <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+                    pointerEvents: 'auto',
+                    backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                    borderColor: currentTheme.border,
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    color: currentTheme.text
+                  }} onClick={(e) => e.stopPropagation()}>
+                    <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-3"
+                      style={{
+                        borderBottom: `1px solid ${currentTheme.border}`,
+                        backgroundColor: currentTheme.background
+                      }}>
                       <div></div>
-                      <h2 className="font-semibold text-neutral-100 text-center">Profil</h2>
+                      <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Profil</h2>
                       <div className="justify-self-end">
                         <button onClick={() => setShowUserProfile(false)}
-                          className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</button>
+                          className="rounded px-2 py-1 transition-colors"
+                          style={{ color: currentTheme.textSecondary }}
+                          onMouseEnter={(e) => {
+                            e.target.style.color = currentTheme.text;
+                            e.target.style.backgroundColor = `${currentTheme.border}30`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.color = currentTheme.textSecondary;
+                            e.target.style.backgroundColor = 'transparent';
+                          }}>✕</button>
                       </div>
                     </div>
 
                     <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-                      <div className="bg-white/5 rounded-xl p-6 mx-4" style={{ padding: '15px' }}>
+                      <div className="rounded-xl p-6 mx-4" style={{ padding: '15px', backgroundColor: `${currentTheme.border}20` }}>
                         <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
                           <div>
                             <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
-                              <div className="text-neutral-300 !text-[18px]">İsim</div>
-                              <div className="font-semibold !text-[18px] truncate">{user?.name || 'Belirtilmemiş'}</div>
+                              <div className="!text-[18px]" style={{ color: currentTheme.textSecondary }}>İsim</div>
+                              <div className="font-semibold !text-[18px] truncate" style={{ color: currentTheme.text }}>{user?.name || 'Belirtilmemiş'}</div>
 
-                              <div className="text-neutral-300 !text-[18px]">E-posta</div>
-                              <div className="!text-[18px] truncate">{user?.email || 'Belirtilmemiş'}</div>
+                              <div className="!text-[18px]" style={{ color: currentTheme.textSecondary }}>E-posta</div>
+                              <div className="!text-[18px] truncate" style={{ color: currentTheme.text }}>{user?.email || 'Belirtilmemiş'}</div>
 
-                              <div className="text-neutral-300 !text-[18px]">Rol</div>
-                              <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 !text-[18px]">{getRoleText(user?.role)}</div>
+                              <div className="!text-[18px]" style={{ color: currentTheme.textSecondary }}>Rol</div>
+                              <div className="font-semibold !text-[18px] truncate" style={{ color: currentTheme.text }}>{getRoleText(user?.role)}</div>
                             </div>
                           </div>
-                          <div className="bg-white/5 rounded-xl p-4">
+                          <div className="rounded-xl p-4" style={{ backgroundColor: `${currentTheme.border}20` }}>
                             {user?.role !== 'observer' && (
                               <button
-                                className="w-full h-full rounded px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+                                className="w-full h-full rounded px-4 py-2 flex items-center justify-center transition-colors"
+                                style={{ backgroundColor: currentTheme.accent, color: '#ffffff' }}
+                                onMouseEnter={(e) => {
+                                  const hex = currentTheme.accent.replace('#', '');
+                                  const r = parseInt(hex.substr(0, 2), 16);
+                                  const g = parseInt(hex.substr(2, 2), 16);
+                                  const b = parseInt(hex.substr(4, 2), 16);
+                                  e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.backgroundColor = currentTheme.accent;
+                                }}
                                 onClick={async () => {
                                   setWeeklyUserId(null); // Kendi hedeflerini göster
                                   setShowWeeklyGoals(true);
@@ -6238,12 +7829,12 @@ function App() {
                           </div>
                         </div>
                       </div>
-                      <div className="sticky bottom-0 w-full border-t border-white/10 bg-[#0b1625]/90 backdrop-blur px-8 py-5"></div>
-                      <div className="bg-white/5 rounded-xl p-6 mx-4">
-                        <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px' }}>
+                      <div className="sticky bottom-0 w-full px-8 py-5 backdrop-blur" style={{ borderTop: `1px solid ${currentTheme.border}`, backgroundColor: `${currentTheme.background}E6` }}></div>
+                      <div className="rounded-xl p-6 mx-4" style={{ backgroundColor: `${currentTheme.border}20` }}>
+                        <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px', color: currentTheme.text }}>
                           🔐 <span className="ml-2">Şifre Değiştir</span>
                         </div>
-                        <PasswordChangeForm onDone={() => setShowUserProfile(false)} />
+                        <PasswordChangeForm onDone={() => setShowUserProfile(false)} currentTheme={currentTheme} />
                       </div>
                     </div>
                   </div>
@@ -6256,28 +7847,67 @@ function App() {
           {
             showTeamModal && createPortal(
               <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto' }} />
+                <div className="absolute inset-0" onClick={() => setShowTeamModal(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
                 <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden" style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-center px-5 py-3 border-b border-white/10 bg-[#0f172a] relative">
-                      <h2 className="font-semibold text-center">Takım</h2>
-                      <button onClick={() => setShowTeamModal(false)} className="absolute" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)' }}>
-                        <span className="text-neutral-300 rounded px-2 py-1 hover:bg-white/10">✕</span>
+                  <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+                    pointerEvents: 'auto',
+                    backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                    borderColor: currentTheme.border,
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    color: currentTheme.text
+                  }} onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center px-5 py-3 relative"
+                      style={{
+                        borderBottom: `1px solid ${currentTheme.border}`,
+                        backgroundColor: currentTheme.background
+                      }}>
+                      <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Takım</h2>
+                      <button onClick={() => setShowTeamModal(false)} className="absolute transition-colors" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)', color: currentTheme.textSecondary }}
+                        onMouseEnter={(e) => {
+                          e.target.style.color = currentTheme.text;
+                          e.target.style.backgroundColor = `${currentTheme.border}30`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.color = currentTheme.textSecondary;
+                          e.target.style.backgroundColor = 'transparent';
+                        }}>
+                        <span className="rounded px-2 py-1">✕</span>
                       </button>
                     </div>
                     <div className="p-4 space-y-3 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(80vh - 120px)' }}>
                       {Array.isArray(teamMembers) && teamMembers.filter(m => m.role !== 'observer').length > 0 ? (
                         teamMembers.filter(m => m.role !== 'observer').map(m => (
-                          <div key={m.id} className="flex items-center text-[24px] justify-between bg-white/5 rounded px-3 py-2"
-                            style={{ paddingTop: '20px', paddingBottom: '20px', paddingLeft: '10px', paddingRight: '10px' }}>
+                          <div key={m.id} className="flex items-center text-[24px] justify-between rounded px-3 py-2 transition-colors"
+                            style={{
+                              paddingTop: '20px',
+                              paddingBottom: '20px',
+                              paddingLeft: '10px',
+                              paddingRight: '10px',
+                              backgroundColor: `${currentTheme.border}20`
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${currentTheme.border}30`}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${currentTheme.border}20`}>
                             <div>
-                              <div className="font-medium text-white">{m.name}</div>
-                              <div className="text-sm text-neutral-300">{m.email}</div>
+                              <div className="font-medium" style={{ color: currentTheme.text }}>{m.name}</div>
+                              <div className="text-sm" style={{ color: currentTheme.textSecondary }}>{m.email}</div>
                             </div>
-                            <button className="rounded px-3 py-2 bg-blue-600 hover:bg-blue-700" onClick={async () => {
-                              setShowTeamModal(false); setWeeklyUserId(m.id);
-                              setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
-                            }} style={{ height: '70px' }}>Hedefleri Aç</button>
+                            <button className="rounded px-3 py-2 transition-colors"
+                              style={{ backgroundColor: currentTheme.accent, color: '#ffffff', height: '70px' }}
+                              onMouseEnter={(e) => {
+                                const hex = currentTheme.accent.replace('#', '');
+                                const r = parseInt(hex.substr(0, 2), 16);
+                                const g = parseInt(hex.substr(2, 2), 16);
+                                const b = parseInt(hex.substr(4, 2), 16);
+                                e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.backgroundColor = currentTheme.accent;
+                              }}
+                              onClick={async () => {
+                                setShowTeamModal(false); setWeeklyUserId(m.id);
+                                setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
+                              }}>Hedefleri Aç</button>
                           </div>
                         ))
                       ) : (
@@ -6296,25 +7926,41 @@ function App() {
           {
             showUserPanel && createPortal(
               <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto' }} />
+                <div className="absolute inset-0" onClick={() => setShowUserPanel(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
                 <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-                    style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
+                    style={{
+                      pointerEvents: 'auto',
+                      backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                      borderColor: currentTheme.border,
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      color: currentTheme.text
+                    }} onClick={(e) => e.stopPropagation()}>
+                    <div className="border-b flex-none" style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.border, padding: '0px 10px' }}>
                       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                         <div className="justify-self-start"></div>
-                        <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Kullanıcı Yönetimi</h2>
+                        <h2 className="text-xl md:text-2xl font-semibold text-center" style={{ color: currentTheme.text }}>Kullanıcı Yönetimi</h2>
                         <div className="justify-self-end">
                           <button
                             onClick={() => setShowUserPanel(false)}
-                            className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                            className="rounded-md px-2 py-1 transition-colors"
+                            style={{ color: currentTheme.textSecondary }}
+                            onMouseEnter={(e) => {
+                              e.target.style.color = currentTheme.text;
+                              e.target.style.backgroundColor = `${currentTheme.border}30`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.color = currentTheme.textSecondary;
+                              e.target.style.backgroundColor = 'transparent';
+                            }}
                             aria-label="Kapat"
                           >✕</button>
                         </div>
                       </div>
                     </div>
-                    <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto no-scrollbar" style={{ height: 'calc(100vh - 50px)' }}>
-                      <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px' }}>
+                    <div className="flex min-w-0 overflow-y-auto no-scrollbar" style={{ height: 'calc(100vh - 50px)', borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}` }}>
+                      <div className="w-2/5 min-w-0 space-y-6" style={{ paddingRight: '20px', paddingLeft: '20px', borderRight: `1px solid ${currentTheme.border}` }}>
                         {user?.role === 'admin' && (
                           <div className="pt-4" style={{ paddingTop: '5px' }}>
                             <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
@@ -6598,25 +8244,41 @@ function App() {
           {
             showTaskSettings && createPortal(
               <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
-                <div className="absolute inset-0 bg-black/60" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto' }} />
+                <div className="absolute inset-0" onClick={() => setShowTaskSettings(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
                 <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl border border-white/10 shadow-[0_25px_80px_rgba(0,0,0,.6)] bg-[#111827] text-slate-100 overflow-hidden"
-                    style={{ pointerEvents: 'auto' }} onClick={(e) => e.stopPropagation()}>
-                    <div className="border-b flex-none" style={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,.1)', padding: '0px 10px' }}>
+                  <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
+                    style={{
+                      pointerEvents: 'auto',
+                      backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                      borderColor: currentTheme.border,
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                      color: currentTheme.text
+                    }} onClick={(e) => e.stopPropagation()}>
+                    <div className="border-b flex-none" style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.border, padding: '0px 10px' }}>
                       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                         <div className="justify-self-start">
                         </div>
-                        <h2 className="text-xl md:text-2xl font-semibold text-white text-center">Görev Ayarları</h2>
+                        <h2 className="text-xl md:text-2xl font-semibold text-center" style={{ color: currentTheme.text }}>Görev Ayarları</h2>
                         <div className="justify-self-end">
                           <button
                             onClick={() => setShowTaskSettings(false)}
-                            className="rounded-md px-2 py-1 text-neutral-300 hover:text-white hover:bg-white/10"
+                            className="rounded-md px-2 py-1 transition-colors"
+                            style={{ color: currentTheme.textSecondary }}
+                            onMouseEnter={(e) => {
+                              e.target.style.color = currentTheme.text;
+                              e.target.style.backgroundColor = `${currentTheme.border}30`;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.color = currentTheme.textSecondary;
+                              e.target.style.backgroundColor = 'transparent';
+                            }}
                             aria-label="Kapat"
                           >✕</button>
                         </div>
                       </div>
                     </div>
-                    <div className="flex min-w-0 divide-x divide-white/10 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)' }}>
+                    <div className="flex min-w-0 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)', borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}` }}>
                       <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
                         <div className="pt-4" style={{ paddingTop: '5px' }}>
                           <div className="font-medium mb-4 !text-[24px]" style={{ paddingBottom: '10px' }}>Görev Türleri</div>
@@ -6631,21 +8293,66 @@ function App() {
                                   placeholder="Görev türü adı (örn: Fikstür, Yeni Ürün)"
                                   value={newTaskTypeName}
                                   onChange={(e) => setNewTaskTypeName(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-[16px] text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                                  style={{ height: '40px' }}
+                                  className="flex-1 px-3 py-2 rounded-lg text-[16px] focus:outline-none"
+                                  style={{
+                                    height: '40px',
+                                    backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                    color: currentTheme.text,
+                                    borderColor: currentTheme.border,
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = currentTheme.accent;
+                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = currentTheme.border;
+                                    e.target.style.boxShadow = 'none';
+                                  }}
                                 />
                                 <input
                                   type="color"
                                   value={newTaskTypeColor}
                                   onChange={(e) => setNewTaskTypeColor(e.target.value)}
-                                  className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
+                                  className="w-10 h-full rounded-full cursor-pointer"
                                   title="Renk seç"
-                                  style={{ height: '40px', width: '40px', backgroundColor: newTaskTypeColor, marginLeft: '5px' }}
+                                  style={{
+                                    height: '40px',
+                                    width: '40px',
+                                    backgroundColor: newTaskTypeColor,
+                                    marginLeft: '5px',
+                                    borderColor: currentTheme.border,
+                                    borderWidth: '2px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = currentTheme.accent;
+                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = currentTheme.border;
+                                    e.target.style.boxShadow = 'none';
+                                  }}
                                 />
                               </div>
                               <button
                                 onClick={handleAddTaskType}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px]"
+                                className="w-full px-4 py-2 rounded-lg text-[16px] font-medium transition-colors"
+                                style={{
+                                  backgroundColor: currentTheme.accent,
+                                  color: '#ffffff'
+                                }}
+                                onMouseEnter={(e) => {
+                                  const hex = currentTheme.accent.replace('#', '');
+                                  const r = parseInt(hex.substr(0, 2), 16);
+                                  const g = parseInt(hex.substr(2, 2), 16);
+                                  const b = parseInt(hex.substr(4, 2), 16);
+                                  e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.backgroundColor = currentTheme.accent;
+                                }}
                               >
                                 Tür Ekle
                               </button>
@@ -6658,37 +8365,100 @@ function App() {
                             <div className="space-y-2" style={{ marginTop: '10px' }}>
                               {getAllTaskTypes().map(taskType => (
                                 <div key={taskType.id || taskType.value} className="rounded-lg p-3 flex items-center justify-between">
-                                  <div className="bg-[#1f2937] w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px' }}>
+                                  <div className="w-full flex items-center space-x-4" style={{ marginBottom: '5px', height: '50px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                                     {editingTaskTypeId === (taskType.id || taskType.value) ? (
                                       <>
                                         <input
                                           type="color"
                                           value={editingTaskTypeColor}
                                           onChange={(e) => setEditingTaskTypeColor(e.target.value)}
-                                          className="w-5 h-5 rounded-full cursor-pointer"
-                                          style={{ backgroundColor: taskType.color, width: '24px', height: '24px' }}
+                                          className="rounded-full cursor-pointer"
+                                          style={{
+                                            backgroundColor: taskType.color,
+                                            width: '24px',
+                                            height: '24px',
+                                            borderColor: currentTheme.border,
+                                            borderWidth: '2px',
+                                            borderStyle: 'solid'
+                                          }}
                                           title="Renk seç"
+                                          onFocus={(e) => {
+                                            e.target.style.borderColor = currentTheme.accent;
+                                            e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                          }}
+                                          onBlur={(e) => {
+                                            e.target.style.borderColor = currentTheme.border;
+                                            e.target.style.boxShadow = 'none';
+                                          }}
                                         />
                                         <input
                                           type="text"
                                           value={editingTaskTypeName}
                                           onChange={(e) => setEditingTaskTypeName(e.target.value)}
-                                          className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                          className="flex-1 px-2 py-1 rounded text-[18px] focus:outline-none"
                                           placeholder="Tür adı"
-                                          style={{ paddingLeft: '5px' }}
+                                          style={{
+                                            paddingLeft: '5px',
+                                            backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                            color: currentTheme.text,
+                                            borderColor: currentTheme.border,
+                                            borderWidth: '1px',
+                                            borderStyle: 'solid'
+                                          }}
+                                          onFocus={(e) => {
+                                            e.target.style.borderColor = currentTheme.accent;
+                                            e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                          }}
+                                          onBlur={(e) => {
+                                            e.target.style.borderColor = currentTheme.border;
+                                            e.target.style.boxShadow = 'none';
+                                          }}
                                         />
                                         <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
                                           <button
                                             onClick={handleSaveTaskType}
-                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
-                                            style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                            className="inline-flex items-center justify-center text-[16px] transition-colors"
+                                            style={{
+                                              width: '90px',
+                                              height: '45px',
+                                              borderRadius: '9999px',
+                                              backgroundColor: currentTheme.accent,
+                                              color: '#ffffff'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              const hex = currentTheme.accent.replace('#', '');
+                                              const r = parseInt(hex.substr(0, 2), 16);
+                                              const g = parseInt(hex.substr(2, 2), 16);
+                                              const b = parseInt(hex.substr(4, 2), 16);
+                                              const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                              e.target.style.backgroundColor = brightness > 128
+                                                ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                                : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.accent;
+                                            }}
                                           >
                                             Kaydet
                                           </button>
                                           <button
                                             onClick={handleCancelEditTaskType}
-                                            className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
-                                            style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                            className="inline-flex items-center justify-center text-[18px] transition-colors"
+                                            style={{
+                                              width: '45px',
+                                              height: '45px',
+                                              borderRadius: '9999px',
+                                              backgroundColor: currentTheme.border,
+                                              color: currentTheme.text
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.accent;
+                                              e.target.style.color = '#ffffff';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.target.style.backgroundColor = currentTheme.border;
+                                              e.target.style.color = currentTheme.text;
+                                            }}
                                           >
                                             X
                                           </button>
@@ -6696,22 +8466,56 @@ function App() {
                                       </>
                                     ) : (
                                       <>
-                                        <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px' }}></div>
-                                        <span className="text-[18px]" style={{ paddingLeft: '5px' }}>{taskType.label}</span>
+                                        <div className="w-5 h-5 rounded-full border-2" style={{ backgroundColor: taskType.color, minWidth: '20px', minHeight: '20px', borderColor: currentTheme.border }}></div>
+                                        <span className="text-[18px]" style={{ paddingLeft: '5px', color: currentTheme.text }}>{taskType.label}</span>
                                         <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
                                           {taskType.isCustom && !taskType.isPermanent ? (
                                             <>
                                               <button
                                                 onClick={() => handleEditTaskType(taskType)}
-                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
-                                                style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                                className="inline-flex items-center justify-center text-[16px] transition-colors"
+                                                style={{
+                                                  width: '90px',
+                                                  height: '45px',
+                                                  borderRadius: '9999px',
+                                                  backgroundColor: currentTheme.accent,
+                                                  color: '#ffffff'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                  const hex = currentTheme.accent.replace('#', '');
+                                                  const r = parseInt(hex.substr(0, 2), 16);
+                                                  const g = parseInt(hex.substr(2, 2), 16);
+                                                  const b = parseInt(hex.substr(4, 2), 16);
+                                                  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                                  e.target.style.backgroundColor = brightness > 128
+                                                    ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                                    : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  e.target.style.backgroundColor = currentTheme.accent;
+                                                }}
                                               >
                                                 Düzenle
                                               </button>
                                               <button
                                                 onClick={() => handleDeleteTaskType(taskType.id || taskType.value)}
-                                                className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
-                                                style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '5px' }}
+                                                className="inline-flex items-center justify-center text-[18px] transition-colors"
+                                                style={{
+                                                  width: '45px',
+                                                  height: '45px',
+                                                  borderRadius: '9999px',
+                                                  backgroundColor: currentTheme.border,
+                                                  color: currentTheme.text,
+                                                  marginLeft: '5px'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                  e.target.style.backgroundColor = currentTheme.accent;
+                                                  e.target.style.color = '#ffffff';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  e.target.style.backgroundColor = currentTheme.border;
+                                                  e.target.style.color = currentTheme.text;
+                                                }}
                                               >
                                                 🗑️
                                               </button>
@@ -6742,8 +8546,23 @@ function App() {
                             <select
                               value={selectedTaskTypeForStatuses}
                               onChange={(e) => setSelectedTaskTypeForStatuses(e.target.value)}
-                              className="w-full px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[18px] focus:outline-none focus:border-blue-500"
-                              style={{ height: '40px' }}
+                              className="w-full px-3 py-2 rounded-lg text-[18px] focus:outline-none"
+                              style={{
+                                height: '40px',
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border,
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = currentTheme.accent;
+                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = currentTheme.border;
+                                e.target.style.boxShadow = 'none';
+                              }}
                             >
                               {getAllTaskTypes().map(taskType => (
                                 <option key={taskType.value} value={taskType.value}>
@@ -6763,21 +8582,66 @@ function App() {
                                   placeholder="Durum adı (örn: Tasarlanacak, Test Edilecek)"
                                   value={newStatusName}
                                   onChange={(e) => setNewStatusName(e.target.value)}
-                                  className="flex-1 px-3 py-2 bg-[#374151] border border-gray-600 rounded-lg text-white text-[16px] placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                                  style={{ height: '40px' }}
+                                  className="flex-1 px-3 py-2 rounded-lg text-[16px] focus:outline-none"
+                                  style={{
+                                    height: '40px',
+                                    backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                    color: currentTheme.text,
+                                    borderColor: currentTheme.border,
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = currentTheme.accent;
+                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = currentTheme.border;
+                                    e.target.style.boxShadow = 'none';
+                                  }}
                                 />
                                 <input
                                   type="color"
                                   value={newStatusColor}
                                   onChange={(e) => setNewStatusColor(e.target.value)}
-                                  className="w-10 h-full rounded-full border border-gray-600 cursor-pointer"
+                                  className="w-10 h-full rounded-full cursor-pointer"
                                   title="Renk seç"
-                                  style={{ height: '40px', width: '40px', backgroundColor: newStatusColor, marginLeft: '5px' }}
+                                  style={{
+                                    height: '40px',
+                                    width: '40px',
+                                    backgroundColor: newStatusColor,
+                                    marginLeft: '5px',
+                                    borderColor: currentTheme.border,
+                                    borderWidth: '2px',
+                                    borderStyle: 'solid'
+                                  }}
+                                  onFocus={(e) => {
+                                    e.target.style.borderColor = currentTheme.accent;
+                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                  }}
+                                  onBlur={(e) => {
+                                    e.target.style.borderColor = currentTheme.border;
+                                    e.target.style.boxShadow = 'none';
+                                  }}
                                 />
                               </div>
                               <button
                                 onClick={handleAddTaskStatus}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-[16px] font-medium"
+                                className="w-full px-4 py-2 rounded-lg text-[16px] font-medium transition-colors"
+                                style={{
+                                  backgroundColor: currentTheme.accent,
+                                  color: '#ffffff'
+                                }}
+                                onMouseEnter={(e) => {
+                                  const hex = currentTheme.accent.replace('#', '');
+                                  const r = parseInt(hex.substr(0, 2), 16);
+                                  const g = parseInt(hex.substr(2, 2), 16);
+                                  const b = parseInt(hex.substr(4, 2), 16);
+                                  e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.backgroundColor = currentTheme.accent;
+                                }}
                               >
                                 Durum Ekle
                               </button>
@@ -6801,40 +8665,40 @@ function App() {
                             <div className="mb-4">
                               <div className="space-y-2">
                                 {/* Waiting - Default */}
-                                <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                                <div className="rounded-lg p-3" style={{ marginBottom: '5px', height: '50px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                                   <div className="flex items-center justify-between h-full">
                                     <div className="flex items-center space-x-3">
-                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px' }}></div>
-                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Bekliyor</span>
+                                      <div className="w-5 h-5 rounded-full border-2" style={{ backgroundColor: '#6b7280', minWidth: '20px', minHeight: '20px', borderColor: currentTheme.border }}></div>
+                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px', color: currentTheme.text }}>Bekliyor</span>
                                     </div>
                                     <div className="flex items-center space-x-4">
-                                      <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Varsayılan</span>
+                                      <span className="text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px', color: currentTheme.textSecondary || currentTheme.text }}>Varsayılan</span>
                                     </div>
                                   </div>
                                 </div>
 
                                 {/* Completed */}
-                                <div className="bg-[#1f2937] rounded-lg p-3" style={{ marginBottom: '5px', height: '50px' }}>
+                                <div className="rounded-lg p-3" style={{ marginBottom: '5px', height: '50px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                                   <div className="flex items-center justify-between h-full">
                                     <div className="flex items-center space-x-3">
-                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px' }}></div>
-                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>Tamamlandı</span>
+                                      <div className="w-5 h-5 rounded-full border-2" style={{ backgroundColor: '#10b981', minWidth: '20px', minHeight: '20px', borderColor: currentTheme.border }}></div>
+                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px', color: currentTheme.text }}>Tamamlandı</span>
                                     </div>
                                     <div className="flex items-center space-x-4">
-                                      <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
+                                      <span className="text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px', color: currentTheme.textSecondary || currentTheme.text }}>Sistem</span>
                                     </div>
                                   </div>
                                 </div>
 
                                 {/* Cancelled */}
-                                <div className="bg-[#1f2937] rounded-lg p-3 " style={{ marginBottom: '5px', height: '50px' }}>
+                                <div className="rounded-lg p-3" style={{ marginBottom: '5px', height: '50px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                                   <div className="flex items-center justify-between h-full">
                                     <div className="flex items-center space-x-3">
-                                      <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px' }}></div>
-                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px' }}>İptal</span>
+                                      <div className="w-5 h-5 rounded-full border-2" style={{ backgroundColor: '#ef4444', minWidth: '20px', minHeight: '20px', borderColor: currentTheme.border }}></div>
+                                      <span className="text-[18px] min-w-[120px]" style={{ paddingLeft: '5px', color: currentTheme.text }}>İptal</span>
                                     </div>
                                     <div className="flex items-center space-x-4">
-                                      <span className="text-gray-400 text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px' }}>Sistem</span>
+                                      <span className="text-[16px] min-w-[80px] text-right" style={{ marginRight: '5px', color: currentTheme.textSecondary || currentTheme.text }}>Sistem</span>
                                     </div>
                                   </div>
                                 </div>
@@ -6875,7 +8739,7 @@ function App() {
 
                                     return statuses;
                                   })().map(status => (
-                                    <div key={status.id || status.key} className="bg-[#1f2937] rounded-lg p-3 flex items-center justify-between" style={{ marginBottom: '5px', height: '50px' }}>
+                                    <div key={status.id || status.key} className="rounded-lg p-3 flex items-center justify-between" style={{ marginBottom: '5px', height: '50px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                                       {editingTaskStatusId === (status.id || status.key) ? (
                                         <>
                                           <div className="flex items-center space-x-3 flex-1">
@@ -6883,31 +8747,94 @@ function App() {
                                               type="color"
                                               value={editingTaskStatusColor}
                                               onChange={(e) => setEditingTaskStatusColor(e.target.value)}
-                                              className="w-5 h-5 rounded-full border-2 border-white/20 cursor-pointer"
-                                              style={{ backgroundColor: status.color, width: '24px', height: '24px' }}
+                                              className="rounded-full cursor-pointer"
+                                              style={{
+                                                backgroundColor: status.color,
+                                                width: '24px',
+                                                height: '24px',
+                                                borderColor: currentTheme.border,
+                                                borderWidth: '2px',
+                                                borderStyle: 'solid'
+                                              }}
                                               title="Renk seç"
+                                              onFocus={(e) => {
+                                                e.target.style.borderColor = currentTheme.accent;
+                                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                              }}
+                                              onBlur={(e) => {
+                                                e.target.style.borderColor = currentTheme.border;
+                                                e.target.style.boxShadow = 'none';
+                                              }}
                                             />
                                             <input
                                               type="text"
                                               value={editingTaskStatusName}
                                               onChange={(e) => setEditingTaskStatusName(e.target.value)}
-                                              className="flex-1 px-2 py-1 bg-[#374151] border border-gray-600 rounded !text-[18px] text-white focus:outline-none focus:border-blue-500"
+                                              className="flex-1 px-2 py-1 rounded !text-[18px] focus:outline-none"
                                               placeholder="Durum adı"
-                                              style={{ paddingLeft: '5px' }}
+                                              style={{
+                                                paddingLeft: '5px',
+                                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                                color: currentTheme.text,
+                                                borderColor: currentTheme.border,
+                                                borderWidth: '1px',
+                                                borderStyle: 'solid'
+                                              }}
+                                              onFocus={(e) => {
+                                                e.target.style.borderColor = currentTheme.accent;
+                                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                              }}
+                                              onBlur={(e) => {
+                                                e.target.style.borderColor = currentTheme.border;
+                                                e.target.style.boxShadow = 'none';
+                                              }}
                                             />
                                           </div>
                                           <div className="flex items-center space-x-2" style={{ marginRight: '5px' }}>
                                             <button
                                               onClick={handleSaveTaskStatus}
-                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px]"
-                                              style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                              className="inline-flex items-center justify-center text-[16px] transition-colors"
+                                              style={{
+                                                width: '90px',
+                                                height: '45px',
+                                                borderRadius: '9999px',
+                                                backgroundColor: currentTheme.accent,
+                                                color: '#ffffff'
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                const hex = currentTheme.accent.replace('#', '');
+                                                const r = parseInt(hex.substr(0, 2), 16);
+                                                const g = parseInt(hex.substr(2, 2), 16);
+                                                const b = parseInt(hex.substr(4, 2), 16);
+                                                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                                e.target.style.backgroundColor = brightness > 128
+                                                  ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                                  : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.target.style.backgroundColor = currentTheme.accent;
+                                              }}
                                             >
                                               Kaydet
                                             </button>
                                             <button
                                               onClick={handleCancelEditTaskStatus}
-                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px]"
-                                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)' }}
+                                              className="inline-flex items-center justify-center text-[18px] transition-colors"
+                                              style={{
+                                                width: '45px',
+                                                height: '45px',
+                                                borderRadius: '9999px',
+                                                backgroundColor: currentTheme.border,
+                                                color: currentTheme.text
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                e.target.style.backgroundColor = currentTheme.accent;
+                                                e.target.style.color = '#ffffff';
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.target.style.backgroundColor = currentTheme.border;
+                                                e.target.style.color = currentTheme.text;
+                                              }}
                                             >
                                               X
                                             </button>
@@ -6916,21 +8843,55 @@ function App() {
                                       ) : (
                                         <>
                                           <div className="flex items-center space-x-3">
-                                            <div className="w-5 h-5 rounded-full border-2 border-white/20" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px' }}></div>
-                                            <span className="!text-[18px]" style={{ paddingLeft: '5px' }}>{status.name || status.label}</span>
+                                            <div className="w-5 h-5 rounded-full border-2" style={{ backgroundColor: status.color, minWidth: '20px', minHeight: '20px', borderColor: currentTheme.border }}></div>
+                                            <span className="!text-[18px]" style={{ paddingLeft: '5px', color: currentTheme.text }}>{status.name || status.label}</span>
                                           </div>
                                           <div className="flex items-center justify-end space-x-2 ml-auto" style={{ marginRight: '5px' }}>
                                             <button
                                               onClick={() => handleEditTaskStatus(status)}
-                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[16px] buttonHoverEffect"
-                                              style={{ width: '90px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(21, 241, 113, 0.51)' }}
+                                              className="inline-flex items-center justify-center text-[16px] transition-colors"
+                                              style={{
+                                                width: '90px',
+                                                height: '45px',
+                                                borderRadius: '9999px',
+                                                backgroundColor: currentTheme.accent,
+                                                color: '#ffffff'
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                const hex = currentTheme.accent.replace('#', '');
+                                                const r = parseInt(hex.substr(0, 2), 16);
+                                                const g = parseInt(hex.substr(2, 2), 16);
+                                                const b = parseInt(hex.substr(4, 2), 16);
+                                                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                                                e.target.style.backgroundColor = brightness > 128
+                                                  ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
+                                                  : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.target.style.backgroundColor = currentTheme.accent;
+                                              }}
                                             >
                                               Düzenle
                                             </button>
                                             <button
                                               onClick={() => handleDeleteTaskStatus(status.id || status.key)}
-                                              className="inline-flex items-center justify-center text-blue-300 hover:text-blue-200 text-[18px] buttonHoverEffect"
-                                              style={{ width: '45px', height: '45px', borderRadius: '9999px', backgroundColor: 'rgba(241, 91, 21, 0.62)', marginLeft: '5px' }}
+                                              className="inline-flex items-center justify-center text-[18px] transition-colors"
+                                              style={{
+                                                width: '45px',
+                                                height: '45px',
+                                                borderRadius: '9999px',
+                                                backgroundColor: currentTheme.border,
+                                                color: currentTheme.text,
+                                                marginLeft: '5px'
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                e.target.style.backgroundColor = currentTheme.accent;
+                                                e.target.style.color = '#ffffff';
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.target.style.backgroundColor = currentTheme.border;
+                                                e.target.style.color = currentTheme.text;
+                                              }}
                                             >
                                               🗑️
                                             </button>
@@ -6974,20 +8935,31 @@ function App() {
       </main>
 
       {/* Footer */}
-      <footer className="app-footer bg-[#0f172a] border-t border-white/10" style={{ padding: '15px', paddingRight: '30px' }}>
+      <footer className="app-footer border-t" style={{
+        padding: '15px',
+        paddingRight: '30px',
+        backgroundColor: currentTheme.background,
+        borderColor: currentTheme.border
+      }}>
         <div className="app-footer__inner">
           {/* Sol Logo */}
           <div className="flex items-center space-x-3">
             <div className="text-left">
               <a href="https://vaden.com.tr" target="_blank" rel="noopener noreferrer">
-                <img src={logo} alt="VADEN LOGO" className="h-10 app-footer__logo" style={{ minHeight: '60px' }} />
+                <img
+                  src={currentLogo || logo}
+                  alt="VADEN LOGO"
+                  className="h-10 app-footer__logo"
+                  style={{ minHeight: '60px' }}
+                  onError={(e) => { e.target.src = logo; }}
+                />
               </a>
             </div>
           </div>
 
           {/* Orta İletişim Bilgileri */}
           <div className="flex items-center space-x-6">
-            <div className="text-gray-400 text-xs whitespace-nowrap">
+            <div className="text-xs whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>
               © Vaden Otomotiv San. Tic. A.Ş. Tüm hakları saklıdır / 2025
             </div>
           </div>
@@ -6995,32 +8967,32 @@ function App() {
           {/* Sağ Sosyal Medya */}
           <div className="flex items-center space-x-3 app-footer__social">
             <div className="text-center">
-              <a href="https://www.facebook.com/vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="Facebook" style={{ marginRight: '10px' }}>
+              <a href="https://www.facebook.com/vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="Facebook" style={{ marginRight: '10px', color: currentTheme.socialIconColor || currentTheme.textSecondary }}>
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
               </a>
-              <a href="https://www.instagram.com/vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="Instagram" style={{ marginRight: '10px' }}>
+              <a href="https://www.instagram.com/vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="Instagram" style={{ marginRight: '10px', color: currentTheme.socialIconColor || currentTheme.textSecondary }}>
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
                 </svg>
               </a>
-              <a href="https://x.com/@vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="X" style={{ marginRight: '10px' }}>
+              <a href="https://x.com/@vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="X" style={{ marginRight: '10px', color: currentTheme.socialIconColor || currentTheme.textSecondary }}>
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                 </svg>
               </a>
-              <a href="https://www.linkedin.com/company/vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="LinkedIn" style={{ marginRight: '10px' }}>
+              <a href="https://www.linkedin.com/company/vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="LinkedIn" style={{ marginRight: '10px', color: currentTheme.socialIconColor || currentTheme.textSecondary }}>
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                 </svg>
               </a>
-              <a href="https://www.youtube.com/@vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="YouTube" style={{ marginRight: '10px' }}>
+              <a href="https://www.youtube.com/@vadenoriginal" target="_blank" rel="noopener noreferrer" className="app-footer__social-link" aria-label="YouTube" style={{ marginRight: '10px', color: currentTheme.socialIconColor || currentTheme.textSecondary }}>
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                 </svg>
               </a>
-              <div className="text-gray-100 text-xs whitespace-nowrap" style={{ paddingTop: '5px' }}>Yazılım/Tasarım MEY</div>
+              <div className="text-xs whitespace-nowrap" style={{ paddingTop: '5px', color: currentTheme.textSecondary }}>Yazılım/Tasarım MEY</div>
             </div>
           </div>
         </div>

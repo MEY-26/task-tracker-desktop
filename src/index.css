@@ -17,7 +17,7 @@ html, body {
   font-weight: 400;
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  background-color: var(--theme-bg, #242424);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -47,7 +47,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow-x: hidden;
-  background-color: #0b1120;
+  background-color: var(--theme-bg, #0b1120);
   color: rgba(255, 255, 255, 0.87);
 }
 
@@ -253,23 +253,26 @@ input[type="number"] {
 }
 
 /* Unified gray style for all form controls (exclude toggles) */
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
-textarea,
-select {
+/* Not: Inline style'ların çalışması için bu kurallar sadece style attribute'u olmayan input'lar için geçerli */
+/* Modal içindeki input alanları için App.css'deki kurallar kullanılıyor */
+/* Inline style'ı olan input'lar için bu kurallar uygulanmaz */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([style]),
+textarea:not([style]),
+select:not([style]) {
   background-color: var(--input-bg) !important;
   border: 1px solid var(--input-border) !important;
   color: var(--input-text) !important;
   border-radius: 0.5rem; /* 8px */
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"])::placeholder,
-textarea::placeholder {
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([style])::placeholder,
+textarea:not([style])::placeholder {
   color: var(--input-placeholder) !important;
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):focus,
-textarea:focus,
-select:focus {
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([style]):focus,
+textarea:not([style]):focus,
+select:not([style]):focus {
   outline: none !important;
   border-color: var(--input-focus) !important;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
