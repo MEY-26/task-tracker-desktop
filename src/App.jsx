@@ -590,24 +590,33 @@ function App() {
       const curStart1330 = at1330(curStart);
       const isSelectedCurrent = selStart.getTime() === curStart.getTime();
       const isSelectedFuture = selStart.getTime() > curStart.getTime();
+      const isSelectedPreviousWeek = selStart.getTime() === curStart.getTime() - (7 * 24 * 60 * 60 * 1000); // Önceki hafta (7 gün önce)
+      const isBefore1330 = now < curStart1330; // Mevcut hafta Pazartesi 13:30'dan önce mi?
 
       let targetsUnlocked = false;
-      // Gerçekleşme alanı sürekli açık (actuals_locked her zaman false)
+      let actualsUnlocked = false;
 
       if (isSelectedFuture) {
         // Future weeks: no locks at all
         targetsUnlocked = true;
+        actualsUnlocked = true; // Gelecek haftalar için gerçekleşme açık
       } else if (isSelectedCurrent) {
-        // Current week: targets closed after Mon 13:30
-        targetsUnlocked = now < curStart1330;
+        // Current week: targets closed after Mon 13:30, actuals always open
+        targetsUnlocked = isBefore1330;
+        actualsUnlocked = true; // İçinde bulunduğumuz hafta için gerçekleşme her zaman açık
+      } else if (isSelectedPreviousWeek) {
+        // Previous week: targets always locked, actuals open only if current week is before Mon 13:30
+        targetsUnlocked = false; // Önceki haftanın hedefleri her zaman kilitli
+        actualsUnlocked = isBefore1330; // Önceki haftanın gerçekleşmesi sadece mevcut hafta Pazartesi 13:30'dan önceyse açık
       } else {
-        // Past weeks: targets locked
+        // Older past weeks: both targets and actuals locked
         targetsUnlocked = false;
+        actualsUnlocked = false; // Daha eski geçmiş haftalar için gerçekleşme kilitli
       }
 
       return {
         targets_locked: !targetsUnlocked,
-        actuals_locked: false, // Gerçekleşme alanı sürekli açık
+        actuals_locked: !actualsUnlocked,
       };
     } catch (e) {
       console.warn('UI locks compute failed:', e);
@@ -616,10 +625,10 @@ function App() {
   }, [weeklyWeekStart]);
   const combinedLocks = useMemo(() => {
     const backendTargetsLocked = !!(weeklyGoals?.locks?.targets_locked);
-    // Gerçekleşme alanı sürekli açık (backend ve frontend'de false)
+    const backendActualsLocked = !!(weeklyGoals?.locks?.actuals_locked);
     return {
       targets_locked: backendTargetsLocked || uiLocks.targets_locked,
-      actuals_locked: false, // Gerçekleşme alanı sürekli açık
+      actuals_locked: backendActualsLocked || uiLocks.actuals_locked,
     };
   }, [weeklyGoals?.locks, uiLocks]);
 
@@ -3609,28 +3618,28 @@ function App() {
                 e.target.style.backgroundColor = currentTheme.accent;
               }}
               onClick={async () => {
-              if (!form.name.trim() || !form.email.trim() || !form.password || !form.password_confirmation) {
-                addNotification('Lütfen tüm alanları doldurun', 'error');
-                return;
-              }
-              if (form.password !== form.password_confirmation) {
-                addNotification('Şifreler eşleşmiyor', 'error');
-                return;
-              }
-              try {
-                // Eğer rol admin veya takım lideri ise leader_id'yi null'a sabitle (opsiyonel alan sadece üye için anlamlı)
-                const payload = {
-                  ...form,
-                  leader_id: (form.role === 'team_member') ? (form.leader_id ?? null) : null,
-                };
-                await registerUser(payload);
-                addNotification('Kullanıcı eklendi', 'success');
-                setForm({ name: '', email: '', password: '', password_confirmation: '', role: 'team_member', leader_id: null });
-                await loadUsers();
-              } catch (err) {
-                console.error('User registration error:', err);
-                addNotification(err.response?.data?.message || 'Kullanıcı eklenemedi', 'error');
-              }
+                if (!form.name.trim() || !form.email.trim() || !form.password || !form.password_confirmation) {
+                  addNotification('Lütfen tüm alanları doldurun', 'error');
+                  return;
+                }
+                if (form.password !== form.password_confirmation) {
+                  addNotification('Şifreler eşleşmiyor', 'error');
+                  return;
+                }
+                try {
+                  // Eğer rol admin veya takım lideri ise leader_id'yi null'a sabitle (opsiyonel alan sadece üye için anlamlı)
+                  const payload = {
+                    ...form,
+                    leader_id: (form.role === 'team_member') ? (form.leader_id ?? null) : null,
+                  };
+                  await registerUser(payload);
+                  addNotification('Kullanıcı eklendi', 'success');
+                  setForm({ name: '', email: '', password: '', password_confirmation: '', role: 'team_member', leader_id: null });
+                  await loadUsers();
+                } catch (err) {
+                  console.error('User registration error:', err);
+                  addNotification(err.response?.data?.message || 'Kullanıcı eklenemedi', 'error');
+                }
               }}
             >
               Kullanıcı Ekle
@@ -4173,15 +4182,15 @@ function App() {
                 </div>
 
                 {/* Bildirimler Butonu */}
-                  <button
-                    ref={bellRef}
-                    onClick={async () => {
-                      const next = !showNotifications;
-                      if (next) await loadNotifications();
-                      setShowNotifications(next);
-                    }}
+                <button
+                  ref={bellRef}
+                  onClick={async () => {
+                    const next = !showNotifications;
+                    if (next) await loadNotifications();
+                    setShowNotifications(next);
+                  }}
                   className="notification-bell relative rounded-lg overflow-visible transition-colors"
-                    aria-label="Bildirimler"
+                  aria-label="Bildirimler"
                   style={{
                     marginRight: '5px',
                     backgroundColor: currentTheme.accent,
@@ -4197,15 +4206,15 @@ function App() {
                   onMouseLeave={(e) => {
                     e.target.style.backgroundColor = currentTheme.accent;
                   }}
-                  >
-                    {badgeCount > 0 && (
-                      <span className="notification-badge">
-                        {badgeCount > 99 ? '99+' : badgeCount}
-                      </span>
-                    )}
+                >
+                  {badgeCount > 0 && (
+                    <span className="notification-badge">
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
 
-                    <span>🔔</span>
-                  </button>
+                  <span>🔔</span>
+                </button>
 
                 {/* Güncelleme Notları Butonu */}
                 <button
@@ -4282,11 +4291,11 @@ function App() {
                           className="overflow-y-auto no-scrollbar flex-1 min-h-0"
                           style={{ padding: '10px' }}
                         >
-                              <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center justify-between mb-3">
                             <h3 className="text-sm font-semibold" style={{ color: currentTheme.text }}>Bildirimler</h3>
-                                <button
-                                  onClick={markAllNotificationsAsRead}
-                                  disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
+                            <button
+                              onClick={markAllNotificationsAsRead}
+                              disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
                               className="text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               style={{
                                 backgroundColor: `${currentTheme.border}40`,
@@ -4295,34 +4304,34 @@ function App() {
                               }}
                               onMouseEnter={(e) => e.target.style.backgroundColor = `${currentTheme.border}60`}
                               onMouseLeave={(e) => e.target.style.backgroundColor = `${currentTheme.border}40`}
-                                >
-                                  Tümünü Oku
-                                </button>
-                              </div>
-                              {(!Array.isArray(notifications) || notifications.length === 0) ? (
+                            >
+                              Tümünü Oku
+                            </button>
+                          </div>
+                          {(!Array.isArray(notifications) || notifications.length === 0) ? (
                             <div className="p-4 text-center" style={{ color: currentTheme.textSecondary }}>Bildirim bulunmuyor</div>
-                              ) : (
-                                notifications.map(n => (
-                                  <div
-                                    key={n.id}
+                          ) : (
+                            notifications.map(n => (
+                              <div
+                                key={n.id}
                                 className={`p-3 last:border-b-0 transition-colors cursor-pointer`}
                                 style={{
                                   borderBottom: `1px solid ${currentTheme.border}`,
                                   backgroundColor: n.read_at ? `${currentTheme.border}20` : `${currentTheme.accent}20`
                                 }}
-                                    onClick={() => handleNotificationClick(n)}
+                                onClick={() => handleNotificationClick(n)}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${currentTheme.border}30`}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = n.read_at ? `${currentTheme.border}20` : `${currentTheme.accent}20`}
-                                  >
-                                    <div className="flex items-start">
-                                      <div className="flex-1">
+                              >
+                                <div className="flex items-start">
+                                  <div className="flex-1">
                                     <p className="text-sm" style={{ color: currentTheme.text }}>{n.message}</p>
                                     <p className="text-xs mt-1" style={{ color: currentTheme.textSecondary }}>{formatDate(n.created_at)}</p>
-                                      </div>
-                                    </div>
                                   </div>
-                                ))
-                              )}
+                                </div>
+                              </div>
+                            ))
+                          )}
                         </div>
 
                       </div>
@@ -4563,8 +4572,8 @@ function App() {
                                       addNotification(`${theme.name} uygulandı ve kaydedildi`, 'success');
                                     }}
                                     className={`p-4 rounded-lg border-2 transition-all ${currentThemeName === key
-                                        ? 'ring-2 ring-offset-2'
-                                        : 'hover:opacity-90'
+                                      ? 'ring-2 ring-offset-2'
+                                      : 'hover:opacity-90'
                                       }`}
                                     style={{
                                       backgroundColor: buttonBg,
@@ -5076,19 +5085,32 @@ function App() {
                                 <div className="flex items-center gap-4">
                                   <button
                                     onClick={() => {
-                                      const newTheme = { ...customTheme, logoType: customTheme.logoType === 'dark' ? 'light' : 'dark' };
-                                      setCustomTheme(newTheme);
-                                      setCurrentThemeName('custom');
+                                      // Eğer custom tema kullanılıyorsa, sadece logoType'ı değiştir
+                                      if (currentThemeName === 'custom') {
+                                        const newTheme = { ...customTheme, logoType: customTheme.logoType === 'dark' ? 'light' : 'dark' };
+                                        setCustomTheme(newTheme);
+                                      } else {
+                                        // Eğer önceden tanımlı bir tema kullanılıyorsa, o temanın ayarlarını customTheme'a kopyala
+                                        const baseTheme = predefinedThemes[currentThemeName] || predefinedThemes.dark;
+                                        // Mevcut logoType'ı belirle (varsa customTheme'dan, yoksa varsayılan 'dark')
+                                        const currentLogoType = customTheme.logoType || 'dark';
+                                        const newTheme = {
+                                          ...baseTheme,
+                                          logoType: currentLogoType === 'dark' ? 'light' : 'dark'
+                                        };
+                                        setCustomTheme(newTheme);
+                                        setCurrentThemeName('custom');
+                                      }
                                     }}
-                                    className="rounded-full transition-all cursor-pointer"
+                                    className="rounded-full transition-all cursor-pointer flex items-center justify-center"
                                     style={{
                                       width: '48px',
                                       height: '48px',
                                       minWidth: '48px',
                                       minHeight: '48px',
-                                      backgroundColor: customTheme.logoType === 'dark' ? currentTheme.accent : currentTheme.border,
+                                      backgroundColor: (currentTheme.logoType || customTheme.logoType || 'dark') === 'dark' ? '#000000' : '#ffffff',
                                       border: `2px solid ${currentTheme.border}`,
-                                      padding: '0',
+                                      padding: '4px',
                                       position: 'relative'
                                     }}
                                     title="Koyu logo: koyu arkaplanlar için, Açık logo: açık arkaplanlar için"
@@ -5101,8 +5123,8 @@ function App() {
                                       e.target.style.transform = 'scale(1)';
                                     }}
                                   >
-                                    <span style={{ 
-                                      color: '#ffffff', 
+                                    <span style={{
+                                      color: '#ffffff',
                                       fontSize: '10px',
                                       fontWeight: 'bold',
                                       position: 'absolute',
@@ -5114,15 +5136,31 @@ function App() {
                                       textAlign: 'center',
                                       padding: '2px'
                                     }}>
-                                      Logo<br />Tipi
                                     </span>
                                   </button>
                                   <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Logo Tipi</span>
-                                  <div style={{ minWidth: '100px' }}></div>
+                                  <div
+                                    className="flex items-center justify-center rounded-lg"
+                                    style={{
+                                      minWidth: '100px',
+                                      height: '48px',
+                                      backgroundColor: (currentTheme.logoType || customTheme.logoType || 'dark') === 'dark' ? '#ffffff' : '#000000',
+                                      border: `1px solid ${currentTheme.border}`,
+                                      padding: '8px'
+                                    }}
+                                  >
+                                    <img
+                                      src={(currentTheme.logoType || customTheme.logoType || 'dark') === 'dark' ? darkLogo : lightLogo}
+                                      alt="Logo Preview"
+                                      style={{
+                                        maxWidth: '100%',
+                                        maxHeight: '100%',
+                                        objectFit: 'contain'
+                                      }}
+                                    />
+                                  </div>
                                 </div>
-
                               </div>
-
                             </div>
                           </div>
                         </div>
@@ -5316,10 +5354,6 @@ function App() {
                       <div className="rounded-md p-3 sm:p-4" style={{
                         minHeight: '48px',
                         height: 'fit-content',
-                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
-                        borderColor: currentTheme.border,
-                        borderWidth: '1px',
-                        borderStyle: 'solid'
                       }}>
                         {newTask.assigned_users.length > 0 && (
                           <div className="flex flex-wrap gap-2 mb-3">
@@ -5342,8 +5376,8 @@ function App() {
                                       // Manuel olarak kaldırılan kullanıcıyı ref'e ekle
                                       manuallyRemovedUsersRef.current.add(userId);
                                       setNewTask({
-                                      ...newTask,
-                                      assigned_users: newTask.assigned_users.filter(id => id !== userId)
+                                        ...newTask,
+                                        assigned_users: newTask.assigned_users.filter(id => id !== userId)
                                       });
                                     }}
                                     className="flex items-center justify-center rounded-full transition-colors focus:outline-none"
@@ -5411,9 +5445,9 @@ function App() {
 
                           {showAssigneeDropdown && users && users.length > 0 && (
                             <div
-                              className="absolute w-full mt-1 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
+                              className="absolute w-full mt-1 rounded-md shadow-xl max-h-60 overflow-y-auto"
                               style={{
-                                backgroundColor: '#1f2937',
+                                backgroundColor: currentTheme.tableBackground || currentTheme.background,
                                 opacity: 1,
                                 zIndex: 2147483647,
                                 filter: 'none',
@@ -5421,7 +5455,8 @@ function App() {
                                 WebkitBackdropFilter: 'none',
                                 mixBlendMode: 'normal',
                                 isolation: 'isolate',
-                                pointerEvents: 'auto'
+                                pointerEvents: 'auto',
+                                border: `1px solid ${currentTheme.border}`
                               }}
                             >
                               {getEligibleAssignedUsers(newTask.responsible_id)
@@ -5432,8 +5467,18 @@ function App() {
                                 .map(u => (
                                   <div
                                     key={u.id}
-                                    className="px-3 sm:px-4 py-2 sm:py-3 hover:bg-blue-50 cursor-pointer text-[24px] sm:text-[24px] text-gray-900 border-gray-200 last:border-b-0 text-left"
-                                    style={{ backgroundColor: '#1f2937' }}
+                                    className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer text-[24px] sm:text-[24px] last:border-b-0 text-left"
+                                    style={{
+                                      backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.text,
+                                      borderBottom: `1px solid ${currentTheme.border}`
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.backgroundColor = currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.backgroundColor = currentTheme.tableBackground || currentTheme.background;
+                                    }}
                                     onClick={() => {
                                       // Eklenecek kullanıcı listesi
                                       let usersToAdd = [u.id];
@@ -5473,8 +5518,12 @@ function App() {
                                 !newTask.assigned_users.includes(u.id)
                               ).length === 0 && (
                                   <div
-                                    className="px-3 sm:px-4 py-2 sm:py-3 text-gray-500 text-[16px] sm:text-[24px] border-b border-gray-200"
-                                    style={{ backgroundColor: 'gray' }}
+                                    className="px-3 sm:px-4 py-2 sm:py-3 text-[16px] sm:text-[24px] border-b"
+                                    style={{
+                                      backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                                      color: currentTheme.textSecondary || currentTheme.text,
+                                      borderColor: currentTheme.border
+                                    }}
                                   >
                                     Kullanıcı bulunamadı
                                   </div>
@@ -6137,14 +6186,14 @@ function App() {
                           </tbody>
                         </table>
                       </div>
-                      {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin') && (
-                        <div className="mt-2" style={{ paddingBottom: '10px' }}>
-                          <button className="w-full rounded px-4 py-2 text-[24px] transition-colors"
+                      {user?.role !== 'observer' && (
+                        <div className="mt-2 flex gap-2" style={{ paddingBottom: '10px' }}>
+                          <button className="flex-1 rounded px-4 py-2 text-[24px] transition-colors"
                             disabled={combinedLocks.targets_locked && user?.role !== 'admin'}
                             style={{
-                              backgroundColor: (combinedLocks.targets_locked && user?.role !== 'admin') ? `${currentTheme.border}50` : currentTheme.accent,
-                              color: '#ffffff',
-                              opacity: (combinedLocks.targets_locked && user?.role !== 'admin') ? 0.6 : 1
+                              backgroundColor: (combinedLocks.targets_locked && user?.role !== 'admin') ? `${currentTheme.border}80` : currentTheme.accent,
+                              color: (combinedLocks.targets_locked && user?.role !== 'admin') ? currentTheme.textSecondary || currentTheme.text : '#ffffff',
+                              cursor: (combinedLocks.targets_locked && user?.role !== 'admin') ? 'not-allowed' : 'pointer'
                             }}
                             onMouseEnter={(e) => {
                               if (!(combinedLocks.targets_locked && user?.role !== 'admin')) {
@@ -6158,18 +6207,20 @@ function App() {
                             onMouseLeave={(e) => {
                               if (!(combinedLocks.targets_locked && user?.role !== 'admin')) {
                                 e.target.style.backgroundColor = currentTheme.accent;
+                              } else {
+                                e.target.style.backgroundColor = `${currentTheme.border}80`;
                               }
                             }}
                             onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', target_minutes: 0, weight_percent: 0, actual_minutes: 0, is_unplanned: false, is_completed: false }] }); }}
                           >
-                            İş Ekle</button>
+                            Ekle</button>
                           <button
-                            className="w-full rounded px-4 py-2 text-[24px] mt-2 transition-colors"
+                            className="flex-1 rounded px-4 py-2 text-[24px] transition-colors"
                             disabled={(combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...'}
                             style={{
-                              backgroundColor: ((combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...') ? `${currentTheme.border}50` : currentTheme.accent,
-                              color: '#ffffff',
-                              opacity: ((combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...') ? 0.6 : 1
+                              backgroundColor: ((combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...') ? `${currentTheme.border}80` : currentTheme.accent,
+                              color: ((combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...') ? currentTheme.textSecondary || currentTheme.text : '#ffffff',
+                              cursor: ((combinedLocks.targets_locked && user?.role !== 'admin') || transferButtonText === 'Aktarılıyor...') ? 'not-allowed' : 'pointer'
                             }}
                             onMouseEnter={(e) => {
                               if (!(combinedLocks.targets_locked && user?.role !== 'admin') && transferButtonText !== 'Aktarılıyor...') {
@@ -6183,6 +6234,8 @@ function App() {
                             onMouseLeave={(e) => {
                               if (!(combinedLocks.targets_locked && user?.role !== 'admin') && transferButtonText !== 'Aktarılıyor...') {
                                 e.target.style.backgroundColor = currentTheme.accent;
+                              } else {
+                                e.target.style.backgroundColor = `${currentTheme.border}80`;
                               }
                             }}
                             onClick={transferIncompleteTasksFromPreviousWeek}
@@ -6365,14 +6418,14 @@ function App() {
                           </tbody>
                         </table>
                       </div>
-                      {user?.role !== 'observer' && (!combinedLocks.actuals_locked || user?.role === 'admin') && (
+                      {user?.role !== 'observer' && (
                         <div className="mt-2" style={{ paddingBottom: '10px' }}>
                           <button className="w-full rounded px-4 py-2 text-[24px] transition-colors"
                             disabled={combinedLocks.actuals_locked && user?.role !== 'admin'}
                             style={{
-                              backgroundColor: (combinedLocks.actuals_locked && user?.role !== 'admin') ? `${currentTheme.border}50` : currentTheme.accent,
-                              color: '#ffffff',
-                              opacity: (combinedLocks.actuals_locked && user?.role !== 'admin') ? 0.6 : 1
+                              backgroundColor: (combinedLocks.actuals_locked && user?.role !== 'admin') ? `${currentTheme.border}80` : currentTheme.accent,
+                              color: (combinedLocks.actuals_locked && user?.role !== 'admin') ? currentTheme.textSecondary || currentTheme.text : '#ffffff',
+                              cursor: (combinedLocks.actuals_locked && user?.role !== 'admin') ? 'not-allowed' : 'pointer'
                             }}
                             onMouseEnter={(e) => {
                               if (!(combinedLocks.actuals_locked && user?.role !== 'admin')) {
@@ -6386,11 +6439,13 @@ function App() {
                             onMouseLeave={(e) => {
                               if (!(combinedLocks.actuals_locked && user?.role !== 'admin')) {
                                 e.target.style.backgroundColor = currentTheme.accent;
+                              } else {
+                                e.target.style.backgroundColor = `${currentTheme.border}80`;
                               }
                             }}
                             onClick={() => { setWeeklyGoals({ ...weeklyGoals, items: [...weeklyGoals.items, { title: '', action_plan: '', actual_minutes: 0, is_unplanned: true, is_completed: false }] }); }}
                           >
-                            İş Ekle</button>
+                            Ekle</button>
                         </div>
                       )}
                     </div>
@@ -6512,7 +6567,7 @@ function App() {
                           style={{
                             backgroundColor: weeklySaveState === 'saving'
                               ? currentTheme.accent
-                            : weeklySaveState === 'saved'
+                              : weeklySaveState === 'saved'
                                 ? '#10b981'
                                 : '#10b981',
                             color: '#ffffff',
@@ -6938,16 +6993,45 @@ function App() {
                             color: currentTheme.text,
                             borderColor: currentTheme.border
                           }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = currentTheme.accent;
+                            e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = currentTheme.border;
+                            e.target.style.boxShadow = 'none';
+                          }}
                         >
-                          <option value="all">Tüm Türler</option>
+                          <option 
+                            value="all"
+                            style={{
+                              backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                              color: currentTheme.text
+                            }}
+                          >
+                            Tüm Türler
+                          </option>
                           {getAllTaskTypes().map(taskType => (
-                            <option key={taskType.value} value={taskType.value}>
+                            <option 
+                              key={taskType.value} 
+                              value={taskType.value}
+                              style={{
+                                backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text
+                              }}
+                            >
                               {taskType.label}
                             </option>
                           ))}
                         </select>
                         <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg 
+                            className="w-4 h-4" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                            style={{ color: currentTheme.textSecondary || currentTheme.text }}
+                          >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
                         </div>
@@ -7092,7 +7176,7 @@ function App() {
                           {task.no || `-`}
                         </div>
                         <div className="px-2 text-left">
-                          <div className="text-xs xs:text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: currentTheme.accent }}>
+                          <div className="text-xs xs:text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis" style={{ color: currentTheme.text }}>
                             {task.title || `Görev ${task.id}`}
                           </div>
                         </div>
@@ -8634,8 +8718,8 @@ function App() {
                                 e.target.style.backgroundColor = currentTheme.accent;
                               }}
                               onClick={async () => {
-                              setShowTeamModal(false); setWeeklyUserId(m.id);
-                              setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
+                                setShowTeamModal(false); setWeeklyUserId(m.id);
+                                setShowWeeklyGoals(true); await loadWeeklyGoals(null, m.id);
                               }}>Hedefleri Aç</button>
                           </div>
                         ))
@@ -9550,8 +9634,8 @@ function App() {
                             <div className="font-medium mb-4 !text-[24px]" style={{ paddingTop: '10px' }}>
                               {(() => {
                                 const allTypes = getAllTaskTypes();
-                                const foundType = allTypes.find(type => 
-                                  type.value == selectedTaskTypeForStatuses || 
+                                const foundType = allTypes.find(type =>
+                                  type.value == selectedTaskTypeForStatuses ||
                                   type.id == selectedTaskTypeForStatuses
                                 );
                                 return foundType ? foundType.label : 'Geliştirme';

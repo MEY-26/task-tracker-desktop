@@ -316,7 +316,7 @@ select {
   padding-right: 2rem !important; /* space for arrow */
   border-radius: 0.5rem !important;
 }
-select:hover {
+select:not([style]):hover {
   background-color: #273244 !important; /* slightly lighter than bg */
   border-color: #4b5563 !important;
 }
