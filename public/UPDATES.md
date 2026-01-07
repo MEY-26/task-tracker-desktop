@@ -1,4 +1,4 @@
-## v2.10.5 - 06.01.2026
+## v2.10.5 - 07.01.2026
 
 ### Yeni Özellikler
 **Kapsamlı Tema Sistemi**: 
@@ -7,7 +7,7 @@
   - Özel tema oluşturma: 9 farklı renk özelleştirme seçeneği
   - Logo tipi seçimi (Koyu/Açık logo)
   - Tema ayarları kullanıcı hesabına kaydediliyor ve otomatik yükleniyor
-  - Tüm UI bileşenlerine tema uygulandı (input'lar, butonlar, tablolar, modaller, dropdown'lar)
+  - Tüm UI bileşenlerine tema uygulandı (input'lar, butonlar, tablolar)
 
 ### Değişiklikler
 **Haftalık Hedefler Kilitleme Kuralları Yeniden Düzenlendi**:

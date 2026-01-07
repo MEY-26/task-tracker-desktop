@@ -327,6 +327,8 @@ select::-ms-expand { display: none; }
   padding: 0.75rem !important;
   min-height: 3rem !important;
   min-width: 3rem !important;
+  background-color: unset !important;
+  color: unset !important;
 }
 
 .notification-badge {
@@ -353,6 +355,8 @@ select::-ms-expand { display: none; }
   padding: 0.75rem !important;
   min-height: 3rem !important;
   min-width: 3rem !important;
+  background-color: unset !important;
+  color: unset !important;
 }
 
 .profile-icon .user-icon {
@@ -368,11 +372,23 @@ select::-ms-expand { display: none; }
   align-items: center !important;
   justify-content: center !important;
   gap: 0.5rem !important;
+  background-color: unset !important;
+  color: unset !important;
 }
 
 .add-task-button .add-icon {
   font-size: 1.5rem !important;
   font-weight: bold !important;
+  background-color: transparent !important;
+}
+
+/* Buton hover efektlerini kaldır */
+.add-task-button:hover,
+.profile-icon:hover,
+.notification-bell:hover {
+  background-color: inherit !important;
+  transform: none !important;
+  opacity: 1 !important;
 }
 
 /* Weekly Goals modal header layout: title centered, close on left */

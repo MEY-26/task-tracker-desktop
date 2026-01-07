@@ -90,7 +90,7 @@ const PriorityLabelWithTooltip = ({ htmlFor }) => {
 };
 
 // Tooltip component with dynamic positioning using fixed positioning
-const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, formatDateOnly, getLastAddedDescription }) => {
+const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, formatDateOnly, getLastAddedDescription, currentTheme }) => {
   const [tooltipPosition, setTooltipPosition] = useState({ visible: false, top: 0, left: 0, arrowPosition: 'bottom', arrowLeft: 0 });
   const statusRef = useRef(null);
 
@@ -153,20 +153,22 @@ const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, for
         className="w-8 h-8 rounded-full cursor-help shadow-lg transition-all duration-200 hover:scale-110"
         style={{
           backgroundColor: getStatusColor(task.status, task),
-          border: '3px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: `0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)`,
+          border: `3px solid ${currentTheme?.border || 'rgba(255, 255, 255, 0.3)'}`,
+          boxShadow: `0 4px 12px ${currentTheme?.background || 'rgba(0, 0, 0, 0.3)'}80, 0 0 0 1px ${currentTheme?.border || 'rgba(255, 255, 255, 0.1)'}`,
           width: '24px',
           height: '24px'
         }}
       ></div>
       {tooltipPosition.visible && (
         <div
-          className="fixed px-4 py-3 text-white text-xs rounded-lg shadow-xl border border-gray-500 transition-opacity duration-200 pointer-events-none z-[9999]"
+          className="fixed px-4 py-3 text-xs rounded-lg shadow-xl transition-opacity duration-200 pointer-events-none z-[9999]"
           style={{
             top: `${tooltipPosition.top}px`,
             left: `${tooltipPosition.left}px`,
             opacity: 1,
-            backgroundColor: 'rgba(17, 24, 39, 0.98)',
+            backgroundColor: currentTheme?.tableBackground || currentTheme?.background || 'rgba(17, 24, 39, 0.98)',
+            color: currentTheme?.text || '#ffffff',
+            border: `1px solid ${currentTheme?.border || 'rgba(156, 163, 175, 1)'}`,
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             minWidth: '300px',
@@ -175,9 +177,9 @@ const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, for
           }}
           onMouseEnter={(e) => e.stopPropagation()}
         >
-          <div className="text-justify">Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
-          <div className="text-justify">Durum: {getStatusText(task.status, task)}</div>
-          <div className="max-w-full break-words whitespace-normal text-justify">{getLastAddedDescription()}</div>
+          <div className="text-justify" style={{ color: currentTheme?.text || '#ffffff' }}>Bitiş Tarihi: {task.due_date ? formatDateOnly(task.due_date) : 'Belirtilmemiş'}</div>
+          <div className="text-justify" style={{ color: currentTheme?.text || '#ffffff' }}>Durum: {getStatusText(task.status, task)}</div>
+          <div className="max-w-full break-words whitespace-normal text-justify" style={{ color: currentTheme?.text || '#ffffff' }}>{getLastAddedDescription()}</div>
           <div
             className="absolute w-0 h-0 border-l-4 border-r-4"
             style={{
@@ -186,7 +188,7 @@ const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, for
               transform: 'translateX(-50%)',
               [tooltipPosition.arrowPosition === 'top'
                 ? 'borderTopColor'
-                : 'borderBottomColor']: 'rgba(17, 24, 39, 0.98)',
+                : 'borderBottomColor']: currentTheme?.tableBackground || currentTheme?.background || 'rgba(17, 24, 39, 0.98)',
               [tooltipPosition.arrowPosition === 'top'
                 ? 'borderBottomColor'
                 : 'borderTopColor']: 'transparent',
@@ -315,6 +317,7 @@ function App() {
   const assigneeDetailInputRef = useRef(null);
   const [weeklySaveState, setWeeklySaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const [showThemePanel, setShowThemePanel] = useState(false);
+  const [themeSaveState, setThemeSaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const isInitialThemeLoadRef = useRef(true);
 
   // Hazır temalar
@@ -393,22 +396,22 @@ function App() {
     }
   };
 
-  // Özel tema state'i (başlangıçta dark tema değerleriyle)
+  // Özel tema state'i (başlangıçta light tema değerleriyle)
   const [customTheme, setCustomTheme] = useState({
-    background: '#0f172a',
-    text: '#e2e8f0',
-    textSecondary: '#94a3b8',
+    background: '#f8fafc',
+    text: '#1e293b',
+    textSecondary: '#64748b',
     accent: '#3b82f6',
-    border: '#334155',
-    tableBackground: '#1e293b',
-    tableRowAlt: '#1a2332',
-    tableHeader: '#334155',
-    logoType: 'dark', // 'dark' veya 'light'
-    socialIconColor: '#94a3b8'
+    border: '#e2e8f0',
+    tableBackground: '#ffffff',
+    tableRowAlt: '#f1f5f9',
+    tableHeader: '#e2e8f0',
+    logoType: 'dark', // 'dark' veya 'light' (light temada dark logo kullanılır)
+    socialIconColor: '#475569'
   });
 
   // Mevcut tema (hazır tema adı veya 'custom')
-  const [currentThemeName, setCurrentThemeName] = useState('dark');
+  const [currentThemeName, setCurrentThemeName] = useState('light');
   const [isThemeLoading, setIsThemeLoading] = useState(true);
 
   // Tema objesi (hazır tema veya özel tema)
@@ -494,20 +497,16 @@ function App() {
     loadUserTheme();
   }, [user]);
 
-  // Tema değiştiğinde backend'e kaydet (sadece kullanıcı manuel değiştirdiğinde)
+  // Tema değiştiğinde backend'e kaydet (sadece tema paneli kapalıyken ve kullanıcı manuel değiştirdiğinde)
   useEffect(() => {
-    if (!user || isThemeLoading || isInitialThemeLoadRef.current) {
-      if (isInitialThemeLoadRef.current) {
-        console.log('Skipping save - initial theme load in progress');
-      }
+    if (!user || isThemeLoading || isInitialThemeLoadRef.current || showThemePanel) {
+      // Tema paneli açıkken kaydetme işlemi sadece "Kaydet" butonuna basıldığında yapılacak
       return;
     }
 
     const saveUserTheme = async () => {
       try {
-        console.log('Saving theme to backend:', currentThemeName, currentThemeName === 'custom' ? customTheme : null);
         await saveTheme(currentThemeName, currentThemeName === 'custom' ? customTheme : null);
-        console.log('Theme saved successfully:', currentThemeName);
       } catch (error) {
         console.error('Failed to save theme to backend:', error);
         // Fallback to localStorage if backend fails
@@ -519,7 +518,26 @@ function App() {
     };
 
     saveUserTheme();
-  }, [currentThemeName, customTheme, user, isThemeLoading]);
+  }, [currentThemeName, customTheme, user, isThemeLoading, showThemePanel]);
+
+  // Tema ayarları açıldığında customTheme'i currentTheme ile senkronize et (sadece bir kez)
+  const prevShowThemePanelRef = useRef(false);
+  useEffect(() => {
+    // Sadece modal yeni açıldığında çalış (false -> true geçişi)
+    if (showThemePanel && !prevShowThemePanelRef.current) {
+      // Mevcut aktif temanın renklerini customTheme'e kopyala
+      const themeToSync = {
+        ...currentTheme,
+        logoType: currentTheme.logoType || (currentThemeName === 'light' ? 'dark' : 'light'),
+        socialIconColor: currentTheme.socialIconColor || currentTheme.textSecondary,
+        tableHeader: currentTheme.tableHeader || currentTheme.border
+      };
+      setCustomTheme(themeToSync);
+      setThemeSaveState('idle'); // Modal açıldığında kaydet durumunu sıfırla
+    }
+    prevShowThemePanelRef.current = showThemePanel;
+  }, [showThemePanel, currentTheme, currentThemeName]);
+
 
   // Tema CSS değişkenlerini uygula
   useEffect(() => {
@@ -537,6 +555,7 @@ function App() {
     root.style.setProperty('--theme-table-header', currentTheme.tableHeader || currentTheme.tableBackground || currentTheme.background);
     root.style.setProperty('--theme-table-row-alt', currentTheme.tableRowAlt || currentTheme.background);
     root.style.setProperty('--theme-social-icon', currentTheme.socialIconColor || currentTheme.textSecondary);
+    root.style.setProperty('--theme-placeholder', currentTheme.textSecondary || currentTheme.text);
 
     // Placeholder rengi için CSS değişkeni
     root.style.setProperty('--theme-placeholder', currentTheme.textSecondary);
@@ -3830,17 +3849,27 @@ function App() {
 
   if (!user && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4 z-[999800]">
-        <div className="bg-black/20 backdrop-blur-sm rounded-2xl border-gray-800/50 p-8 shadow-2xl w-full max-w-md" style={{ minWidth: '400px', maxWidth: '400px' }}>
+      <div className="min-h-screen flex items-center justify-center p-4 z-[999800]" style={{ backgroundColor: currentTheme.background }}>
+        <div className="rounded-2xl p-8 shadow-2xl w-full max-w-md" style={{
+          minWidth: '400px',
+          maxWidth: '400px',
+          backgroundColor: 'transparent',
+        }}>
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">
               <img src={currentLogo || logo} alt="Logo" className="w-16 h-16" onError={(e) => { e.target.src = logo; }} />
             </div>
-            <h2 className="text-4xl font-bold text-white tracking-wider">Görev Takip Sistemi</h2>
+            <h2 className="text-4xl font-bold tracking-wider" style={{ color: currentTheme.text }}>Görev Takip Sistemi</h2>
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-6">
+            <div className="px-4 py-3 rounded-xl mb-6" style={{
+              backgroundColor: `${currentTheme.accent}20`,
+              borderColor: currentTheme.accent,
+              borderWidth: '1px',
+              borderStyle: 'solid',
+              color: currentTheme.text
+            }}>
               {error}
             </div>
           )}
@@ -3864,38 +3893,68 @@ function App() {
             }
           }} className="space-y-6">
             <div>
-              <label className="block text-white text-[24px] font-medium mb-3 items-left flex">
+              <label className="block text-[24px] font-medium mb-3 items-left flex" style={{ color: currentTheme.text }}>
                 E-mail
               </label>
               <input
                 type="email"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 text-gray-900 focus:outline-none focus:ring-0 text-base text-[24px]"
+                className="w-full border-0 rounded-xl px-4 py-4 focus:outline-none focus:ring-0 text-base text-[24px]"
                 placeholder="Mail Adresinizi Giriniz"
                 required
-                style={{ height: '40px' }}
+                style={{
+                  height: '40px',
+                  backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                  color: currentTheme.text,
+                  borderColor: currentTheme.border,
+                  borderWidth: '1px',
+                  borderStyle: 'solid'
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = currentTheme.accent;
+                  e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = currentTheme.border;
+                  e.target.style.boxShadow = 'none';
+                }}
               />
             </div>
             <br />
             {!showForgotPassword && (
               <div>
-                <label className="block text-white text-[24px] font-medium mb-3 items-left flex">
+                <label className="block text-[24px] font-medium mb-3 items-left flex" style={{ color: currentTheme.text }}>
                   Şifre
                 </label>
-                <div className="relative">
+                <div className="w-full relative">
                   <input
                     type="password"
                     value={loginForm.password}
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 pr-12 text-gray-900 focus:outline-none focus:ring-0 text-base text-[24px]"
+                    className="w-full border-0 rounded-xl px-4 py-4 pr-12 focus:outline-none focus:ring-0 text-base text-[24px]"
                     placeholder="Şifrenizi Giriniz"
                     required
                     autoComplete="current-password"
                     autoCorrect="off"
                     autoCapitalize="off"
                     spellCheck="false"
-                    style={{ height: '40px' }}
+                    style={{
+                      height: '40px',
+                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                      color: currentTheme.text,
+                      borderColor: currentTheme.border,
+                      borderWidth: '1px',
+                      borderStyle: 'solid'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = currentTheme.accent;
+                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = currentTheme.border;
+                      e.target.style.boxShadow = 'none';
+                    }}
                   />
                 </div>
                 <br />
@@ -3904,7 +3963,27 @@ function App() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl disabled:opacity-50"
+              className="w-full font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl"
+              style={{
+                backgroundColor: loading ? `${currentTheme.border}60` : currentTheme.accent,
+                color: '#ffffff',
+                opacity: loading ? 0.6 : 1,
+                cursor: loading ? 'not-allowed' : 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  const hex = currentTheme.accent.replace('#', '');
+                  const r = parseInt(hex.substr(0, 2), 16);
+                  const g = parseInt(hex.substr(2, 2), 16);
+                  const b = parseInt(hex.substr(4, 2), 16);
+                  e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) {
+                  e.target.style.backgroundColor = currentTheme.accent;
+                }
+              }}
             >
               {loading
                 ? (showForgotPassword ? 'Talep Gönderiliyor...' : 'Giriş yapılıyor...')
@@ -3924,7 +4003,21 @@ function App() {
                   setError(null);
                 }
               }}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl disabled:opacity-50"
+              className="w-full font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl"
+              style={{
+                backgroundColor: currentTheme.accent,
+                color: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                const hex = currentTheme.accent.replace('#', '');
+                const r = parseInt(hex.substr(0, 2), 16);
+                const g = parseInt(hex.substr(2, 2), 16);
+                const b = parseInt(hex.substr(4, 2), 16);
+                e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = currentTheme.accent;
+              }}
             >
               {showForgotPassword ? 'Geri' : 'Şifremi Unuttum'}
             </button>
@@ -3965,20 +4058,12 @@ function App() {
                     style={{
                       marginRight: '5px',
                       backgroundColor: currentTheme.accent,
-                      color: '#ffffff'
-                    }}
-                    onMouseEnter={(e) => {
-                      const hex = currentTheme.accent.replace('#', '');
-                      const r = parseInt(hex.substr(0, 2), 16);
-                      const g = parseInt(hex.substr(2, 2), 16);
-                      const b = parseInt(hex.substr(4, 2), 16);
-                      e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = currentTheme.accent;
+                      color: '#ffffff',
+                      border: `1px solid ${currentTheme.border}`,
+                      cursor: 'pointer'
                     }}
                   >
-                    <span className="add-icon">➕</span>
+                    <span className="add-icon" style={{ color: '#ffffff' }}>➕</span>
                   </button>
                 )}
 
@@ -3986,27 +4071,19 @@ function App() {
                 <div className="relative profile-menu">
                   <button
                     onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="profile-icon text-xs sm:text-sm font-medium rounded-lg transition-colors flex items-center space-x-2 shadow-md"
+                    className="profile-icon text-xs sm:text-sm font-medium rounded-lg flex items-center space-x-2 shadow-md"
                     title={user?.email || ''}
                     style={{
                       marginRight: '5px',
                       backgroundColor: currentTheme.accent,
-                      color: '#ffffff'
-                    }}
-                    onMouseEnter={(e) => {
-                      const hex = currentTheme.accent.replace('#', '');
-                      const r = parseInt(hex.substr(0, 2), 16);
-                      const g = parseInt(hex.substr(2, 2), 16);
-                      const b = parseInt(hex.substr(4, 2), 16);
-                      e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = currentTheme.accent;
+                      color: '#ffffff',
+                      border: `1px solid ${currentTheme.border}`,
+                      cursor: 'pointer'
                     }}
                   >
-                    <span className="user-icon">👤</span>
-                    <span className="hidden xs:inline text-xs xs:text-sm">{user?.name || 'Kullanıcı'}</span>
-                    <span className="text-xs hidden sm:inline">▼</span>
+                    <span className="user-icon" style={{ color: '#ffffff' }}>👤</span>
+                    <span className="hidden xs:inline text-xs xs:text-sm" style={{ color: '#ffffff' }}>{user?.name || 'Kullanıcı'}</span>
+                    <span className="text-xs hidden sm:inline" style={{ color: '#ffffff' }}>▼</span>
                   </button>
 
                   {showProfileMenu && (
@@ -4189,22 +4266,14 @@ function App() {
                     if (next) await loadNotifications();
                     setShowNotifications(next);
                   }}
-                  className="notification-bell relative rounded-lg overflow-visible transition-colors"
+                  className="notification-bell relative rounded-lg overflow-visible"
                   aria-label="Bildirimler"
                   style={{
                     marginRight: '5px',
                     backgroundColor: currentTheme.accent,
-                    color: '#ffffff'
-                  }}
-                  onMouseEnter={(e) => {
-                    const hex = currentTheme.accent.replace('#', '');
-                    const r = parseInt(hex.substr(0, 2), 16);
-                    const g = parseInt(hex.substr(2, 2), 16);
-                    const b = parseInt(hex.substr(4, 2), 16);
-                    e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = currentTheme.accent;
+                    color: '#ffffff',
+                    border: `1px solid ${currentTheme.border}`,
+                    cursor: 'pointer'
                   }}
                 >
                   {badgeCount > 0 && (
@@ -4213,7 +4282,7 @@ function App() {
                     </span>
                   )}
 
-                  <span>🔔</span>
+                  <span style={{ color: '#ffffff' }}>🔔</span>
                 </button>
 
                 {/* Güncelleme Notları Butonu */}
@@ -4237,7 +4306,7 @@ function App() {
                       console.error('Error opening updates modal:', err);
                     }
                   }}
-                  className="add-task-button rounded-lg overflow-visible transition-colors"
+                  className="add-task-button rounded-lg overflow-visible"
                   aria-label="Güncelleme Notları"
                   title="Güncelleme Notları"
                   style={{
@@ -4245,20 +4314,11 @@ function App() {
                     backgroundColor: currentTheme.accent || '#3b82f6',
                     color: '#ffffff',
                     cursor: 'pointer',
-                    pointerEvents: 'auto'
-                  }}
-                  onMouseEnter={(e) => {
-                    const hex = (currentTheme.accent || '#3b82f6').replace('#', '');
-                    const r = parseInt(hex.substr(0, 2), 16);
-                    const g = parseInt(hex.substr(2, 2), 16);
-                    const b = parseInt(hex.substr(4, 2), 16);
-                    e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = currentTheme.accent || '#3b82f6';
+                    pointerEvents: 'auto',
+                    border: `1px solid ${currentTheme.border}`
                   }}
                 >
-                  <span>📋</span>
+                  <span style={{ color: '#ffffff' }}>📋</span>
                 </button>
                 {showNotifications && createPortal(
                   <>
@@ -4379,7 +4439,7 @@ function App() {
                             }}
                             aria-label="Kapat"
                           >
-                            X
+                            ✕
                           </button>
                         </div>
 
@@ -4400,7 +4460,12 @@ function App() {
                             }}
                             dangerouslySetInnerHTML={{
                               __html: (() => {
-                                if (!updatesContent) return '<p style="color: #d1d5db;">Güncelleme notları yükleniyor...</p>';
+                                const textColor = currentTheme.text;
+                                const textSecondaryColor = currentTheme.textSecondary || currentTheme.text;
+                                const accentColor = currentTheme.accent;
+                                const borderColor = currentTheme.border;
+
+                                if (!updatesContent) return `<p style="color: ${textSecondaryColor};">Güncelleme notları yükleniyor...</p>`;
                                 let html = updatesContent;
 
                                 // Liste öğelerini işle (girintili ve girintisiz)
@@ -4439,7 +4504,7 @@ function App() {
                                     // Liste başlat veya seviye değiştir
                                     if (!inList) {
                                       for (let j = 0; j <= currentLevel; j++) {
-                                        processedLines.push(`<ul style="margin: ${j === 0 ? '1rem' : '0.5rem'} 0; padding-left: ${j === 0 ? '1.5rem' : '2rem'}; list-style-type: ${j === 0 ? 'disc' : 'circle'};">`);
+                                        processedLines.push(`<ul style="margin: ${j === 0 ? '1rem' : '0.5rem'} 0; padding-left: ${j === 0 ? '1.5rem' : '2rem'}; list-style-type: ${j === 0 ? 'disc' : 'circle'}; color: ${textColor};">`);
                                       }
                                       inList = true;
                                       listLevel = currentLevel + 1;
@@ -4454,14 +4519,14 @@ function App() {
                                       } else if (currentLevel >= listLevel) {
                                         // Seviye arttı
                                         for (let j = listLevel; j <= currentLevel; j++) {
-                                          processedLines.push(`<ul style="margin: 0.5rem 0; padding-left: 2rem; list-style-type: circle;">`);
+                                          processedLines.push(`<ul style="margin: 0.5rem 0; padding-left: 2rem; list-style-type: circle; color: ${textColor};">`);
                                         }
                                         listLevel = currentLevel + 1;
                                       }
                                     }
 
                                     // Liste öğesini ekle
-                                    processedLines.push(`<li style="margin-bottom: 0.5rem; color: #d1d5db; line-height: 1.6;">${content}</li>`);
+                                    processedLines.push(`<li style="margin-bottom: 0.5rem; color: ${textColor}; line-height: 1.6;">${content}</li>`);
                                   } else {
                                     // Liste öğesi değil
                                     if (inList) {
@@ -4486,15 +4551,17 @@ function App() {
                                 html = processedLines.join('\n');
 
                                 // H1 başlıklar
-                                html = html.replace(/^# (.+)$/gm, '<h1 style="color: #60a5fa; font-size: 1.75rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid #3b82f6; padding-bottom: 0.5rem;">$1</h1>');
+                                html = html.replace(/^# (.+)$/gm, `<h1 style="color: ${accentColor}; font-size: 1.75rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid ${accentColor}; padding-bottom: 0.5rem;">$1</h1>`);
                                 // H2 başlıklar
-                                html = html.replace(/^## (.+)$/gm, '<h2 style="color: #a78bfa; font-size: 1.5rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem;">$1</h2>');
+                                html = html.replace(/^## (.+)$/gm, `<h2 style="color: ${accentColor}; font-size: 1.5rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem;">$1</h2>`);
                                 // H3 başlıklar
-                                html = html.replace(/^### (.+)$/gm, '<h3 style="color: #c084fc; font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>');
+                                html = html.replace(/^### (.+)$/gm, `<h3 style="color: ${accentColor}; font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>`);
                                 // Yatay çizgi
-                                html = html.replace(/^---$/gm, '<hr style="border: none; border-top: 1px solid #374151; margin: 2rem 0;" />');
+                                html = html.replace(/^---$/gm, `<hr style="border: none; border-top: 1px solid ${borderColor}; margin: 2rem 0;" />`);
                                 // Kalın yazı
-                                html = html.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #fbbf24; font-weight: bold;">$1</strong>');
+                                html = html.replace(/\*\*(.+?)\*\*/g, `<strong style="color: ${accentColor}; font-weight: bold;">$1</strong>`);
+                                // Paragraflar için tema rengi
+                                html = html.replace(/^<p>/gm, `<p style="color: ${textColor};">`);
 
                                 return html;
                               })()
@@ -4510,7 +4577,13 @@ function App() {
                 {/* Tema Ayarları Modal */}
                 {showThemePanel && createPortal(
                   <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
-                    <div className="absolute inset-0" onClick={() => setShowThemePanel(false)} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
+                    <div className="absolute inset-0" onClick={() => { 
+                      setShowThemePanel(false);
+                      // Tema kaydetme işleminin tamamlanması için kısa bir delay
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 300);
+                    }} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
                     <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
                       <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
                         pointerEvents: 'auto',
@@ -4528,7 +4601,13 @@ function App() {
                           <div></div>
                           <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Tema Ayarları</h2>
                           <div className="justify-self-end">
-                            <button onClick={() => setShowThemePanel(false)}
+                            <button onClick={() => { 
+                              setShowThemePanel(false);
+                              // Tema kaydetme işleminin tamamlanması için kısa bir delay
+                              setTimeout(() => {
+                                window.location.reload();
+                              }, 300);
+                            }}
                               className="rounded px-2 py-1 transition-colors"
                               style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                               onMouseEnter={(e) => {
@@ -4569,18 +4648,13 @@ function App() {
                                         tableHeader: theme.tableHeader || theme.border
                                       });
                                       setCurrentThemeName(key);
-                                      addNotification(`${theme.name} uygulandı ve kaydedildi`, 'success');
+                                      setThemeSaveState('idle'); // Tema değişti, kaydet durumunu sıfırla
                                     }}
-                                    className={`p-4 rounded-lg border-2 transition-all ${currentThemeName === key
-                                      ? 'ring-2 ring-offset-2'
-                                      : 'hover:opacity-90'
-                                      }`}
+                                    className="p-4 rounded-lg border-2 transition-all hover:opacity-90"
                                     style={{
                                       backgroundColor: buttonBg,
                                       color: theme.text,
-                                      borderColor: currentThemeName === key ? currentTheme.accent : currentTheme.border,
-                                      ringColor: currentThemeName === key ? currentTheme.accent : 'transparent',
-                                      ringOffsetColor: currentThemeName === key ? currentTheme.background : 'transparent'
+                                      borderColor: currentTheme.border
                                     }}
                                   >
                                     <div className="flex items-center justify-between mb-2">
@@ -4601,19 +4675,14 @@ function App() {
                           {/* Tema Özelleştirme */}
                           <div className="rounded-xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                             <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>
-                              Tema Özelleştirme
-                              {currentThemeName !== 'custom' && (
-                                <span className="ml-2 text-sm font-normal" style={{ color: currentTheme.textSecondary }}>
-                                  ({predefinedThemes[currentThemeName]?.name || 'Seçili Tema'} temel alınarak özelleştiriliyor)
-                                </span>
-                              )}
+                              Tema Özelleştirme                              
                             </h3>
                             <div className="space-y-4">
                               {/* Renk Seçimleri - 2 Sütunlu Düzen (Sol 5, Sağ 5) */}
                               <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                                 {/* Sol Sütun - İlk 5 */}
                                 {/* Arkaplan Rengi */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.background}
@@ -4621,6 +4690,7 @@ function App() {
                                       const newTheme = { ...customTheme, background: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4630,7 +4700,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.background,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Arkaplan rengi"
                                   />
@@ -4642,6 +4716,7 @@ function App() {
                                       const newTheme = { ...customTheme, background: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -4665,7 +4740,7 @@ function App() {
                                 </div>
 
                                 {/* Tablo Arkaplan */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.tableBackground || customTheme.background}
@@ -4673,6 +4748,7 @@ function App() {
                                       const newTheme = { ...customTheme, tableBackground: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4682,7 +4758,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.tableBackground || customTheme.background,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Tablo arkaplan rengi"
                                   />
@@ -4694,6 +4774,7 @@ function App() {
                                       const newTheme = { ...customTheme, tableBackground: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -4717,7 +4798,7 @@ function App() {
                                 </div>
 
                                 {/* Tablo Satır Alternatif */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.tableRowAlt || customTheme.background}
@@ -4725,6 +4806,7 @@ function App() {
                                       const newTheme = { ...customTheme, tableRowAlt: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4734,7 +4816,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.tableRowAlt || customTheme.background,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Tablo satır alternatif rengi"
                                   />
@@ -4746,6 +4832,7 @@ function App() {
                                       const newTheme = { ...customTheme, tableRowAlt: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -4769,7 +4856,7 @@ function App() {
                                 </div>
 
                                 {/* Tablo Başlığı */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.tableHeader || customTheme.border}
@@ -4777,6 +4864,7 @@ function App() {
                                       const newTheme = { ...customTheme, tableHeader: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4786,7 +4874,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.tableHeader || customTheme.border,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Tablo başlığı rengi"
                                   />
@@ -4798,6 +4890,7 @@ function App() {
                                       const newTheme = { ...customTheme, tableHeader: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -4821,7 +4914,7 @@ function App() {
                                 </div>
 
                                 {/* Yazı Rengi */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.text}
@@ -4829,6 +4922,7 @@ function App() {
                                       const newTheme = { ...customTheme, text: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4838,7 +4932,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.text,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Yazı rengi"
                                   />
@@ -4850,6 +4948,7 @@ function App() {
                                       const newTheme = { ...customTheme, text: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -4874,7 +4973,7 @@ function App() {
 
                                 {/* Sağ Sütun - Son 5 */}
                                 {/* İkincil Yazı */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.textSecondary}
@@ -4882,6 +4981,7 @@ function App() {
                                       const newTheme = { ...customTheme, textSecondary: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4891,7 +4991,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.textSecondary,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="İkincil yazı rengi"
                                   />
@@ -4903,6 +5007,7 @@ function App() {
                                       const newTheme = { ...customTheme, textSecondary: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -4926,7 +5031,7 @@ function App() {
                                 </div>
 
                                 {/* Vurgu Rengi */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.accent}
@@ -4934,6 +5039,7 @@ function App() {
                                       const newTheme = { ...customTheme, accent: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4943,7 +5049,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.accent,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Vurgu rengi"
                                   />
@@ -4955,6 +5065,7 @@ function App() {
                                       const newTheme = { ...customTheme, accent: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -4978,7 +5089,7 @@ function App() {
                                 </div>
 
                                 {/* Kenarlık */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.border}
@@ -4986,6 +5097,7 @@ function App() {
                                       const newTheme = { ...customTheme, border: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -4995,7 +5107,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.border,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Kenarlık rengi"
                                   />
@@ -5007,6 +5123,7 @@ function App() {
                                       const newTheme = { ...customTheme, border: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -5030,7 +5147,7 @@ function App() {
                                 </div>
 
                                 {/* Sosyal Medya İkon Rengi */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="color"
                                     value={customTheme.socialIconColor || customTheme.textSecondary}
@@ -5038,6 +5155,7 @@ function App() {
                                       const newTheme = { ...customTheme, socialIconColor: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full cursor-pointer transition-all hover:scale-110"
                                     style={{
@@ -5047,7 +5165,11 @@ function App() {
                                       minHeight: '48px',
                                       backgroundColor: customTheme.socialIconColor || customTheme.textSecondary,
                                       border: 'none',
-                                      padding: '0'
+                                      padding: '0',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Sosyal medya ikon rengi"
                                   />
@@ -5059,6 +5181,7 @@ function App() {
                                       const newTheme = { ...customTheme, socialIconColor: e.target.value };
                                       setCustomTheme(newTheme);
                                       setCurrentThemeName('custom');
+                                      setThemeSaveState('idle');
                                     }}
                                     className="px-3 py-2 rounded-lg text-base focus:outline-none"
                                     style={{
@@ -5082,7 +5205,7 @@ function App() {
                                 </div>
 
                                 {/* Logo Tipi */}
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <button
                                     onClick={() => {
                                       // Eğer custom tema kullanılıyorsa, sadece logoType'ı değiştir
@@ -5101,6 +5224,7 @@ function App() {
                                         setCustomTheme(newTheme);
                                         setCurrentThemeName('custom');
                                       }
+                                      setThemeSaveState('idle');
                                     }}
                                     className="rounded-full transition-all cursor-pointer flex items-center justify-center"
                                     style={{
@@ -5109,9 +5233,13 @@ function App() {
                                       minWidth: '48px',
                                       minHeight: '48px',
                                       backgroundColor: (currentTheme.logoType || customTheme.logoType || 'dark') === 'dark' ? '#000000' : '#ffffff',
-                                      border: `2px solid ${currentTheme.border}`,
+                                      border: 'none',
                                       padding: '4px',
-                                      position: 'relative'
+                                      position: 'relative',
+                                      outline: 'none',
+                                      appearance: 'none',
+                                      WebkitAppearance: 'none',
+                                      MozAppearance: 'none'
                                     }}
                                     title="Koyu logo: koyu arkaplanlar için, Açık logo: açık arkaplanlar için"
                                     onMouseEnter={(e) => {
@@ -5163,6 +5291,56 @@ function App() {
                               </div>
                             </div>
                           </div>
+                        </div>
+
+                        {/* Kaydet Butonu - Scroll container dışında */}
+                        <div className="px-4 xs:px-6 sm:px-8 py-4 border-t" style={{ 
+                          borderTop: `1px solid ${currentTheme.border}`,
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background 
+                        }}>
+                          <button
+                            type="button"
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (themeSaveState === 'saving') {
+                                  return;
+                                }
+                                setThemeSaveState('saving');
+                                try {
+                                  await saveTheme(currentThemeName, currentThemeName === 'custom' ? customTheme : null);
+                                  setThemeSaveState('saved');
+                                } catch (error) {
+                                  console.error('Failed to save theme:', error);
+                                  setThemeSaveState('idle');
+                                  addNotification('Tema kaydedilemedi', 'error');
+                                }
+                              }}
+                            disabled={themeSaveState === 'saving'}
+                            className="w-full rounded-lg px-4 py-3 text-lg font-semibold transition-colors"
+                            style={{
+                              backgroundColor: themeSaveState === 'saving' ? `${currentTheme.border}60` : currentTheme.accent,
+                              color: '#ffffff',
+                              cursor: themeSaveState === 'saving' ? 'not-allowed' : 'pointer',
+                              opacity: themeSaveState === 'saving' ? 0.7 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (themeSaveState !== 'saving') {
+                                const hex = currentTheme.accent.replace('#', '');
+                                const r = parseInt(hex.substr(0, 2), 16);
+                                const g = parseInt(hex.substr(2, 2), 16);
+                                const b = parseInt(hex.substr(4, 2), 16);
+                                e.target.style.backgroundColor = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (themeSaveState !== 'saving') {
+                                e.target.style.backgroundColor = currentTheme.accent;
+                              }
+                            }}
+                          >
+                            {themeSaveState === 'saving' ? 'Kaydediliyor...' : themeSaveState === 'saved' ? 'Kaydedildi' : 'Kaydet'}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -7002,7 +7180,7 @@ function App() {
                             e.target.style.boxShadow = 'none';
                           }}
                         >
-                          <option 
+                          <option
                             value="all"
                             style={{
                               backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -7012,8 +7190,8 @@ function App() {
                             Tüm Türler
                           </option>
                           {getAllTaskTypes().map(taskType => (
-                            <option 
-                              key={taskType.value} 
+                            <option
+                              key={taskType.value}
                               value={taskType.value}
                               style={{
                                 backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -7025,10 +7203,10 @@ function App() {
                           ))}
                         </select>
                         <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                          <svg 
-                            className="w-4 h-4" 
-                            fill="none" 
-                            stroke="currentColor" 
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
                             viewBox="0 0 24 24"
                             style={{ color: currentTheme.textSecondary || currentTheme.text }}
                           >
@@ -7228,6 +7406,7 @@ function App() {
                               getStatusText={getStatusText}
                               formatDateOnly={formatDateOnly}
                               getLastAddedDescription={() => getLastAddedDescription(taskHistories[task.id] || [])}
+                              currentTheme={currentTheme}
                             />
                           ) : (
                             <button
@@ -7857,7 +8036,7 @@ function App() {
                             )}
                             {(user?.role === 'admin' || user?.role === 'team_leader' || user?.id === selectedTask.creator?.id || user?.id === selectedTask.responsible?.id || (Array.isArray(selectedTask.assigned_users) && selectedTask.assigned_users.some(u => (typeof u === 'object' ? u.id : u) === user?.id))) ? (
                               <div className="!text-[18px]">
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                   <input
                                     type="file"
                                     multiple
