@@ -1,5 +1,14 @@
 ## v2.10.5 - 07.01.2026
 
+### Performans İyileştirmeleri
+**Metin Alanları Optimizasyonu**:
+  - Haftalık Hedefler panelindeki metin alanları (Başlık, Aksiyon Planı, Ek Açıklama) uncontrolled component yapıldı
+  - Yazma sırasında React re-render'ları önlendi, yazma gecikmesi tamamen ortadan kaldırıldı
+  - Konsolda görünen input handler violation mesajları düzeltildi
+  - Metin alanlarına yazarken anında görsel geri bildirim sağlanıyor
+  - State güncellemeleri sadece blur (alan dışına tıklama) veya kaydet butonuna basıldığında yapılıyor
+  - Sayısal input alanları (süre alanları) için debounce mekanizması korundu
+
 ### Yeni Özellikler
 **Kapsamlı Tema Sistemi**: 
   - Uygulama genelinde dinamik tema desteği eklendi
