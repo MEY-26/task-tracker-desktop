@@ -8,6 +8,9 @@ import logo from './assets/VadenLogo.svg';
 import darkLogo from './assets/Dark_VadenLogo.svg';
 import lightLogo from './assets/Light_VadenLogo.svg';
 import { computeWeeklyScore } from './utils/computeWeeklyScore';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 
 
 const WEEKLY_BASE_MINUTES = 2700;
@@ -317,20 +320,20 @@ function App() {
   const assigneeDetailInputRef = useRef(null);
   const [weeklySaveState, setWeeklySaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const weeklySaveStateTimeoutRef = useRef(null);
-  
+
   // Debounce timers for inputs (moved to top level to avoid hooks rule violation)
   const numberInputDebounceTimers = useRef({});
-  
+
   // Debounced update function for number inputs (instant update for performance)
   const updateNumberInput = useCallback((row, field, value) => {
     const rowId = row.id || `row-${weeklyGoals.items.indexOf(row)}`;
     const timerKey = `${rowId}-${field}`;
-    
+
     // Clear existing timer
     if (numberInputDebounceTimers.current[timerKey]) {
       clearTimeout(numberInputDebounceTimers.current[timerKey]);
     }
-    
+
     // Set new timer (150ms delay)
     numberInputDebounceTimers.current[timerKey] = setTimeout(() => {
       const items = [...weeklyGoals.items];
@@ -342,17 +345,17 @@ function App() {
       delete numberInputDebounceTimers.current[timerKey];
     }, 150);
   }, [weeklyGoals]);
-  
+
   // Refs to store text input values without triggering re-renders
   const textInputRefs = useRef({});
   const goalDescriptionRef = useRef(null);
-  
+
   // Function to get text input ref key
   const getTextInputKey = useCallback((row, field) => {
     const rowId = row.id || `row-${weeklyGoals.items.indexOf(row)}`;
     return `${rowId}-${field}`;
   }, [weeklyGoals]);
-  
+
   // Function to save text input to main state (called on blur or save)
   const saveTextInputToState = useCallback((row, field, value) => {
     const items = [...weeklyGoals.items];
@@ -1090,7 +1093,7 @@ function App() {
           const parts = key.split('-');
           const field = parts[parts.length - 1]; // Get last part (field name)
           const rowId = parts.slice(0, -1).join('-'); // Get all parts except last (row ID)
-          
+
           const itemIndex = itemsToSave.findIndex((r, idx) => {
             const id = r.id || `row-${idx}`;
             return id === rowId || (idx.toString() === rowId && !r.id);
@@ -1109,7 +1112,7 @@ function App() {
       }
 
       setWeeklySaveState('saving');
-      
+
       // Clear any existing timeout for resetting save state
       if (weeklySaveStateTimeoutRef.current) {
         clearTimeout(weeklySaveStateTimeoutRef.current);
@@ -1243,12 +1246,12 @@ function App() {
 
       addNotification('Haftalık hedefler kaydedildi', 'success');
       setWeeklySaveState('saved');
-      
+
       // Clear any existing timeout
       if (weeklySaveStateTimeoutRef.current) {
         clearTimeout(weeklySaveStateTimeoutRef.current);
       }
-      
+
       // Reset to 'idle' after 2 seconds
       weeklySaveStateTimeoutRef.current = setTimeout(() => {
         setWeeklySaveState('idle');
@@ -1259,7 +1262,7 @@ function App() {
       const errorMessage = err.response?.data?.message || err.message || 'Kaydedilemedi';
       addNotification(errorMessage, 'error');
       setWeeklySaveState('idle');
-      
+
       // Clear timeout on error
       if (weeklySaveStateTimeoutRef.current) {
         clearTimeout(weeklySaveStateTimeoutRef.current);
@@ -4547,121 +4550,76 @@ function App() {
                             fontFamily: 'system-ui, -apple-system, sans-serif'
                           }}
                         >
-                          <div
-                            className="prose prose-invert max-w-none"
-                            style={{
-                              color: currentTheme.text,
-                              lineHeight: '1.6',
-                            }}
-                            dangerouslySetInnerHTML={{
-                              __html: (() => {
-                                const textColor = currentTheme.text;
-                                const textSecondaryColor = currentTheme.textSecondary || currentTheme.text;
-                                const accentColor = currentTheme.accent;
-                                const borderColor = currentTheme.border;
-
-                                if (!updatesContent) return `<p style="color: ${textSecondaryColor};">Güncelleme notları yükleniyor...</p>`;
-                                let html = updatesContent;
-
-                                // Liste öğelerini işle (girintili ve girintisiz)
-                                const lines = html.split('\n');
-                                let processedLines = [];
-                                let inList = false;
-                                let listLevel = 0;
-
-                                for (let i = 0; i < lines.length; i++) {
-                                  const line = lines[i];
-                                  const trimmed = line.trim();
-
-                                  // Boş satır
-                                  if (!trimmed) {
-                                    if (inList) {
-                                      // Liste bitir
-                                      for (let j = 0; j < listLevel; j++) {
-                                        processedLines.push('</ul>');
-                                      }
-                                      inList = false;
-                                      listLevel = 0;
-                                    }
-                                    processedLines.push('');
-                                    continue;
-                                  }
-
-                                  // Liste öğesi kontrolü (girintili veya girintisiz)
-                                  const listMatch = trimmed.match(/^- (.+)$/);
-                                  const indentMatch = line.match(/^(\s+)- (.+)$/);
-
-                                  if (listMatch || indentMatch) {
-                                    const content = listMatch ? listMatch[1] : indentMatch[2];
-                                    const indent = indentMatch ? indentMatch[1].length : 0;
-                                    const currentLevel = Math.floor(indent / 2); // Her 2 boşluk = 1 seviye
-
-                                    // Liste başlat veya seviye değiştir
-                                    if (!inList) {
-                                      for (let j = 0; j <= currentLevel; j++) {
-                                        processedLines.push(`<ul style="margin: ${j === 0 ? '1rem' : '0.5rem'} 0; padding-left: ${j === 0 ? '1.5rem' : '2rem'}; list-style-type: ${j === 0 ? 'disc' : 'circle'}; color: ${textColor};">`);
-                                      }
-                                      inList = true;
-                                      listLevel = currentLevel + 1;
-                                    } else {
-                                      // Seviye değişikliği
-                                      if (currentLevel < listLevel - 1) {
-                                        // Seviye azaldı
-                                        for (let j = listLevel - 1; j > currentLevel; j--) {
-                                          processedLines.push('</ul>');
-                                        }
-                                        listLevel = currentLevel + 1;
-                                      } else if (currentLevel >= listLevel) {
-                                        // Seviye arttı
-                                        for (let j = listLevel; j <= currentLevel; j++) {
-                                          processedLines.push(`<ul style="margin: 0.5rem 0; padding-left: 2rem; list-style-type: circle; color: ${textColor};">`);
-                                        }
-                                        listLevel = currentLevel + 1;
-                                      }
-                                    }
-
-                                    // Liste öğesini ekle
-                                    processedLines.push(`<li style="margin-bottom: 0.5rem; color: ${textColor}; line-height: 1.6;">${content}</li>`);
-                                  } else {
-                                    // Liste öğesi değil
-                                    if (inList) {
-                                      // Liste bitir
-                                      for (let j = 0; j < listLevel; j++) {
-                                        processedLines.push('</ul>');
-                                      }
-                                      inList = false;
-                                      listLevel = 0;
-                                    }
-                                    processedLines.push(line);
-                                  }
+                          {!updatesContent ? (
+                            <p style={{ color: currentTheme.textSecondary || currentTheme.text }}>
+                              Güncelleme notları yükleniyor...
+                            </p>
+                          ) : (
+                            <div className="markdown-body">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeSanitize]}
+                                components={{
+                                  a: ({ ...props }) => <a {...props} target="_blank" rel="noreferrer noopener" style={{ color: currentTheme.accent }} />,
+                                  h1: ({ ...props }) => <h1 {...props} style={{ color: currentTheme.accent, fontSize: '1.75rem', fontWeight: 'bold', marginTop: '2rem', marginBottom: '1rem', borderBottom: `2px solid ${currentTheme.accent}`, paddingBottom: '0.5rem' }} />,
+                                  h2: ({ ...props }) => <h2 {...props} style={{ color: currentTheme.accent, fontSize: '1.5rem', fontWeight: 'bold', marginTop: '1.5rem', marginBottom: '0.75rem' }} />,
+                                  h3: ({ ...props }) => <h3 {...props} style={{ color: currentTheme.accent, fontSize: '1.25rem', fontWeight: 'bold', marginTop: '1rem', marginBottom: '0.5rem' }} />,
+                                  hr: ({ ...props }) => <hr {...props} style={{ border: 'none', borderTop: `1px solid ${currentTheme.border}`, margin: '2rem 0' }} />,
+                                  strong: ({ ...props }) => <strong {...props} style={{ color: currentTheme.accent, fontWeight: 'bold' }} />,
+                                  p: ({ ...props }) => <p {...props} style={{ color: currentTheme.text, marginBottom: '1rem' }} />,
+                                  ul: ({ ...props }) => <ul {...props} style={{ margin: '1rem 0', paddingLeft: '1.5rem', listStyleType: 'disc', color: currentTheme.text }} />,
+                                  ol: ({ ...props }) => <ol {...props} style={{ margin: '1rem 0', paddingLeft: '1.5rem', color: currentTheme.text }} />,
+                                  li: ({ ...props }) => <li {...props} style={{ marginBottom: '0.5rem', color: currentTheme.text, lineHeight: '1.6' }} />,
+                                }}
+                              >
+                                {updatesContent}
+                              </ReactMarkdown>
+                              <style>{`
+                                .markdown-body {
+                                  color: ${currentTheme.text};
+                                  line-height: 1.6;
                                 }
-
-                                // Kapanmamış listeleri kapat
-                                if (inList) {
-                                  for (let j = 0; j < listLevel; j++) {
-                                    processedLines.push('</ul>');
-                                  }
+                                .markdown-body ul ul {
+                                  margin: 0.5rem 0;
+                                  padding-left: 2rem;
+                                  list-style-type: circle;
                                 }
-
-                                html = processedLines.join('\n');
-
-                                // H1 başlıklar
-                                html = html.replace(/^# (.+)$/gm, `<h1 style="color: ${accentColor}; font-size: 1.75rem; font-weight: bold; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid ${accentColor}; padding-bottom: 0.5rem;">$1</h1>`);
-                                // H2 başlıklar
-                                html = html.replace(/^## (.+)$/gm, `<h2 style="color: ${accentColor}; font-size: 1.5rem; font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.75rem;">$1</h2>`);
-                                // H3 başlıklar
-                                html = html.replace(/^### (.+)$/gm, `<h3 style="color: ${accentColor}; font-size: 1.25rem; font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h3>`);
-                                // Yatay çizgi
-                                html = html.replace(/^---$/gm, `<hr style="border: none; border-top: 1px solid ${borderColor}; margin: 2rem 0;" />`);
-                                // Kalın yazı
-                                html = html.replace(/\*\*(.+?)\*\*/g, `<strong style="color: ${accentColor}; font-weight: bold;">$1</strong>`);
-                                // Paragraflar için tema rengi
-                                html = html.replace(/^<p>/gm, `<p style="color: ${textColor};">`);
-
-                                return html;
-                              })()
-                            }}
-                          />
+                                .markdown-body ul ul ul {
+                                  list-style-type: square;
+                                }
+                                .markdown-body code {
+                                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                                  font-size: 0.95em;
+                                  background-color: ${currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background};
+                                  padding: 2px 6px;
+                                  border-radius: 4px;
+                                }
+                                .markdown-body pre {
+                                  padding: 12px;
+                                  overflow: auto;
+                                  border-radius: 10px;
+                                  background: ${currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background};
+                                  color: ${currentTheme.text};
+                                }
+                                .markdown-body table {
+                                  border-collapse: collapse;
+                                  width: 100%;
+                                  margin: 1rem 0;
+                                }
+                                .markdown-body th, .markdown-body td {
+                                  border: 1px solid ${currentTheme.border};
+                                  padding: 6px 8px;
+                                  text-align: left;
+                                }
+                                .markdown-body blockquote {
+                                  border-left: 4px solid ${currentTheme.accent};
+                                  padding-left: 12px;
+                                  color: ${currentTheme.textSecondary || currentTheme.text};
+                                  margin-left: 0;
+                                }
+                              `}</style>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -4672,7 +4630,7 @@ function App() {
                 {/* Tema Ayarları Modal */}
                 {showThemePanel && createPortal(
                   <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
-                    <div className="absolute inset-0" onClick={() => { 
+                    <div className="absolute inset-0" onClick={() => {
                       setShowThemePanel(false);
                       // Tema kaydetme işleminin tamamlanması için kısa bir delay
                       setTimeout(() => {
@@ -4696,7 +4654,7 @@ function App() {
                           <div></div>
                           <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Tema Ayarları</h2>
                           <div className="justify-self-end">
-                            <button onClick={() => { 
+                            <button onClick={() => {
                               setShowThemePanel(false);
                               // Tema kaydetme işleminin tamamlanması için kısa bir delay
                               setTimeout(() => {
@@ -4770,7 +4728,7 @@ function App() {
                           {/* Tema Özelleştirme */}
                           <div className="rounded-2xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                             <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>
-                              Tema Özelleştirme                              
+                              Tema Özelleştirme
                             </h3>
                             <div className="space-y-4">
                               {/* Renk Seçimleri - 2 Sütunlu Düzen (Sol 5, Sağ 5) */}
@@ -5389,28 +5347,28 @@ function App() {
                         </div>
 
                         {/* Kaydet Butonu - Scroll container dışında */}
-                        <div className="px-4 xs:px-6 sm:px-8 py-4 border-t" style={{ 
+                        <div className="px-4 xs:px-6 sm:px-8 py-4 border-t" style={{
                           borderTop: `1px solid ${currentTheme.border}`,
-                          backgroundColor: currentTheme.tableBackground || currentTheme.background 
+                          backgroundColor: currentTheme.tableBackground || currentTheme.background
                         }}>
                           <button
                             type="button"
-                              onClick={async (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                if (themeSaveState === 'saving') {
-                                  return;
-                                }
-                                setThemeSaveState('saving');
-                                try {
-                                  await saveTheme(currentThemeName, currentThemeName === 'custom' ? customTheme : null);
-                                  setThemeSaveState('saved');
-                                } catch (error) {
-                                  console.error('Failed to save theme:', error);
-                                  setThemeSaveState('idle');
-                                  addNotification('Tema kaydedilemedi', 'error');
-                                }
-                              }}
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (themeSaveState === 'saving') {
+                                return;
+                              }
+                              setThemeSaveState('saving');
+                              try {
+                                await saveTheme(currentThemeName, currentThemeName === 'custom' ? customTheme : null);
+                                setThemeSaveState('saved');
+                              } catch (error) {
+                                console.error('Failed to save theme:', error);
+                                setThemeSaveState('idle');
+                                addNotification('Tema kaydedilemedi', 'error');
+                              }
+                            }}
                             disabled={themeSaveState === 'saving'}
                             className="w-full rounded-xl px-4 py-3 text-lg font-semibold transition-colors"
                             style={{
@@ -7185,7 +7143,7 @@ function App() {
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y text-[18px] cursor-pointer" style={{ borderColor: currentTheme.border }}>
-                            <thead className="text-white text-[18px]" style={{ backgroundColor: currentTheme.tableHeader}}>
+                            <thead className="text-white text-[18px]" style={{ backgroundColor: currentTheme.tableHeader }}>
                               <tr>
                                 <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('name')} role="button">Kullanıcı</th>
                                 <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('leader_name')} role="button">Lider</th>

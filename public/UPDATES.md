@@ -52,8 +52,7 @@
 
 ### Değişiklikler
 **Haftalık Hedefler Kilitleme Kuralları Güncellendi**
-- Hedef alanları Pazartesi 13:30’a kadar düzenlenebilir  
-  _(önceki sınır: 10:00)_
+- Hedef alanları Pazartesi 13:30’a kadar düzenlenebilir _(önceki sınır: 10:00)_
 - Gerçekleşme alanı sürekli açık olacak şekilde düzenlendi
 
 **Planlı Süre Kontrolü Kaldırıldı**
