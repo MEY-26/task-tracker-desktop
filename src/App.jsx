@@ -39,7 +39,7 @@ const PRIORITY_LEVELS = [
 ];
 
 // Priority info tooltip shown when hovering over priority label
-const PriorityLabelWithTooltip = ({ htmlFor }) => {
+const PriorityLabelWithTooltip = ({ htmlFor, currentTheme }) => {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -53,17 +53,23 @@ const PriorityLabelWithTooltip = ({ htmlFor }) => {
     >
       <label
         htmlFor={htmlFor}
-        className="!text-[24px] sm:!text-[16px] font-medium text-slate-200 text-left"
+        className="!text-[24px] sm:!text-[16px] font-medium text-left"
+        style={{ color: currentTheme?.text || '#e5e7eb' }}
       >
         Öncelik
       </label>
       {visible && (
         <div
-          className="absolute top-full left-0 z-[9999] mt-3 w-[700px] translate-x-[80px] transform rounded-2xl border border-white/10 bg-[#111827] p-4 text-sm text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-md text-left"
+          className="absolute top-full left-0 z-[9999] mt-3 w-[700px] translate-x-[80px] transform rounded-2xl p-4 text-sm shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-md text-left"
+          style={{
+            backgroundColor: currentTheme?.tableBackground || currentTheme?.background || '#111827',
+            border: `1px solid ${currentTheme?.border || 'rgba(255,255,255,0.1)'}`,
+            color: currentTheme?.text || '#e5e7eb'
+          }}
           onMouseEnter={() => setVisible(true)}
           onMouseLeave={() => setVisible(false)}
         >
-          <div className="text-sm font-semibold text-white">
+          <div className="text-sm font-semibold" style={{ color: currentTheme?.text || '#ffffff' }}>
             Öncelik seçimi (gereksiz yere "Yüksek" / "Kritik" seçmeyin)
           </div>
           <ul className="mt-3 space-y-2">
@@ -75,15 +81,17 @@ const PriorityLabelWithTooltip = ({ htmlFor }) => {
                     backgroundColor: level.color,
                     minWidth: '12px',
                     minHeight: '12px',
-                    border: '1px solid rgba(255,255,255,0.15)'
+                    border: `1px solid ${currentTheme?.border || 'rgba(255,255,255,0.15)'}`
                   }}
                   aria-hidden="true"
                 />
-                <span className="text-sm font-medium text-white leading-5">{level.label} : {level.description}</span>
+                <span className="text-sm font-medium leading-5" style={{ color: currentTheme?.text || '#ffffff' }}>
+                  {level.label} : {level.description}
+                </span>
               </li>
             ))}
           </ul>
-          <p className="text-sm font-semibold text-white">
+          <p className="text-sm font-semibold" style={{ color: currentTheme?.text || '#ffffff' }}>
             Not: Önceliği işin gerçek etkisine göre belirleyin; gereksiz yükseltmeler ekip planını olumsuz etkiler.
           </p>
         </div>
@@ -5518,7 +5526,7 @@ function App() {
                     </div>
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                      <PriorityLabelWithTooltip htmlFor="new-task-priority" />
+                      <PriorityLabelWithTooltip htmlFor="new-task-priority" currentTheme={currentTheme} />
                       <select
                         id="new-task-priority"
                         value={newTask.priority}
@@ -7824,7 +7832,7 @@ function App() {
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
-                          <PriorityLabelWithTooltip htmlFor="new-task-priority" />
+                          <PriorityLabelWithTooltip htmlFor="new-task-priority" currentTheme={currentTheme} />
                           {user?.role !== 'observer' ? (
                             <select
                               value={detailDraft?.priority || 'medium'}
