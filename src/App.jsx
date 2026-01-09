@@ -56,7 +56,7 @@ const PriorityLabelWithTooltip = ({ htmlFor }) => {
       </label>
       {visible && (
         <div
-          className="absolute top-full left-0 z-[9999] mt-3 w-[700px] translate-x-[80px] transform rounded-xl border border-white/10 bg-[#111827] p-4 text-sm text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-md text-left"
+          className="absolute top-full left-0 z-[9999] mt-3 w-[700px] translate-x-[80px] transform rounded-2xl border border-white/10 bg-[#111827] p-4 text-sm text-slate-200 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-md text-left"
           onMouseEnter={() => setVisible(true)}
           onMouseLeave={() => setVisible(false)}
         >
@@ -161,7 +161,7 @@ const TooltipStatus = ({ task, onLoadHistory, getStatusColor, getStatusText, for
       ></div>
       {tooltipPosition.visible && (
         <div
-          className="fixed px-4 py-3 text-xs rounded-lg shadow-xl transition-opacity duration-200 pointer-events-none z-[9999]"
+          className="fixed px-4 py-3 text-xs rounded-xl shadow-xl transition-opacity duration-200 pointer-events-none z-[9999]"
           style={{
             top: `${tooltipPosition.top}px`,
             left: `${tooltipPosition.left}px`,
@@ -316,6 +316,53 @@ function App() {
   const [detailDraft, setDetailDraft] = useState(null);
   const assigneeDetailInputRef = useRef(null);
   const [weeklySaveState, setWeeklySaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const weeklySaveStateTimeoutRef = useRef(null);
+  
+  // Debounce timers for inputs (moved to top level to avoid hooks rule violation)
+  const numberInputDebounceTimers = useRef({});
+  const textInputDebounceTimers = useRef({});
+  
+  // Debounced update function for number inputs (instant update for performance)
+  const updateNumberInput = useCallback((row, field, value) => {
+    const rowId = row.id || `row-${weeklyGoals.items.indexOf(row)}`;
+    const timerKey = `${rowId}-${field}`;
+    
+    // Clear existing timer
+    if (numberInputDebounceTimers.current[timerKey]) {
+      clearTimeout(numberInputDebounceTimers.current[timerKey]);
+    }
+    
+    // Set new timer (150ms delay)
+    numberInputDebounceTimers.current[timerKey] = setTimeout(() => {
+      const items = [...weeklyGoals.items];
+      const itemIndex = items.findIndex(r => r === row);
+      if (itemIndex >= 0) {
+        items[itemIndex][field] = Number(value || 0);
+        setWeeklyGoals({ ...weeklyGoals, items });
+      }
+      delete numberInputDebounceTimers.current[timerKey];
+    }, 150);
+  }, [weeklyGoals]);
+  
+  // Refs to store text input values without triggering re-renders
+  const textInputRefs = useRef({});
+  const goalDescriptionRef = useRef(null);
+  
+  // Function to get text input ref key
+  const getTextInputKey = useCallback((row, field) => {
+    const rowId = row.id || `row-${weeklyGoals.items.indexOf(row)}`;
+    return `${rowId}-${field}`;
+  }, [weeklyGoals]);
+  
+  // Function to save text input to main state (called on blur or save)
+  const saveTextInputToState = useCallback((row, field, value) => {
+    const items = [...weeklyGoals.items];
+    const itemIndex = items.findIndex(r => r === row);
+    if (itemIndex >= 0) {
+      items[itemIndex][field] = value;
+      setWeeklyGoals({ ...weeklyGoals, items });
+    }
+  }, [weeklyGoals]);
   const [showThemePanel, setShowThemePanel] = useState(false);
   const [themeSaveState, setThemeSaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const isInitialThemeLoadRef = useRef(true);
@@ -1035,7 +1082,39 @@ function App() {
       // Hedefler kilitliyse sadece admin tam yetkilendirilir; diğerleri gerçekleşme kaydedebilir
       // (Hedef alanları zaten UI'da disabled, backend de kontrol ediyor)
 
+      // Save all text input refs to main state before saving
+      const itemsToSave = [...weeklyGoals.items];
+      let hasChanges = false;
+      Object.keys(textInputRefs.current).forEach(key => {
+        const ref = textInputRefs.current[key];
+        if (ref && ref.value !== undefined) {
+          const parts = key.split('-');
+          const field = parts[parts.length - 1]; // Get last part (field name)
+          const rowId = parts.slice(0, -1).join('-'); // Get all parts except last (row ID)
+          
+          const itemIndex = itemsToSave.findIndex((r, idx) => {
+            const id = r.id || `row-${idx}`;
+            return id === rowId || (idx.toString() === rowId && !r.id);
+          });
+          if (itemIndex >= 0 && (field === 'title' || field === 'action_plan')) {
+            const refValue = ref.value || '';
+            if (itemsToSave[itemIndex][field] !== refValue) {
+              itemsToSave[itemIndex][field] = refValue;
+              hasChanges = true;
+            }
+          }
+        }
+      });
+      if (hasChanges) {
+        setWeeklyGoals({ ...weeklyGoals, items: itemsToSave });
+      }
+
       setWeeklySaveState('saving');
+      
+      // Clear any existing timeout for resetting save state
+      if (weeklySaveStateTimeoutRef.current) {
+        clearTimeout(weeklySaveStateTimeoutRef.current);
+      }
 
       const leaveMinutesForSave = weeklyLeaveMinutes;
       const availableMinutes = Number.isFinite(weeklyLive?.availableMinutes)
@@ -1059,12 +1138,12 @@ function App() {
       }
 
       // Auto compute weights from target minutes (planned only)
-      const planned = (weeklyGoals.items || []).filter(x => !x.is_unplanned);
+      const planned = itemsToSave.filter(x => !x.is_unplanned);
       const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
 
       // Zorunlu alan kontrolü: Başlık, Aksiyon Planı ve Hedef(dk) dolu olmalı
       // Not: Plandışı görevler için hedef süresi opsiyonel
-      const invalidItems = (weeklyGoals.items || []).filter(x => {
+      const invalidItems = itemsToSave.filter(x => {
         const hasTitle = x.title && x.title.trim() !== '';
         const hasActionPlan = x.action_plan && x.action_plan.trim() !== '';
         const hasTarget = x.target_minutes && Number(x.target_minutes) > 0;
@@ -1087,7 +1166,7 @@ function App() {
         return;
       }
 
-      const items = (weeklyGoals.items || []).map((x) => {
+      const items = itemsToSave.map((x) => {
         const isUnplanned = !!x.is_unplanned;
         let weight = Number(x.weight_percent || 0);
         if (!isUnplanned) {
@@ -1112,7 +1191,7 @@ function App() {
         week_start: weeklyWeekStart || fmtYMD(getMonday()),
         leave_minutes: leaveMinutesForSave,
         overtime_minutes: overtimeMinutesForSave,
-        items,
+        items: itemsToSave,
         ...(weeklyUserId ? { user_id: weeklyUserId } : {}),
       };
       const res = await WeeklyGoals.save(payload);
@@ -1165,11 +1244,28 @@ function App() {
 
       addNotification('Haftalık hedefler kaydedildi', 'success');
       setWeeklySaveState('saved');
+      
+      // Clear any existing timeout
+      if (weeklySaveStateTimeoutRef.current) {
+        clearTimeout(weeklySaveStateTimeoutRef.current);
+      }
+      
+      // Reset to 'idle' after 2 seconds
+      weeklySaveStateTimeoutRef.current = setTimeout(() => {
+        setWeeklySaveState('idle');
+        weeklySaveStateTimeoutRef.current = null;
+      }, 2000);
     } catch (err) {
       console.error('Weekly goals save error:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Kaydedilemedi';
       addNotification(errorMessage, 'error');
       setWeeklySaveState('idle');
+      
+      // Clear timeout on error
+      if (weeklySaveStateTimeoutRef.current) {
+        clearTimeout(weeklySaveStateTimeoutRef.current);
+        weeklySaveStateTimeoutRef.current = null;
+      }
     }
   }
 
@@ -3268,10 +3364,10 @@ function App() {
     return (
       <form onSubmit={handleSubmit} className="space-y-3">
         <input type="text" name="username" autoComplete="username" style={{ position: 'absolute', left: '-9999px', width: '1px', height: '1px' }} tabIndex="-1" aria-hidden="true" />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} autoComplete="current-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="current-password" />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="new-password" />
-        <input type="password" className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="confirm-password" />
-        <button type="submit" disabled={!can} className="w-full rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginTop: '10px', marginLeft: '5px', marginBottom: '10px' }}>Güncelle</button>
+        <input type="password" className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Mevcut şifre" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} autoComplete="current-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="current-password" />
+        <input type="password" className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre" value={form.next} onChange={e => setForm({ ...form, next: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="new-password" />
+        <input type="password" className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-3 !text-[32px] text-white placeholder-gray-400" style={{ marginTop: '5px' }} placeholder="Yeni şifre (tekrar)" value={form.again} onChange={e => setForm({ ...form, again: e.target.value })} autoComplete="new-password" autoCorrect="off" autoCapitalize="off" spellCheck="false" data-lpignore="true" name="confirm-password" />
+        <button type="submit" disabled={!can} className="w-full rounded-lg px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]" style={{ marginTop: '10px', marginLeft: '5px', marginBottom: '10px' }}>Güncelle</button>
       </form>
     );
   }
@@ -3312,7 +3408,7 @@ function App() {
         <div className="space-y-6">
           <input
             type="password"
-            className="w-full rounded-md focus:outline-none transition-all px-6 py-4"
+            className="w-full rounded-lg focus:outline-none transition-all px-6 py-4"
             placeholder="Mevcut şifrenizi girin"
             value={form.current}
             onChange={e => setForm({ ...form, current: e.target.value })}
@@ -3346,7 +3442,7 @@ function App() {
         <div className="space-y-6">
           <input
             type="password"
-            className="w-full rounded-xl focus:outline-none transition-all px-6 py-4"
+            className="w-full rounded-2xl focus:outline-none transition-all px-6 py-4"
             placeholder="Yeni şifrenizi girin"
             value={form.next}
             onChange={e => setForm({ ...form, next: e.target.value })}
@@ -3380,7 +3476,7 @@ function App() {
         <div className="space-y-6">
           <input
             type="password"
-            className="w-full rounded-xl focus:outline-none transition-all px-6 py-4"
+            className="w-full rounded-2xl focus:outline-none transition-all px-6 py-4"
             placeholder="Yeni şifrenizi tekrar girin"
             value={form.again}
             onChange={e => setForm({ ...form, again: e.target.value })}
@@ -3415,7 +3511,7 @@ function App() {
           <button
             type="submit"
             disabled={!can || loading}
-            className="w-full rounded-xl transition-all shadow-lg hover:shadow-xl px-8 py-4 font-semibold"
+            className="w-full rounded-2xl transition-all shadow-lg hover:shadow-xl px-8 py-4 font-semibold"
             style={{
               height: '48px',
               backgroundColor: (!can || loading) ? `${currentTheme.border}60` : currentTheme.accent,
@@ -3850,7 +3946,7 @@ function App() {
   if (!user && !loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 z-[999800]" style={{ backgroundColor: currentTheme.background }}>
-        <div className="rounded-2xl p-8 shadow-2xl w-full max-w-md" style={{
+        <div className="rounded-3xl p-8 shadow-2xl w-full max-w-md" style={{
           minWidth: '400px',
           maxWidth: '400px',
           backgroundColor: 'transparent',
@@ -3863,7 +3959,7 @@ function App() {
           </div>
 
           {error && (
-            <div className="px-4 py-3 rounded-xl mb-6" style={{
+            <div className="px-4 py-3 rounded-2xl mb-6" style={{
               backgroundColor: `${currentTheme.accent}20`,
               borderColor: currentTheme.accent,
               borderWidth: '1px',
@@ -3900,7 +3996,7 @@ function App() {
                 type="email"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                className="w-full border-0 rounded-xl px-4 py-4 focus:outline-none focus:ring-0 text-base text-[24px]"
+                className="w-full border-0 rounded-2xl px-4 py-4 focus:outline-none focus:ring-0 text-base text-[24px]"
                 placeholder="Mail Adresinizi Giriniz"
                 required
                 style={{
@@ -3932,7 +4028,7 @@ function App() {
                     type="password"
                     value={loginForm.password}
                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    className="w-full border-0 rounded-xl px-4 py-4 pr-12 focus:outline-none focus:ring-0 text-base text-[24px]"
+                    className="w-full border-0 rounded-2xl px-4 py-4 pr-12 focus:outline-none focus:ring-0 text-base text-[24px]"
                     placeholder="Şifrenizi Giriniz"
                     required
                     autoComplete="current-password"
@@ -3963,7 +4059,7 @@ function App() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl"
+              className="w-full font-semibold py-4 px-6 rounded-2xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl"
               style={{
                 backgroundColor: loading ? `${currentTheme.border}60` : currentTheme.accent,
                 color: '#ffffff',
@@ -4003,7 +4099,7 @@ function App() {
                   setError(null);
                 }
               }}
-              className="w-full font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl"
+              className="w-full font-semibold py-4 px-6 rounded-2xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl"
               style={{
                 backgroundColor: currentTheme.accent,
                 color: '#ffffff'
@@ -4337,7 +4433,7 @@ function App() {
                       }}
                     >
                       <div
-                        className="w-[500px] max-h-[600px] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+                        className="w-[500px] max-h-[600px] rounded-3xl overflow-hidden shadow-2xl flex flex-col"
                         style={{
                           pointerEvents: 'auto',
                           backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -4356,7 +4452,7 @@ function App() {
                             <button
                               onClick={markAllNotificationsAsRead}
                               disabled={markingAllNotifications || !Array.isArray(notifications) || notifications.length === 0}
-                              className="text-xs px-3 py-1 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              className="text-xs px-3 py-1 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               style={{
                                 backgroundColor: `${currentTheme.border}40`,
                                 color: currentTheme.text,
@@ -4407,7 +4503,7 @@ function App() {
 
                     <div className="fixed z-[99999] p-3 update-screen shadow-[0_25px_80px_rgba(0,0,0,.6)]">
                       <div
-                        className="max-h-[85vh] rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+                        className="max-h-[85vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col"
                         style={{
                           backgroundColor: currentTheme.tableBackground || currentTheme.background,
                           borderColor: currentTheme.border,
@@ -4427,7 +4523,7 @@ function App() {
                           </h2>
                           <button
                             onClick={() => setShowUpdatesModal(false)}
-                            className="text-2xl font-bold w-8 h-8 flex items-center justify-center rounded transition-colors"
+                            className="text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
                             style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                             onMouseEnter={(e) => {
                               e.target.style.color = currentTheme.text;
@@ -4585,7 +4681,7 @@ function App() {
                       }, 300);
                     }} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
                     <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-                      <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+                      <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[85vh] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
                         pointerEvents: 'auto',
                         backgroundColor: currentTheme.tableBackground || currentTheme.background,
                         borderColor: currentTheme.border,
@@ -4608,7 +4704,7 @@ function App() {
                                 window.location.reload();
                               }, 300);
                             }}
-                              className="rounded px-2 py-1 transition-colors"
+                              className="rounded-lg px-2 py-1 transition-colors"
                               style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                               onMouseEnter={(e) => {
                                 e.target.style.color = currentTheme.text;
@@ -4623,7 +4719,7 @@ function App() {
 
                         <div className="p-4 xs:p-6 sm:p-8 space-y-6 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                           {/* Hazır Temalar */}
-                          <div className="rounded-xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
+                          <div className="rounded-2xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                             <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>Hazır Temalar</h3>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                               {Object.entries(predefinedThemes).map(([key, theme]) => {
@@ -4650,7 +4746,7 @@ function App() {
                                       setCurrentThemeName(key);
                                       setThemeSaveState('idle'); // Tema değişti, kaydet durumunu sıfırla
                                     }}
-                                    className="p-4 rounded-lg border-2 transition-all hover:opacity-90"
+                                    className="p-4 rounded-xl border-2 transition-all hover:opacity-90"
                                     style={{
                                       backgroundColor: buttonBg,
                                       color: theme.text,
@@ -4662,9 +4758,9 @@ function App() {
                                       {currentThemeName === key && <span style={{ color: currentTheme.accent }}>✓</span>}
                                     </div>
                                     <div className="flex gap-1 mt-2">
-                                      <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.background }}></div>
-                                      <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.tableBackground || theme.background }}></div>
-                                      <div className="flex-1 h-8 rounded" style={{ backgroundColor: theme.accent }}></div>
+                                      <div className="flex-1 h-8 rounded-lg" style={{ backgroundColor: theme.background }}></div>
+                                      <div className="flex-1 h-8 rounded-lg" style={{ backgroundColor: theme.tableBackground || theme.background }}></div>
+                                      <div className="flex-1 h-8 rounded-lg" style={{ backgroundColor: theme.accent }}></div>
                                     </div>
                                   </button>
                                 );
@@ -4673,7 +4769,7 @@ function App() {
                           </div>
 
                           {/* Tema Özelleştirme */}
-                          <div className="rounded-xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
+                          <div className="rounded-2xl p-6" style={{ backgroundColor: `${currentTheme.border}20`, borderColor: currentTheme.border, borderWidth: '1px', borderStyle: 'solid' }}>
                             <h3 className="text-xl font-semibold mb-4" style={{ color: currentTheme.text }}>
                               Tema Özelleştirme                              
                             </h3>
@@ -4718,7 +4814,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -4776,7 +4872,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -4834,7 +4930,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -4892,7 +4988,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -4950,7 +5046,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -5009,7 +5105,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -5067,7 +5163,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -5125,7 +5221,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -5183,7 +5279,7 @@ function App() {
                                       setCurrentThemeName('custom');
                                       setThemeSaveState('idle');
                                     }}
-                                    className="px-3 py-2 rounded-lg text-base focus:outline-none"
+                                    className="px-3 py-2 rounded-xl text-base focus:outline-none"
                                     style={{
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                       color: currentTheme.text,
@@ -5268,7 +5364,7 @@ function App() {
                                   </button>
                                   <span className="text-lg font-medium min-w-[140px]" style={{ color: currentTheme.text }}>Logo Tipi</span>
                                   <div
-                                    className="flex items-center justify-center rounded-lg"
+                                    className="flex items-center justify-center rounded-xl"
                                     style={{
                                       minWidth: '100px',
                                       height: '48px',
@@ -5317,7 +5413,7 @@ function App() {
                                 }
                               }}
                             disabled={themeSaveState === 'saving'}
-                            className="w-full rounded-lg px-4 py-3 text-lg font-semibold transition-colors"
+                            className="w-full rounded-xl px-4 py-3 text-lg font-semibold transition-colors"
                             style={{
                               backgroundColor: themeSaveState === 'saving' ? `${currentTheme.border}60` : currentTheme.accent,
                               color: '#ffffff',
@@ -5362,7 +5458,7 @@ function App() {
                 }}
               />
               <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'auto' }}>
-                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
                   pointerEvents: 'auto',
                   paddingRight: '5px',
                   backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -5401,7 +5497,7 @@ function App() {
                   </div>
                   <div className="overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
                     {error && (
-                      <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
+                      <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-2xl mb-4">
                         {error}
                       </div>
                     )}
@@ -5413,7 +5509,7 @@ function App() {
                         placeholder="Görev başlığını girin..."
                         value={newTask.title}
                         onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                        className="rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2 shadow-sm"
+                        className="rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2 shadow-sm"
                         style={{
                           minHeight: '48px',
                           backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -5438,7 +5534,7 @@ function App() {
                       <select
                         value={newTask.task_type}
                         onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
+                        className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
                         style={{
                           minHeight: '48px',
                           backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -5470,7 +5566,7 @@ function App() {
                         id="new-task-priority"
                         value={newTask.priority}
                         onChange={(e) => setNewTask({ ...newTask, priority: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
+                        className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
                         style={{
                           minHeight: '48px',
                           backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -5500,7 +5596,7 @@ function App() {
                       <select
                         value={newTask.responsible_id || ''}
                         onChange={(e) => setNewTask({ ...newTask, responsible_id: e.target.value ? parseInt(e.target.value) : null })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
+                        className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none focus:ring-2"
                         style={{
                           minHeight: '48px',
                           backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -5529,7 +5625,7 @@ function App() {
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>Atananlar</label>
-                      <div className="rounded-md p-3 sm:p-4" style={{
+                      <div className="rounded-lg p-3 sm:p-4" style={{
                         minHeight: '48px',
                         height: 'fit-content',
                       }}>
@@ -5593,7 +5689,7 @@ function App() {
                             type="text"
                             placeholder="Kullanıcı atayın..."
                             value={assigneeSearch}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
+                            className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
                             style={{
                               minHeight: '48px',
                               backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -5623,7 +5719,7 @@ function App() {
 
                           {showAssigneeDropdown && users && users.length > 0 && (
                             <div
-                              className="absolute w-full mt-1 rounded-md shadow-xl max-h-60 overflow-y-auto"
+                              className="absolute w-full mt-1 rounded-lg shadow-xl max-h-60 overflow-y-auto"
                               style={{
                                 backgroundColor: currentTheme.tableBackground || currentTheme.background,
                                 opacity: 1,
@@ -5721,7 +5817,7 @@ function App() {
                             type="date"
                             value={newTask.start_date}
                             onChange={(e) => setNewTask({ ...newTask, start_date: e.target.value })}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
+                            className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
                             style={{
                               minHeight: '48px',
                               backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -5747,7 +5843,7 @@ function App() {
                             type="date"
                             value={newTask.due_date}
                             onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
-                            className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
+                            className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none focus:ring-2"
                             style={{
                               minHeight: '48px',
                               backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -5772,7 +5868,7 @@ function App() {
                     <br />
                     <div className="grid grid-cols-[200px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-start">
                       <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>Dosyalar</label>
-                      <div className="w-full rounded-md p-3 sm:p-4" style={{
+                      <div className="w-full rounded-lg p-3 sm:p-4" style={{
                         minHeight: '24px',
                         paddingTop: '10px',
                         paddingBottom: '10px',
@@ -5842,7 +5938,7 @@ function App() {
                         placeholder="Görev açıklamasını girin..."
                         value={newTask.description}
                         onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                        className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none focus:ring-2 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
+                        className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none focus:ring-2 min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh]"
                         style={{
                           backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                           color: currentTheme.text,
@@ -5874,7 +5970,7 @@ function App() {
                       <button
                         onClick={handleAddTask}
                         disabled={addingTask || !newTask.title}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-md transition-colors !text-[16px] sm:!text-[24px] font-medium"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-colors !text-[16px] sm:!text-[24px] font-medium"
                         style={{
                           backgroundColor: (addingTask || !newTask.title) ? `${currentTheme.border}50` : currentTheme.accent,
                           color: '#ffffff',
@@ -6164,11 +6260,23 @@ function App() {
                                   <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
                                     <textarea
                                       disabled={lockedTargets || user?.role === 'observer'}
-                                      value={row.title || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
+                                      defaultValue={row.title || ''}
+                                      key={`title-${row.id || weeklyGoals.items.indexOf(row)}`}
+                                      ref={(el) => {
+                                        if (el) {
+                                          const key = getTextInputKey(row, 'title');
+                                          textInputRefs.current[key] = el;
+                                        }
+                                      }}
+                                      onChange={() => {
+                                        // Uncontrolled component - no state update, no re-render
+                                      }}
+                                      onBlur={e => {
+                                        // Save to main state on blur
+                                        saveTextInputToState(row, 'title', e.target.value);
+                                        // Update border styles
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
                                       }}
                                       className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
                                       placeholder="Başlık girin..."
@@ -6185,20 +6293,28 @@ function App() {
                                         e.target.style.borderColor = currentTheme.accent;
                                         e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
                                       }}
-                                      onBlur={(e) => {
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
-                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
                                     <textarea
                                       disabled={lockedTargets || user?.role === 'observer'}
-                                      value={row.action_plan || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
+                                      defaultValue={row.action_plan || ''}
+                                      key={`action_plan-${row.id || weeklyGoals.items.indexOf(row)}`}
+                                      ref={(el) => {
+                                        if (el) {
+                                          const key = getTextInputKey(row, 'action_plan');
+                                          textInputRefs.current[key] = el;
+                                        }
+                                      }}
+                                      onChange={() => {
+                                        // Uncontrolled component - no state update, no re-render
+                                      }}
+                                      onBlur={e => {
+                                        // Save to main state on blur
+                                        saveTextInputToState(row, 'action_plan', e.target.value);
+                                        // Update border styles
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
                                       }}
                                       className="w-full rounded px-3 py-2 min-h-[60px] min-w-[250px] text-[16px] resize-y"
                                       placeholder="Aksiyon planı girin..."
@@ -6213,18 +6329,13 @@ function App() {
                                         e.target.style.borderColor = currentTheme.accent;
                                         e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
                                       }}
-                                      onBlur={(e) => {
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
-                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
                                       onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).target_minutes = Number(e.target.value || 0);
-                                        setWeeklyGoals({ ...weeklyGoals, items });
+                                        // Use debounce for number inputs to reduce re-renders
+                                        updateNumberInput(row, 'target_minutes', e.target.value);
                                       }}
                                       className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
                                       style={{
@@ -6266,7 +6377,10 @@ function App() {
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedActuals || user?.role === 'observer'} value={row.actual_minutes || 0}
-                                      onChange={e => { const items = [...weeklyGoals.items]; items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0); setWeeklyGoals({ ...weeklyGoals, items }); }}
+                                      onChange={e => {
+                                        // Use debounce for number inputs to reduce re-renders
+                                        updateNumberInput(row, 'actual_minutes', e.target.value);
+                                      }}
                                       className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
                                       style={{
                                         width: '60px',
@@ -6330,9 +6444,16 @@ function App() {
                                         borderRadius: '9999px'
                                       }}
                                       onClick={() => {
-                                        setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
+                                        const index = weeklyGoals.items.indexOf(row);
+                                        setSelectedGoalIndex(index);
                                         setGoalDescription(row.description || '');
                                         setShowGoalDescription(true);
+                                        // Set ref value after modal opens
+                                        setTimeout(() => {
+                                          if (goalDescriptionRef.current) {
+                                            goalDescriptionRef.current.value = row.description || '';
+                                          }
+                                        }, 0);
                                       }}
                                       title="Açıklama Ekle/Düzenle"
                                     >
@@ -6451,11 +6572,23 @@ function App() {
                                   <td className="px-3 py-2 align-top" colSpan="2" style={{ verticalAlign: 'top' }}>
                                     <textarea
                                       disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
-                                      value={row.title || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).title = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
+                                      defaultValue={row.title || ''}
+                                      key={`title-unplanned-${row.id || weeklyGoals.items.indexOf(row)}`}
+                                      ref={(el) => {
+                                        if (el) {
+                                          const key = getTextInputKey(row, 'title');
+                                          textInputRefs.current[key] = el;
+                                        }
+                                      }}
+                                      onChange={() => {
+                                        // Uncontrolled component - no state update, no re-render
+                                      }}
+                                      onBlur={e => {
+                                        // Save to main state on blur
+                                        saveTextInputToState(row, 'title', e.target.value);
+                                        // Update border styles
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
                                       }}
                                       className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
                                       style={{
@@ -6474,20 +6607,28 @@ function App() {
                                           e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
-                                      onBlur={(e) => {
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
-                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-top" colSpan="3" style={{ verticalAlign: 'top' }}>
                                     <textarea
                                       disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
-                                      value={row.action_plan || ''}
-                                      onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).action_plan = e.target.value;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
+                                      defaultValue={row.action_plan || ''}
+                                      key={`action_plan-unplanned-${row.id || weeklyGoals.items.indexOf(row)}`}
+                                      ref={(el) => {
+                                        if (el) {
+                                          const key = getTextInputKey(row, 'action_plan');
+                                          textInputRefs.current[key] = el;
+                                        }
+                                      }}
+                                      onChange={() => {
+                                        // Uncontrolled component - no state update, no re-render
+                                      }}
+                                      onBlur={e => {
+                                        // Save to main state on blur
+                                        saveTextInputToState(row, 'action_plan', e.target.value);
+                                        // Update border styles
+                                        e.target.style.borderColor = currentTheme.border;
+                                        e.target.style.boxShadow = 'none';
                                       }}
                                       className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
                                       style={{
@@ -6506,18 +6647,13 @@ function App() {
                                           e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
-                                      onBlur={(e) => {
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
-                                      }}
                                     />
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
                                     <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
                                       onChange={e => {
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).actual_minutes = Number(e.target.value || 0);
-                                        setWeeklyGoals({ ...weeklyGoals, items });
+                                        // Use debounce for number inputs to reduce re-renders
+                                        updateNumberInput(row, 'actual_minutes', e.target.value);
                                       }}
                                       className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
                                       style={{
@@ -6567,9 +6703,16 @@ function App() {
                                         borderRadius: '9999px'
                                       }}
                                       onClick={() => {
-                                        setSelectedGoalIndex(weeklyGoals.items.indexOf(row));
+                                        const index = weeklyGoals.items.indexOf(row);
+                                        setSelectedGoalIndex(index);
                                         setGoalDescription(row.description || '');
                                         setShowGoalDescription(true);
+                                        // Set ref value after modal opens
+                                        setTimeout(() => {
+                                          if (goalDescriptionRef.current) {
+                                            goalDescriptionRef.current.value = row.description || '';
+                                          }
+                                        }, 0);
                                       }}
                                       title="Açıklama Ekle/Düzenle"
                                     >
@@ -6847,8 +6990,20 @@ function App() {
                   <div className="mb-6">
                     <h3 className="text-xl font-medium mb-3" style={{ color: currentTheme.text }}>Açıklama:</h3>
                     <textarea
-                      value={goalDescription}
-                      onChange={(e) => setGoalDescription(e.target.value)}
+                      defaultValue={goalDescription}
+                      key={`goal-description-${selectedGoalIndex}`}
+                      ref={(el) => {
+                        goalDescriptionRef.current = el;
+                        if (el && selectedGoalIndex !== null) {
+                          const row = weeklyGoals.items[selectedGoalIndex];
+                          if (row && el.value !== (row.description || '')) {
+                            el.value = row.description || '';
+                          }
+                        }
+                      }}
+                      onChange={() => {
+                        // Uncontrolled component - no state update, no re-render
+                      }}
                       className="w-full !h-[200px] rounded px-4 py-3 text-[24px] resize-none text-base focus:outline-none"
                       style={{
                         backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -6900,8 +7055,11 @@ function App() {
                         onClick={async () => {
                           if (selectedGoalIndex !== null) {
                             const items = [...weeklyGoals.items];
-                            items[selectedGoalIndex].description = goalDescription;
+                            // Get value from ref instead of state
+                            const descriptionValue = goalDescriptionRef.current?.value || '';
+                            items[selectedGoalIndex].description = descriptionValue;
                             setWeeklyGoals({ ...weeklyGoals, items });
+                            setGoalDescription(descriptionValue); // Update state for next time modal opens
                             setShowGoalDescription(false);
 
                             // Backend'e kaydet (arka planda)
@@ -7027,8 +7185,8 @@ function App() {
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y text-[16px] cursor-pointer" style={{ borderColor: currentTheme.border }}>
-                            <thead className="text-white text-[18px]" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+                          <table className="min-w-full divide-y text-[18px] cursor-pointer" style={{ borderColor: currentTheme.border }}>
+                            <thead className="text-white text-[18px]" style={{ backgroundColor: currentTheme.tableHeader}}>
                               <tr>
                                 <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('name')} role="button">Kullanıcı</th>
                                 <th className="px-4 py-3 text-center font-semibold uppercase tracking-wide" style={{ color: currentTheme.text }} onClick={() => toggleWeeklyOverviewSort('leader_name')} role="button">Lider</th>
@@ -7476,7 +7634,7 @@ function App() {
                       <div className="justify-self-end">
                         <button
                           onClick={handleCloseModal}
-                          className="rounded-md px-2 py-1 transition-colors border border-red-500"
+                          className="rounded-lg px-2 py-1 transition-colors border border-red-500"
                           style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                           onMouseEnter={(e) => {
                             e.target.style.color = currentTheme.text;
@@ -7498,7 +7656,7 @@ function App() {
                     <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar" style={{ padding: '0px 24px' }}>
                       <div className="py-6 flex flex-col gap-4 sm:gap-6">
                         {error && (
-                          <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-4">
+                          <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-2xl mb-4">
                             {error}
                           </div>
                         )}
@@ -7512,7 +7670,7 @@ function App() {
                               type="text"
                               value={detailDraft?.no || selectedTask.no || ''}
                               onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), no: e.target.value }))}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                              className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
                               style={{
                                 minHeight: '35px',
                                 backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -7532,7 +7690,7 @@ function App() {
                               placeholder="NO girin..."
                             />
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                            <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {selectedTask.no || '-'}
                             </div>
                           )}
@@ -7542,7 +7700,7 @@ function App() {
                           <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Başlık
                           </label>
-                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                          <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                             {selectedTask.title ?? ""}
                           </div>
                         </div>
@@ -7562,7 +7720,7 @@ function App() {
                                   status: 'waiting' // Görev türü değiştiğinde durumu Bekliyor'a reset et
                                 }));
                               }}
-                              className="w-full rounded-md px-3 py-2 !text-[24px] sm:!text-[16px] focus:outline-none"
+                              className="w-full rounded-lg px-3 py-2 !text-[24px] sm:!text-[16px] focus:outline-none"
                               style={{
                                 height: '40px',
                                 backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -7587,7 +7745,7 @@ function App() {
                               ))}
                             </select>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                            <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {getTaskTypeText(selectedTask.task_type)}
                             </div>
                           )}
@@ -7614,7 +7772,7 @@ function App() {
                                       setDetailDraft(prev => ({ ...(prev || {}), status: prevStatus.value }));
                                     }
                                   }}
-                                  className="px-3 py-2 rounded-md transition-colors"
+                                  className="px-3 py-2 rounded-lg transition-colors"
                                   style={{
                                     backgroundColor: currentTheme.border,
                                     color: currentTheme.text
@@ -7637,7 +7795,7 @@ function App() {
                                   <select
                                     value={detailDraft?.status || ''}
                                     onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), status: e.target.value }))}
-                                    className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                    className="flex-1 rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
                                     style={{
                                       height: '40px',
                                       backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -7663,7 +7821,7 @@ function App() {
                                     ))}
                                   </select>
                                 ) : (
-                                  <div className="flex-1 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.textSecondary || currentTheme.text }}>
+                                  <div className="flex-1 rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.textSecondary || currentTheme.text }}>
                                     Durum yok
                                   </div>
                                 )}
@@ -7681,7 +7839,7 @@ function App() {
                                       setDetailDraft(prev => ({ ...(prev || {}), status: nextStatus.value }));
                                     }
                                   }}
-                                  className="px-3 py-2 rounded-md transition-colors"
+                                  className="px-3 py-2 rounded-lg transition-colors"
                                   style={{
                                     backgroundColor: currentTheme.border,
                                     color: currentTheme.text
@@ -7702,7 +7860,7 @@ function App() {
                               </div>
                             </div>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                            <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {getStatusText(selectedTask.status, selectedTask)}
                             </div>
                           )}
@@ -7714,7 +7872,7 @@ function App() {
                             <select
                               value={detailDraft?.priority || 'medium'}
                               onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), priority: e.target.value }))}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                              className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
                               style={{
                                 height: '40px',
                                 backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -7738,7 +7896,7 @@ function App() {
                               <option value="critical">Kritik</option>
                             </select>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                            <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {getPriorityText(selectedTask.priority)}
                             </div>
                           )}
@@ -7784,7 +7942,7 @@ function App() {
                                 // Önceki sorumluyu güncelle
                                 previousResponsibleIdDetailRef.current = rid;
                               }}
-                              className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none"
+                              className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] focus:outline-none"
                               style={{
                                 height: '40px',
                                 backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -7808,7 +7966,7 @@ function App() {
                               ))}
                             </select>
                           ) : (
-                            <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                            <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                               {selectedTask.responsible?.name || 'Atanmamış'}
                             </div>
                           )}
@@ -7818,7 +7976,7 @@ function App() {
                           <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Oluşturan
                           </label>
-                          <div className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                          <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[24px] flex items-center" style={{ height: '40px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                             {selectedTask.creator?.name || 'Bilinmiyor'}
                           </div>
                         </div>
@@ -7827,7 +7985,7 @@ function App() {
                           <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Atananlar
                           </label>
-                          <div className="w-full rounded-md p-3 sm:p-4" style={{ minHeight: '24px', height: 'fit-content', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background }}>
+                          <div className="w-full rounded-lg p-3 sm:p-4" style={{ minHeight: '24px', height: 'fit-content', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background }}>
                             {user?.role !== 'observer' ? (
                               <div className="assignee-dropdown-detail-container relative">
                                 {Array.isArray(detailDraft?.assigned_user_ids) && detailDraft.assigned_user_ids.length > 0 && (
@@ -7888,7 +8046,7 @@ function App() {
                                   type="text"
                                   placeholder="Kullanıcı atayın..."
                                   value={assigneeSearchDetail}
-                                  className="w-[99%] rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                  className="w-[99%] rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
                                   style={{
                                     minHeight: '32px',
                                     backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -7915,7 +8073,7 @@ function App() {
 
                                 {showAssigneeDropdownDetail && users && users.length > 0 && (
                                   <div
-                                    className="absolute w-full mt-1 border-2 border-gray-400 rounded-md shadow-xl max-h-60 overflow-y-auto bg-white"
+                                    className="absolute w-full mt-1 border-2 border-gray-400 rounded-lg shadow-xl max-h-60 overflow-y-auto bg-white"
                                     style={{
                                       backgroundColor: currentTheme.tableBackground || currentTheme.background,
                                       opacity: 1,
@@ -8244,7 +8402,7 @@ function App() {
                                       start_date: e.target.value
                                     }));
                                   }}
-                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                  className="w-[98%] min-w-0 rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
                                   style={{
                                     minHeight: '32px',
                                     backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -8264,7 +8422,7 @@ function App() {
                                   }}
                                 />
                               ) : (
-                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center truncate" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                                <div className="w-full min-w-0 rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center truncate" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                                   {selectedTask.start_date ? formatDateOnly(selectedTask.start_date) : '-'}
                                 </div>
                               )}
@@ -8281,7 +8439,7 @@ function App() {
                                       due_date: e.target.value
                                     }));
                                   }}
-                                  className="w-[98%] min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                                  className="w-[98%] min-w-0 rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
                                   style={{
                                     minHeight: '32px',
                                     paddingLeft: '6px',
@@ -8302,7 +8460,7 @@ function App() {
                                   }}
                                 />
                               ) : (
-                                <div className="w-full min-w-0 rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center truncate" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                                <div className="w-full min-w-0 rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center truncate" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
                                   {selectedTask.due_date ? formatDateOnly(selectedTask.due_date) : '-'}
                                 </div>
                               )}
@@ -8322,7 +8480,7 @@ function App() {
                                   setDescDraft(e.target.value);
                                 }}
                                 placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                                className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
                                 style={{
                                   backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                   color: currentTheme.text,
@@ -8344,7 +8502,7 @@ function App() {
                                 readOnly
                                 value={selectedTask.description ?? ''}
                                 placeholder="Görev açıklamasını girin..."
-                                className="w-full rounded-md px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
+                                className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] focus:outline-none min-h-[120px] sm:min-h-[180px] max-h-[30vh] sm:max-h-[40vh] resize-none no-scrollbar"
                                 style={{
                                   backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                   color: currentTheme.text,
@@ -8365,7 +8523,7 @@ function App() {
                                   key={status.value}
                                   type="button"
                                   onClick={() => setDetailDraft(prev => ({ ...(prev || {}), status: status.value }))}
-                                  className="px-6 py-3 rounded-md text-sm font-medium transition-colors flex-1"
+                                  className="px-6 py-3 rounded-lg text-sm font-medium transition-colors flex-1"
                                   style={{
                                     backgroundColor: (detailDraft?.status || selectedTask.status) === status.value ? status.color : currentTheme.border,
                                     color: (detailDraft?.status || selectedTask.status) === status.value ? '#ffffff' : currentTheme.text
@@ -8779,7 +8937,7 @@ function App() {
                     </div>
 
                     <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)' }}>
-                      <div className="rounded-xl p-6 mx-4" style={{ padding: '15px', backgroundColor: `${currentTheme.border}20` }}>
+                      <div className="rounded-2xl p-6 mx-4" style={{ padding: '15px', backgroundColor: `${currentTheme.border}20` }}>
                         <div className="grid gap-6" style={{ gridTemplateColumns: '1fr 260px' }}>
                           <div>
                             <div className="grid items-center gap-x-8 gap-y-4" style={{ gridTemplateColumns: '120px 1fr' }}>
@@ -8793,7 +8951,7 @@ function App() {
                               <div className="font-semibold !text-[18px] truncate" style={{ color: currentTheme.text }}>{getRoleText(user?.role)}</div>
                             </div>
                           </div>
-                          <div className="rounded-xl p-4" style={{ backgroundColor: `${currentTheme.border}20` }}>
+                          <div className="rounded-2xl p-4" style={{ backgroundColor: `${currentTheme.border}20` }}>
                             {user?.role !== 'observer' && (
                               <button
                                 className="w-full h-full rounded px-4 py-2 flex items-center justify-center transition-colors"
@@ -8822,7 +8980,7 @@ function App() {
                         </div>
                       </div>
                       <div className="sticky bottom-0 w-full px-8 py-5 backdrop-blur" style={{ borderTop: `1px solid ${currentTheme.border}`, backgroundColor: `${currentTheme.background}E6` }}></div>
-                      <div className="rounded-xl p-6 mx-4" style={{ backgroundColor: `${currentTheme.border}20` }}>
+                      <div className="rounded-2xl p-6 mx-4" style={{ backgroundColor: `${currentTheme.border}20` }}>
                         <div className="!text-[24px] font-medium mb-4 flex items-center" style={{ paddingLeft: '15px', color: currentTheme.text }}>
                           🔐 <span className="ml-2">Şifre Değiştir</span>
                         </div>
@@ -8936,7 +9094,7 @@ function App() {
                         <div className="justify-self-end">
                           <button
                             onClick={() => setShowUserPanel(false)}
-                            className="rounded-md px-2 py-1 transition-colors"
+                            className="rounded-lg px-2 py-1 transition-colors"
                             style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                             onMouseEnter={(e) => {
                               e.target.style.color = currentTheme.text;
@@ -8968,7 +9126,7 @@ function App() {
                             placeholder="Kullanıcı ara..."
                             value={userSearchTerm}
                             onChange={(e) => setUserSearchTerm(e.target.value)}
-                            className="w-full rounded border px-3 py-2 !text-[24px] focus:outline-none"
+                            className="w-full rounded-lg border px-3 py-2 !text-[24px] focus:outline-none"
                             style={{
                               color: currentTheme.text,
                               backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
@@ -9423,7 +9581,7 @@ function App() {
                         <div className="justify-self-end">
                           <button
                             onClick={() => setShowTaskSettings(false)}
-                            className="rounded-md px-2 py-1 transition-colors"
+                            className="rounded-lg px-2 py-1 transition-colors"
                             style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
                             onMouseEnter={(e) => {
                               e.target.style.color = currentTheme.text;
