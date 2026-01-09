@@ -417,21 +417,31 @@ class WeeklyGoalController extends Controller
 
     public function save(Request $request)
     {
-        $request->validate([
+        // Boş liste gönderildiğinde items.* kurallarını atla
+        $items = $request->input('items', []);
+        
+        // items null veya boş array olabilir (tüm görevleri silmek için)
+        $validationRules = [
             'user_id' => 'nullable|integer|exists:users,id',
             'week_start' => 'nullable|date',
             'leave_minutes' => 'nullable|integer|min:0|max:'.self::WEEKLY_BASE_MINUTES,
             'overtime_minutes' => 'nullable|integer|min:0',
-            'items' => 'required|array',
-            'items.*.id' => 'nullable|integer',
-            'items.*.title' => 'required|string|max:255',
-            'items.*.action_plan' => 'nullable|string',
-            'items.*.target_minutes' => 'nullable|integer|min:0',
-            'items.*.weight_percent' => 'nullable|numeric|min:0|max:100',
-            'items.*.actual_minutes' => 'nullable|integer|min:0',
-            'items.*.is_unplanned' => 'boolean',
-            'items.*.description' => 'nullable|string',
-        ]);
+            'items' => 'nullable|array', // Boş array göndermek için nullable
+        ];
+        
+        // Sadece items doluysa items.* kurallarını ekle
+        if (!empty($items) && is_array($items) && count($items) > 0) {
+            $validationRules['items.*.id'] = 'nullable|integer';
+            $validationRules['items.*.title'] = 'nullable|string|max:255';
+            $validationRules['items.*.action_plan'] = 'nullable|string';
+            $validationRules['items.*.target_minutes'] = 'nullable|integer|min:0';
+            $validationRules['items.*.weight_percent'] = 'nullable|numeric|min:0|max:100';
+            $validationRules['items.*.actual_minutes'] = 'nullable|integer|min:0';
+            $validationRules['items.*.is_unplanned'] = 'boolean';
+            $validationRules['items.*.description'] = 'nullable|string';
+        }
+        
+        $request->validate($validationRules);
 
         $auth = $request->user();
         $userId = (int)($request->input('user_id') ?: $auth->id);
@@ -462,19 +472,68 @@ class WeeklyGoalController extends Controller
         $leaveMinutes = $canEditTargets ? $requestedLeave : $existingLeave;
         $overtimeMinutes = $canEditTargets ? $requestedOvertime : $existingOvertime;
         $capacity = $this->weekCapacity($leaveMinutes, $overtimeMinutes);
+        
+        // items'ı normalize et (null ise boş array yap)
+        if (!is_array($items)) {
+            $items = [];
+        }
 
-        $items = $request->input('items', []);
+        // Boş liste kontrolü: Tüm görevleri silmek için boş liste gönderilebilir
+        // Boş liste durumunda zorunlu alan kontrolünü atla
+        if (count($items) > 0) {
+            // Zorunlu alan kontrolü: Başlık, Aksiyon Planı ve Hedef(dk) dolu olmalı
+            // Not: Plandışı görevler için hedef süresi opsiyonel
+            foreach ($items as $idx => $it) {
+                $hasTitle = !empty($it['title']) && trim($it['title']) !== '';
+                $hasActionPlan = !empty($it['action_plan']) && trim($it['action_plan']) !== '';
+                $hasTarget = isset($it['target_minutes']) && (int)($it['target_minutes'] ?? 0) > 0;
+                $isUnplanned = (bool)($it['is_unplanned'] ?? false);
 
-        // Sadece gerçekleşen süre kontrolü yapılır
-        // Planlı süre kontrolü yok - izin eklendiğinde planlı süre kullanılabilir süreyi aşsa bile kaydedilebilir
+                // Plandışı görevler için sadece başlık ve aksiyon planı zorunlu
+                if ($isUnplanned) {
+                    if (!$hasTitle || !$hasActionPlan) {
+                        return response()->json(['message' => 'Lütfen tüm görevlere Başlık ve Aksiyon Planı girin.'], 422);
+                    }
+                } else {
+                    // Planlı görevler için başlık, aksiyon planı ve hedef zorunlu
+                    if (!$hasTitle || !$hasActionPlan || !$hasTarget) {
+                        return response()->json(['message' => 'Lütfen tüm görevlere Başlık, Aksiyon Planı ve Hedef süresini girin.'], 422);
+                    }
+                }
+            }
+        }
+
         $allItems = collect($items);
+        
+        // Planlı görevlerin target_minutes toplamı
+        $planned = $allItems->where('is_unplanned', false);
+        $totalTarget = (int)$planned->sum(function ($x) {
+            return max(0, (int)($x['target_minutes'] ?? 0));
+        });
+        
+        // Plansız görevlerin target_minutes toplamı (varsa)
+        $unplanned = $allItems->where('is_unplanned', true);
+        $totalUnplannedTarget = (int)$unplanned->sum(function ($x) {
+            return max(0, (int)($x['target_minutes'] ?? 0));
+        });
+        
+        // Toplam hedef süre (planlı + plansız) - mesai süresi zaten capacity'ye dahil
+        $totalTargetMinutes = $totalTarget + $totalUnplannedTarget;
+        
+        // Toplam gerçekleşen süre
         $totalActual = (int)$allItems->sum(function ($x) {
             return max(0, (int)($x['actual_minutes'] ?? 0));
         });
 
         // Admin için kapasite kontrollerini bypass et
-        // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
         if ($auth->role !== 'admin') {
+            // Planlı + plansız hedef süre toplamı, kullanılabilir süreyi (mesai dahil) aşmamalı
+            // Mesai süresi zaten capacity'ye dahil (2700 - izin + mesai)
+            if ($totalTargetMinutes > $capacity) {
+                return response()->json(['message' => "Toplam hedef süre ({$totalTargetMinutes} dk) kullanılabilir süreyi ({$capacity} dk) aşamaz."], 422);
+            }
+            
+            // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
             if ($totalActual > $capacity) {
                 return response()->json(['message' => "Toplam gerçekleşen süre ({$totalActual} dk) kullanılabilir süreyi ({$capacity} dk) aşamaz."], 422);
             }

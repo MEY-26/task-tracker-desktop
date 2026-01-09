@@ -328,6 +328,10 @@ function App() {
   const assigneeDetailInputRef = useRef(null);
   const [weeklySaveState, setWeeklySaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const weeklySaveStateTimeoutRef = useRef(null);
+  const [weeklyValidationErrors, setWeeklyValidationErrors] = useState({
+    overCapacity: false,
+    invalidItems: [] // Array of item indices with missing required fields
+  });
 
   // Debounce timers for inputs (moved to top level to avoid hooks rule violation)
   const numberInputDebounceTimers = useRef({});
@@ -1127,21 +1131,39 @@ function App() {
       }
 
       const leaveMinutesForSave = weeklyLeaveMinutes;
+      const overtimeMinutesForSave = weeklyOvertimeMinutes;
       const availableMinutes = Number.isFinite(weeklyLive?.availableMinutes)
         ? Number(weeklyLive.availableMinutes)
-        : Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutesForSave);
+        : Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutesForSave + overtimeMinutesForSave);
 
-      // Sadece gerçekleşen süre kontrolü yapılır
-      // Planlı süre kontrolü yok - izin eklendiğinde planlı süre kullanılabilir süreyi aşsa bile kaydedilebilir
-      // İzin ve mesai alanları her zaman kaydedilebilir (kısıtlama yok)
-      if (user?.role !== 'admin') {
-        // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
-        // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
-        const totalActual = weeklyLive?.totalActual || 0;
+      // Boş liste kontrolü: Tüm görevleri silmek için boş liste gönderilebilir
+      if (itemsToSave.length === 0) {
+        // Boş liste durumunda zorunlu alan kontrolünü atla, direkt kaydet
+      } else {
+        // Zorunlu alan kontrolü: Başlık, Aksiyon Planı ve Hedef(dk) dolu olmalı
+        // Not: Plandışı görevler için hedef süresi opsiyonel
+        const invalidItems = itemsToSave.filter(x => {
+          const hasTitle = x.title && x.title.trim() !== '';
+          const hasActionPlan = x.action_plan && x.action_plan.trim() !== '';
+          const hasTarget = x.target_minutes && Number(x.target_minutes) > 0;
 
-        if (totalActual > availableMinutes) {
-          const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
-          addNotification(errorMsg, 'error');
+          // Plandışı görevler için sadece başlık ve aksiyon planı zorunlu
+          if (x.is_unplanned) {
+            return !hasTitle || !hasActionPlan;
+          }
+
+          // Planlı görevler için başlık, aksiyon planı ve hedef zorunlu
+          return !hasTitle || !hasActionPlan || !hasTarget;
+        });
+
+        if (invalidItems.length > 0) {
+          const msg = invalidItems.some(x => x.is_unplanned)
+            ? 'Lütfen tüm görevlere Başlık ve Aksiyon Planı girin.'
+            : 'Lütfen tüm görevlere Başlık, Aksiyon Planı ve Hedef süresini girin.';
+          addNotification(msg, 'error');
+          // Store invalid item indices for visual highlighting
+          const invalidIndices = invalidItems.map(item => itemsToSave.indexOf(item));
+          setWeeklyValidationErrors({ overCapacity: false, invalidItems: invalidIndices });
           setWeeklySaveState('idle');
           return;
         }
@@ -1150,31 +1172,40 @@ function App() {
       // Auto compute weights from target minutes (planned only)
       const planned = itemsToSave.filter(x => !x.is_unplanned);
       const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
+      
+      // Plansız görevlerin target_minutes toplamı (varsa)
+      const unplanned = itemsToSave.filter(x => x.is_unplanned);
+      const totalUnplannedTarget = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
+      
+      // Toplam hedef süre (planlı + plansız) - mesai süresi zaten availableMinutes'a dahil
+      const totalTargetMinutes = totalTarget + totalUnplannedTarget;
 
-      // Zorunlu alan kontrolü: Başlık, Aksiyon Planı ve Hedef(dk) dolu olmalı
-      // Not: Plandışı görevler için hedef süresi opsiyonel
-      const invalidItems = itemsToSave.filter(x => {
-        const hasTitle = x.title && x.title.trim() !== '';
-        const hasActionPlan = x.action_plan && x.action_plan.trim() !== '';
-        const hasTarget = x.target_minutes && Number(x.target_minutes) > 0;
-
-        // Plandışı görevler için sadece başlık ve aksiyon planı zorunlu
-        if (x.is_unplanned) {
-          return !hasTitle || !hasActionPlan;
+      if (user?.role !== 'admin') {
+        // Planlı + plansız hedef süre toplamı, kullanılabilir süreyi (mesai dahil) aşmamalı
+        // Mesai süresi zaten availableMinutes'a dahil (2700 - izin + mesai)
+        if (totalTargetMinutes > availableMinutes) {
+          const errorMsg = `Toplam hedef süre (${totalTargetMinutes} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
+          addNotification(errorMsg, 'error');
+          setWeeklyValidationErrors({ overCapacity: true, invalidItems: [] });
+          setWeeklySaveState('idle');
+          return;
         }
 
-        // Planlı görevler için başlık, aksiyon planı ve hedef zorunlu
-        return !hasTitle || !hasActionPlan || !hasTarget;
-      });
+        // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
+        // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
+        const totalActual = weeklyLive?.totalActual || 0;
 
-      if (invalidItems.length > 0) {
-        const msg = invalidItems.some(x => x.is_unplanned)
-          ? 'Lütfen tüm görevlere Başlık ve Aksiyon Planı girin.'
-          : 'Lütfen tüm görevlere Başlık, Aksiyon Planı ve Hedef süresini girin.';
-        addNotification(msg, 'error');
-        setWeeklySaveState('idle');
-        return;
+        if (totalActual > availableMinutes) {
+          const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
+          addNotification(errorMsg, 'error');
+          setWeeklyValidationErrors({ overCapacity: true, invalidItems: [] });
+          setWeeklySaveState('idle');
+          return;
+        }
       }
+      
+      // Clear validation errors if validation passes
+      setWeeklyValidationErrors({ overCapacity: false, invalidItems: [] });
 
       const items = itemsToSave.map((x) => {
         const isUnplanned = !!x.is_unplanned;
@@ -1196,7 +1227,6 @@ function App() {
         };
       });
 
-      const overtimeMinutesForSave = weeklyOvertimeMinutes;
       const payload = {
         week_start: weeklyWeekStart || fmtYMD(getMonday()),
         leave_minutes: leaveMinutesForSave,
@@ -1254,6 +1284,8 @@ function App() {
 
       addNotification('Haftalık hedefler kaydedildi', 'success');
       setWeeklySaveState('saved');
+      // Clear validation errors on successful save
+      setWeeklyValidationErrors({ overCapacity: false, invalidItems: [] });
 
       // Clear any existing timeout
       if (weeklySaveStateTimeoutRef.current) {
@@ -6104,6 +6136,10 @@ function App() {
                           value={weeklyLeaveMinutesInput}
                           onChange={handleWeeklyLeaveMinutesChange}
                           disabled={user?.role === 'observer'}
+                          onWheel={(e) => {
+                            // Prevent mouse wheel from changing number input values
+                            e.target.blur();
+                          }}
                           className="w-28 text-center rounded px-3 py-1 text-[22px]"
                           placeholder="0"
                           title="Planlanan hafta için izinli olacağınız toplam dakika"
@@ -6137,6 +6173,10 @@ function App() {
                           value={weeklyOvertimeMinutesInput}
                           onChange={handleWeeklyOvertimeMinutesChange}
                           disabled={user?.role === 'observer'}
+                          onWheel={(e) => {
+                            // Prevent mouse wheel from changing number input values
+                            e.target.blur();
+                          }}
                           className="w-28 text-center rounded px-3 py-1 text-[22px]"
                           placeholder="0"
                           title="Mesaiye kalma durumunda 2700 dakikayı aşmak için mesai süresi"
@@ -6191,6 +6231,10 @@ function App() {
                               const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
                               const w = capacity > 0 ? (t / capacity) * 100 : 0; // satır ağırlığı
                               const isCompleted = row.is_completed === true;
+                              // Get actual index in weeklyGoals.items array
+                              const actualIndex = weeklyGoals.items.indexOf(row);
+                              const hasValidationError = weeklyValidationErrors.invalidItems.includes(actualIndex);
+                              const isOverCapacity = weeklyValidationErrors.overCapacity;
 
                               // Ceza hesaplaması ile verimlilik
                               let effectiveActual = a;
@@ -6231,6 +6275,12 @@ function App() {
                                         if (el) {
                                           const key = getTextInputKey(row, 'title');
                                           textInputRefs.current[key] = el;
+                                          // Apply error styling if needed
+                                          if (hasValidationError) {
+                                            el.style.borderColor = '#ef4444';
+                                            el.style.borderWidth = '2px';
+                                            el.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+                                          }
                                         }
                                       }}
                                       onChange={() => {
@@ -6240,8 +6290,9 @@ function App() {
                                         // Save to main state on blur
                                         saveTextInputToState(row, 'title', e.target.value);
                                         // Update border styles
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
+                                        e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.border;
+                                        e.target.style.boxShadow = hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none';
+                                        e.target.style.borderWidth = hasValidationError ? '2px' : '1px';
                                       }}
                                       className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
                                       placeholder="Başlık girin..."
@@ -6250,15 +6301,23 @@ function App() {
                                         wordWrap: 'break-word',
                                         backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                         color: currentTheme.text,
-                                        borderColor: currentTheme.border,
-                                        borderWidth: '1px',
-                                        borderStyle: 'solid'
+                                        borderColor: hasValidationError ? '#ef4444' : currentTheme.border,
+                                        borderWidth: hasValidationError ? '2px' : '1px',
+                                        borderStyle: 'solid',
+                                        boxShadow: hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none'
                                       }}
                                       onFocus={(e) => {
-                                        e.target.style.borderColor = currentTheme.accent;
-                                        e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                        e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
+                                        e.target.style.boxShadow = hasValidationError 
+                                          ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                          : `0 0 0 2px ${currentTheme.accent}40`;
                                       }}
                                     />
+                                    {hasValidationError && !row.title?.trim() && (
+                                      <div className="text-xs mt-1" style={{ color: '#ef4444' }}>
+                                        Bu alan boş bırakılamaz
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }}>
                                     <textarea
@@ -6269,6 +6328,12 @@ function App() {
                                         if (el) {
                                           const key = getTextInputKey(row, 'action_plan');
                                           textInputRefs.current[key] = el;
+                                          // Apply error styling if needed
+                                          if (hasValidationError) {
+                                            el.style.borderColor = '#ef4444';
+                                            el.style.borderWidth = '2px';
+                                            el.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+                                          }
                                         }
                                       }}
                                       onChange={() => {
@@ -6278,29 +6343,42 @@ function App() {
                                         // Save to main state on blur
                                         saveTextInputToState(row, 'action_plan', e.target.value);
                                         // Update border styles
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
+                                        e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.border;
+                                        e.target.style.boxShadow = hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none';
+                                        e.target.style.borderWidth = hasValidationError ? '2px' : '1px';
                                       }}
                                       className="w-full rounded px-3 py-2 min-h-[60px] min-w-[250px] text-[16px] resize-y"
                                       placeholder="Aksiyon planı girin..."
                                       style={{
                                         backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                         color: currentTheme.text,
-                                        borderColor: currentTheme.border,
-                                        borderWidth: '1px',
-                                        borderStyle: 'solid'
+                                        borderColor: hasValidationError ? '#ef4444' : currentTheme.border,
+                                        borderWidth: hasValidationError ? '2px' : '1px',
+                                        borderStyle: 'solid',
+                                        boxShadow: hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none'
                                       }}
                                       onFocus={(e) => {
-                                        e.target.style.borderColor = currentTheme.accent;
-                                        e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                        e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
+                                        e.target.style.boxShadow = hasValidationError 
+                                          ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                          : `0 0 0 2px ${currentTheme.accent}40`;
                                       }}
                                     />
+                                    {hasValidationError && !row.action_plan?.trim() && (
+                                      <div className="text-xs mt-1" style={{ color: '#ef4444' }}>
+                                        Bu alan boş bırakılamaz
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top', width: '10px' }}>
                                     <input type="number" inputMode="numeric" step="1" min="0" disabled={lockedTargets || user?.role === 'observer'} value={row.target_minutes || 0}
                                       onChange={e => {
                                         // Use debounce for number inputs to reduce re-renders
                                         updateNumberInput(row, 'target_minutes', e.target.value);
+                                      }}
+                                      onWheel={(e) => {
+                                        // Prevent mouse wheel from changing number input values
+                                        e.target.blur();
                                       }}
                                       className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
                                       style={{
@@ -6309,19 +6387,22 @@ function App() {
                                         textAlign: 'center',
                                         backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                         color: currentTheme.text,
-                                        borderColor: currentTheme.border,
-                                        borderWidth: '1px',
-                                        borderStyle: 'solid'
+                                        borderColor: (hasValidationError || isOverCapacity) ? '#ef4444' : currentTheme.border,
+                                        borderWidth: (hasValidationError || isOverCapacity) ? '2px' : '1px',
+                                        borderStyle: 'solid',
+                                        boxShadow: (hasValidationError || isOverCapacity) ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none'
                                       }}
                                       onFocus={(e) => {
                                         if (!lockedTargets && user?.role !== 'observer') {
-                                          e.target.style.borderColor = currentTheme.accent;
-                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                          e.target.style.borderColor = (hasValidationError || isOverCapacity) ? '#ef4444' : currentTheme.accent;
+                                          e.target.style.boxShadow = (hasValidationError || isOverCapacity) 
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                            : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
                                       onBlur={(e) => {
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
+                                        e.target.style.borderColor = (hasValidationError || isOverCapacity) ? '#ef4444' : currentTheme.border;
+                                        e.target.style.boxShadow = (hasValidationError || isOverCapacity) ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none';
                                       }}
                                     />
                                   </td>
@@ -6346,6 +6427,10 @@ function App() {
                                         // Use debounce for number inputs to reduce re-renders
                                         updateNumberInput(row, 'actual_minutes', e.target.value);
                                       }}
+                                      onWheel={(e) => {
+                                        // Prevent mouse wheel from changing number input values
+                                        e.target.blur();
+                                      }}
                                       className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
                                       style={{
                                         width: '60px',
@@ -6353,19 +6438,22 @@ function App() {
                                         textAlign: 'center',
                                         backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                         color: currentTheme.text,
-                                        borderColor: currentTheme.border,
-                                        borderWidth: '1px',
-                                        borderStyle: 'solid'
+                                        borderColor: isOverCapacity ? '#ef4444' : currentTheme.border,
+                                        borderWidth: isOverCapacity ? '2px' : '1px',
+                                        borderStyle: 'solid',
+                                        boxShadow: isOverCapacity ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none'
                                       }}
                                       onFocus={(e) => {
                                         if (!lockedActuals && user?.role !== 'observer') {
-                                          e.target.style.borderColor = currentTheme.accent;
-                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                          e.target.style.borderColor = isOverCapacity ? '#ef4444' : currentTheme.accent;
+                                          e.target.style.boxShadow = isOverCapacity 
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                            : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
                                       onBlur={(e) => {
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
+                                        e.target.style.borderColor = isOverCapacity ? '#ef4444' : currentTheme.border;
+                                        e.target.style.boxShadow = isOverCapacity ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none';
                                       }}
                                     />
                                   </td>
@@ -6530,6 +6618,10 @@ function App() {
                               const capacity = Math.max(0, weeklyLive.availableMinutes || 0);
                               const a = Math.max(0, Number(row.actual_minutes || 0));
                               const weightPercent = capacity > 0 ? (a / capacity) * 100 : 0;
+                              // Get actual index in weeklyGoals.items array
+                              const actualIndex = weeklyGoals.items.indexOf(row);
+                              const hasValidationError = weeklyValidationErrors.invalidItems.includes(actualIndex);
+                              const isOverCapacity = weeklyValidationErrors.overCapacity;
                               return (
                                 <tr key={row.id || `u-${idx}`} style={{
                                   backgroundColor: currentTheme.tableBackground || currentTheme.background
@@ -6543,6 +6635,12 @@ function App() {
                                         if (el) {
                                           const key = getTextInputKey(row, 'title');
                                           textInputRefs.current[key] = el;
+                                          // Apply error styling if needed
+                                          if (hasValidationError) {
+                                            el.style.borderColor = '#ef4444';
+                                            el.style.borderWidth = '2px';
+                                            el.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+                                          }
                                         }
                                       }}
                                       onChange={() => {
@@ -6552,8 +6650,9 @@ function App() {
                                         // Save to main state on blur
                                         saveTextInputToState(row, 'title', e.target.value);
                                         // Update border styles
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
+                                        e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.border;
+                                        e.target.style.boxShadow = hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none';
+                                        e.target.style.borderWidth = hasValidationError ? '2px' : '1px';
                                       }}
                                       className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
                                       style={{
@@ -6561,18 +6660,26 @@ function App() {
                                         wordWrap: 'break-word',
                                         backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                         color: currentTheme.text,
-                                        borderColor: currentTheme.border,
-                                        borderWidth: '1px',
-                                        borderStyle: 'solid'
+                                        borderColor: hasValidationError ? '#ef4444' : currentTheme.border,
+                                        borderWidth: hasValidationError ? '2px' : '1px',
+                                        borderStyle: 'solid',
+                                        boxShadow: hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none'
                                       }}
                                       placeholder="Başlık girin..."
                                       onFocus={(e) => {
                                         if (!(combinedLocks.actuals_locked && user?.role !== 'admin') && user?.role !== 'observer') {
-                                          e.target.style.borderColor = currentTheme.accent;
-                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                          e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
+                                          e.target.style.boxShadow = hasValidationError 
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                            : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
                                     />
+                                    {hasValidationError && !row.title?.trim() && (
+                                      <div className="text-xs mt-1" style={{ color: '#ef4444' }}>
+                                        Bu alan boş bırakılamaz
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 align-top" colSpan="3" style={{ verticalAlign: 'top' }}>
                                     <textarea
@@ -6583,6 +6690,12 @@ function App() {
                                         if (el) {
                                           const key = getTextInputKey(row, 'action_plan');
                                           textInputRefs.current[key] = el;
+                                          // Apply error styling if needed
+                                          if (hasValidationError) {
+                                            el.style.borderColor = '#ef4444';
+                                            el.style.borderWidth = '2px';
+                                            el.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.2)';
+                                          }
                                         }
                                       }}
                                       onChange={() => {
@@ -6592,8 +6705,9 @@ function App() {
                                         // Save to main state on blur
                                         saveTextInputToState(row, 'action_plan', e.target.value);
                                         // Update border styles
-                                        e.target.style.borderColor = currentTheme.border;
-                                        e.target.style.boxShadow = 'none';
+                                        e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.border;
+                                        e.target.style.boxShadow = hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none';
+                                        e.target.style.borderWidth = hasValidationError ? '2px' : '1px';
                                       }}
                                       className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
                                       style={{
@@ -6601,24 +6715,36 @@ function App() {
                                         wordWrap: 'break-word',
                                         backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                         color: currentTheme.text,
-                                        borderColor: currentTheme.border,
-                                        borderWidth: '1px',
-                                        borderStyle: 'solid'
+                                        borderColor: hasValidationError ? '#ef4444' : currentTheme.border,
+                                        borderWidth: hasValidationError ? '2px' : '1px',
+                                        borderStyle: 'solid',
+                                        boxShadow: hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none'
                                       }}
                                       placeholder="İş ayrıntısı girin..."
                                       onFocus={(e) => {
                                         if (!(combinedLocks.actuals_locked && user?.role !== 'admin') && user?.role !== 'observer') {
-                                          e.target.style.borderColor = currentTheme.accent;
-                                          e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                                          e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
+                                          e.target.style.boxShadow = hasValidationError 
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                            : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
                                     />
+                                    {hasValidationError && !row.action_plan?.trim() && (
+                                      <div className="text-xs mt-1" style={{ color: '#ef4444' }}>
+                                        Bu alan boş bırakılamaz
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="px-3 py-2 text-center align-top">
                                     <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
                                       onChange={e => {
                                         // Use debounce for number inputs to reduce re-renders
                                         updateNumberInput(row, 'actual_minutes', e.target.value);
+                                      }}
+                                      onWheel={(e) => {
+                                        // Prevent mouse wheel from changing number input values
+                                        e.target.blur();
                                       }}
                                       className="w-24 text-center rounded px-2 py-2 h-10 text-[24px]"
                                       style={{
@@ -6780,9 +6906,35 @@ function App() {
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.leaveMinutes} dk</div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.overtimeMinutes} dk</div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.availableMinutes} dk</div>
-                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ 
+                                color: (weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) ? '#ef4444' : currentTheme.text 
+                              }}>
+                                {weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}
+                                {(weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) && (
+                                  <span className="ml-2 text-sm" style={{ color: '#ef4444' }}>⚠️</span>
+                                )}
+                              </div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.unplannedMinutes} dk</div>
                             </div>
+                            
+                            {/* Süre aşımı uyarı mesajı */}
+                            {weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes && (
+                              <div className="col-span-full mt-4 p-4 rounded-lg border-2" style={{ 
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                                borderColor: '#ef4444',
+                                color: '#ef4444'
+                              }}>
+                                <div className="font-semibold text-lg mb-2">⚠️ Süre Aşımı Uyarısı</div>
+                                <div className="text-base">
+                                  Toplam hedef süre ({weeklyLive.totalTarget} dk) kullanılabilir süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
+                                  {weeklyLive.overtimeMinutes > 0 && (
+                                    <span className="block mt-1">
+                                      Not: Mesai süresi ({weeklyLive.overtimeMinutes} dk) zaten kullanılabilir süreye dahil edilmiştir.
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                             {/* Üçüncü Sütun - Label'lar */}
                             <div className="flex flex-col gap-3 ml-4">
