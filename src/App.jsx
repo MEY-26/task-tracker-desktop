@@ -320,7 +320,6 @@ function App() {
   
   // Debounce timers for inputs (moved to top level to avoid hooks rule violation)
   const numberInputDebounceTimers = useRef({});
-  const textInputDebounceTimers = useRef({});
   
   // Debounced update function for number inputs (instant update for performance)
   const updateNumberInput = useCallback((row, field, value) => {
