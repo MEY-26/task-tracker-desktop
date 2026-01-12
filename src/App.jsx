@@ -13,7 +13,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 
 
-const WEEKLY_BASE_MINUTES = 2700;
+const WEEKLY_BASE_MINUTES = 2715;
 
 const PRIORITY_LEVELS = [
   {
@@ -330,6 +330,9 @@ function App() {
   const weeklySaveStateTimeoutRef = useRef(null);
   const [weeklyValidationErrors, setWeeklyValidationErrors] = useState({
     overCapacity: false,
+    overDailyLimit: false,
+    overDailyLimitAmount: 0,
+    overDailyLimitMax: 0,
     invalidItems: [] // Array of item indices with missing required fields
   });
 
@@ -785,6 +788,80 @@ function App() {
     return { grade: 'E', color: '#fa3200', description: 'Yetersiz' };
   }
 
+  // Günlük gerçekleşme limitlerini döndürür
+  function getDailyActualLimits() {
+    return {
+      1: 555,   // Pazartesi
+      2: 1110,  // Pazartesi + Salı
+      3: 1665,  // Pazartesi + Salı + Çarşamba
+      4: 2220,  // Pazartesi + Salı + Çarşamba + Perşembe
+      5: 2715,  // Pazartesi + Salı + Çarşamba + Perşembe + Cuma
+    };
+  }
+
+  // Mesai limitlerini döndürür
+  function getDailyOvertimeLimits() {
+    return {
+      1: 150,   // Pazartesi
+      2: 300,   // Salı (toplam)
+      3: 450,   // Çarşamba (toplam)
+      4: 600,   // Perşembe (toplam)
+      5: 750,   // Cuma (toplam)
+      6: 540,   // Cumartesi (ek)
+      0: 540,   // Pazar (ek)
+    };
+  }
+
+  // Bugünün tarihine göre maksimum gerçekleşme limitini döndürür (mesai dahil)
+  function getMaxActualLimitForToday(weekStart, overtimeMinutes = 0) {
+    const monday = new Date(weekStart);
+    monday.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (today < monday) {
+      return 0; // Gelecek hafta
+    }
+    
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(nextMonday.getDate() + 7);
+    if (today >= nextMonday) {
+      return 2715; // Geçmiş hafta için tam limit
+    }
+    
+    const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
+    const limits = getDailyActualLimits();
+    
+    // Temel günlük limit
+    let baseLimit = 2715;
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      baseLimit = limits[dayOfWeek] ?? 2715;
+    }
+    
+    // Mesai süresini ekle (günlük mesai limitine göre)
+    const maxOvertimeLimit = getMaxOvertimeLimitForToday(weekStart);
+    const allowedOvertime = Math.min(overtimeMinutes, maxOvertimeLimit);
+    
+    return baseLimit + allowedOvertime;
+  }
+
+  // Bugünün tarihine göre maksimum mesai limitini döndürür
+  function getMaxOvertimeLimitForToday(weekStart) {
+    const monday = new Date(weekStart);
+    monday.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (today < monday) {
+      return 0; // Gelecek hafta
+    }
+    
+    const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
+    const limits = getDailyOvertimeLimits();
+    
+    return limits[dayOfWeek] ?? 750;
+  }
+
   // Live summary for UI (updates immediately on input changes)
   const weeklyLive = useMemo(() => {
     const items = Array.isArray(weeklyGoals.items) ? weeklyGoals.items : [];
@@ -867,7 +944,7 @@ function App() {
   }, [weeklyGoals.items, weeklyLeaveMinutes, weeklyOvertimeMinutes]);
 
 
-  // Warn if total planned time exceeds available minutes after leave
+  // Warn if total planned time exceeds available minutes after leave - anlık kontrol
   const overTargetWarnedRef = useRef(false);
   useEffect(() => {
     const tt = Number(weeklyLive?.totalTarget || 0);
@@ -876,14 +953,66 @@ function App() {
       : WEEKLY_BASE_MINUTES;
 
     if (capacity >= 0 && tt > capacity) {
+      // Anlık görsel geri bildirim için state'i güncelle
+      setWeeklyValidationErrors(prev => ({
+        ...prev,
+        overCapacity: true
+      }));
+      
       if (!overTargetWarnedRef.current) {
         addNotification('Planlı hedef toplamı izin sonrası kullanılabilir süreyi aşıyor', 'warning');
         overTargetWarnedRef.current = true;
       }
     } else {
+      // Kapasiteyi aşmıyorsa state'i temizle
+      setWeeklyValidationErrors(prev => ({
+        ...prev,
+        overCapacity: false
+      }));
       overTargetWarnedRef.current = false;
     }
   }, [weeklyLive.totalTarget, weeklyLive.availableMinutes]);
+
+  // Günlük kota kontrolü - sadece gerçekleşme süresi günlük limiti aştığında uyarı
+  // Not: Hedef süresi toplam süreye (2715 + mesai - izin) göre kontrol edilir, günlük kotaya göre değil
+  useEffect(() => {
+    if (!weeklyWeekStart) return;
+    
+    const currentWeekStart = fmtYMD(getMonday());
+    const requestedWeekStart = weeklyWeekStart;
+    
+    // Sadece mevcut hafta için kontrol yap
+    if (requestedWeekStart === currentWeekStart) {
+      const totalActual = Number(weeklyLive?.totalActual || 0);
+      const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
+      const maxActualLimit = getMaxActualLimitForToday(requestedWeekStart, overtimeMinutes);
+      
+      // Gerçekleşme süresi kontrolü (günlük kota)
+      if (totalActual > maxActualLimit) {
+        setWeeklyValidationErrors(prev => ({
+          ...prev,
+          overDailyLimit: true,
+          overDailyLimitAmount: totalActual,
+          overDailyLimitMax: maxActualLimit
+        }));
+      } else {
+        setWeeklyValidationErrors(prev => ({
+          ...prev,
+          overDailyLimit: false,
+          overDailyLimitAmount: 0,
+          overDailyLimitMax: 0
+        }));
+      }
+    } else {
+      // Geçmiş veya gelecek hafta için kontrol yapma
+      setWeeklyValidationErrors(prev => ({
+        ...prev,
+        overDailyLimit: false,
+        overDailyLimitAmount: 0,
+        overDailyLimitMax: 0
+      }));
+    }
+  }, [weeklyLive.totalActual, weeklyLive.overtimeMinutes, weeklyWeekStart]);
 
   async function loadWeeklyGoals(weekStart = null, userId = null) {
     try {
@@ -6856,7 +6985,31 @@ function App() {
                         const plannedCount = plannedItems.length;
                         const unplannedCount = unplannedItems.length;
                         const totalCount = items.length;
-                        const remainingTime = Math.max(0, weeklyLive.availableMinutes - weeklyLive.totalActual);
+                        
+                        // Günlük limitleri hesapla (mesai dahil)
+                        const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
+                        const maxActualLimit = getMaxActualLimitForToday(weeklyWeekStart || fmtYMD(getMonday()), overtimeMinutes);
+                        const maxOvertimeLimit = getMaxOvertimeLimitForToday(weeklyWeekStart || fmtYMD(getMonday()));
+                        
+                        // Kullanılabilir süre = Günlük gerçekleşme kotası + Mesai süresi
+                        const dailyAvailableMinutes = maxActualLimit;
+                        // Kalan süre = Kullanılabilir süre - Kullanılan süre
+                        const remainingTime = Math.max(0, dailyAvailableMinutes - weeklyLive.totalActual);
+                        
+                        // Tooltip için günlük limitleri hazırla
+                        const dailyLimits = getDailyActualLimits();
+                        const overtimeLimits = getDailyOvertimeLimits();
+                        
+                        // Haftanın tüm günleri için tooltip bilgisi
+                        const dailyLimitTooltip = [
+                          `Günlük Kullanılabilir Süreler (Gerçekleşme Kotası + Mesai):`,
+                          ``,
+                          `Pazartesi: ${dailyLimits[1] || 555} dk + ${overtimeLimits[1] || 150} dk mesai = ${(dailyLimits[1] || 555) + (overtimeLimits[1] || 150)} dk`,
+                          `Salı: ${dailyLimits[2] || 1110} dk + ${overtimeLimits[2] || 300} dk mesai = ${(dailyLimits[2] || 1110) + (overtimeLimits[2] || 300)} dk`,
+                          `Çarşamba: ${dailyLimits[3] || 1665} dk + ${overtimeLimits[3] || 450} dk mesai = ${(dailyLimits[3] || 1665) + (overtimeLimits[3] || 450)} dk`,
+                          `Perşembe: ${dailyLimits[4] || 2220} dk + ${overtimeLimits[4] || 600} dk mesai = ${(dailyLimits[4] || 2220) + (overtimeLimits[4] || 600)} dk`,
+                          `Cuma: ${dailyLimits[5] || 2715} dk + ${overtimeLimits[5] || 750} dk mesai = ${(dailyLimits[5] || 2715) + (overtimeLimits[5] || 750)} dk`,
+                        ].join('\n');
 
                         const bd = weeklyLive.breakdown || {};
                         const p1 = Number(((bd.PenaltyP1 || 0) * 100).toFixed(2));
@@ -6880,7 +7033,7 @@ function App() {
                             <div className="flex flex-col gap-3">
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>İzin Süresi:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Mesai Süresi:</div>
-                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılabilir Süre:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Toplam Süre:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı Süre:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Plandışı Süre:</div>
                             </div>
@@ -6889,7 +7042,9 @@ function App() {
                             <div className="flex flex-col gap-3">
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.leaveMinutes} dk</div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.overtimeMinutes} dk</div>
-                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.availableMinutes} dk</div>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
+                                {WEEKLY_BASE_MINUTES + weeklyLive.overtimeMinutes - weeklyLive.leaveMinutes} dk
+                              </div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ 
                                 color: (weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) ? '#ef4444' : currentTheme.text 
                               }}>
@@ -6903,8 +7058,7 @@ function App() {
 
                             {/* Üçüncü Sütun - Label'lar */}
                             <div className="flex flex-col gap-3 ml-4">
-                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılan Süre:</div>
-                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kalan Süre:</div>
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılabilir Süre:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı İş:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Plandışı İş:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Toplam İş:</div>
@@ -6912,8 +7066,13 @@ function App() {
 
                             {/* Dördüncü Sütun - Değerler (sola yaslı) */}
                             <div className="flex flex-col gap-3">
-                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.totalActual} dk</div>
-                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{remainingTime} dk</div>
+                              <div 
+                                className="font-semibold whitespace-nowrap text-left cursor-help" 
+                                style={{ color: currentTheme.text }}
+                                title={dailyLimitTooltip}
+                              >
+                                {remainingTime} dk
+                              </div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{plannedCount} Adet</div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{unplannedCount} Adet</div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{totalCount} Adet</div>
@@ -6945,6 +7104,7 @@ function App() {
                         );
                       })()}
                     </div>
+                    {/* Genel Uyarı Bileşeni - Süre Aşımı */}
                     {weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes && (
                       <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{ 
                         backgroundColor: 'rgba(239, 68, 68, 0.1)', 
@@ -6959,6 +7119,19 @@ function App() {
                               Not: Mesai süresi ({weeklyLive.overtimeMinutes} dk) zaten kullanılabilir süreye dahil edilmiştir.
                             </span>
                           )}
+                        </div>
+                      </div>
+                    )}
+                    {/* Günlük Kota Aşımı Uyarısı - Gerçekleşme */}
+                    {weeklyValidationErrors.overDailyLimit && weeklyValidationErrors.overDailyLimitAmount > 0 && (
+                      <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{ 
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                        borderColor: '#ef4444',
+                        color: '#ef4444'
+                      }}>
+                        <div className="font-semibold text-lg mb-2">⚠️ Günlük Kota Aşımı Uyarısı</div>
+                        <div className="text-base">
+                          Toplam gerçekleşme süresi ({weeklyValidationErrors.overDailyLimitAmount} dk) günlük kotayı ({weeklyValidationErrors.overDailyLimitMax} dk) aşıyor. Lütfen gerçekleşme sürelerini günlük kotaya uygun şekilde düzenleyin.
                         </div>
                       </div>
                     )}
@@ -6991,7 +7164,11 @@ function App() {
                                 ? '#10b981'
                                 : '#10b981',
                             color: '#ffffff',
-                            opacity: (weeklySaveState === 'saving' || (user?.role !== 'admin' && weeklyLive.overActualCapacity)) ? 0.6 : 1
+                            opacity: (weeklySaveState === 'saving' || 
+                                     (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
+                                     weeklyValidationErrors.overCapacity ||
+                                     weeklyValidationErrors.overDailyLimit ||
+                                     weeklyValidationErrors.invalidItems.length > 0) ? 0.6 : 1
                           }}
                           disabled={
                             // Kaydetme işlemi devam ediyorsa butonu devre dışı bırak
@@ -6999,15 +7176,29 @@ function App() {
                             // Admin için kapasite kontrollerini bypass et
                             // İzin ve mesai alanları her zaman kaydedilebilir (kısıtlama yok)
                             // Planlı süre kontrolü yok - sadece gerçekleşen süre kontrolü var
-                            (user?.role !== 'admin' && weeklyLive.overActualCapacity)
+                            (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
+                            // Uyarı durumlarında butonu devre dışı bırak
+                            weeklyValidationErrors.overCapacity ||
+                            weeklyValidationErrors.overDailyLimit ||
+                            weeklyValidationErrors.invalidItems.length > 0
                           }
                           onMouseEnter={(e) => {
-                            if (!(weeklySaveState === 'saving' || (user?.role !== 'admin' && weeklyLive.overActualCapacity))) {
+                            const isDisabled = weeklySaveState === 'saving' || 
+                                             (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
+                                             weeklyValidationErrors.overCapacity ||
+                                             weeklyValidationErrors.overDailyLimit ||
+                                             weeklyValidationErrors.invalidItems.length > 0;
+                            if (!isDisabled) {
                               e.target.style.backgroundColor = weeklySaveState === 'saved' ? '#059669' : '#059669';
                             }
                           }}
                           onMouseLeave={(e) => {
-                            if (!(weeklySaveState === 'saving' || (user?.role !== 'admin' && weeklyLive.overActualCapacity))) {
+                            const isDisabled = weeklySaveState === 'saving' || 
+                                             (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
+                                             weeklyValidationErrors.overCapacity ||
+                                             weeklyValidationErrors.overDailyLimit ||
+                                             weeklyValidationErrors.invalidItems.length > 0;
+                            if (!isDisabled) {
                               e.target.style.backgroundColor = weeklySaveState === 'saved' ? '#10b981' : '#10b981';
                             }
                           }}
