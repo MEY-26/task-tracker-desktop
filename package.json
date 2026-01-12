@@ -2,7 +2,7 @@
   "main": "electron/main.js",
   "name": "task-tracker-desktop",
   "private": true,
-  "version": "2.10.5",
+  "version": "2.10.6",
   "type": "module",
   "description": "Modern bir masaüstü görev takip uygulaması",
   "keywords": [

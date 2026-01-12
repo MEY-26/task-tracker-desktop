@@ -1,11 +1,19 @@
-## v2.10.6 – 07.01.2026
+## v2.10.6 – 12.01.2026
+
+### Değişiklikler
+**Haftalık Hedef Zaman Aşım Kuralı**
+- Toplam hedef süre (planlı + plansız) kullanılabilir süreyi aşamaz
+- Mesai süresi girilerek kullanılabilir süre artırılabilir
+- Kapasite aşımı durumunda görsel uyarılar ve hata mesajları gösterilir
+- Boş görev listesi kaydedilebilir (tüm görevleri silme özelliği)
 
 ### Performans İyileştirmeleri
 **Sayısal Alanlarda Anlık Güncelleme**
-- Haftalık Hedefler panelindeki Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler giderildi
+- Haftalık Hedefler panelindeki Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
 - Bu alanlara değer girildiğinde Hedef Ayrıntısı bölümü anında güncelleniyor
 - Yazılan sayılar artık anında ekranda görünüyor ve hesaplamalar anlık olarak yapılıyor
 - İzin (dk) ve Mesai (dk) alanlarındaki gibi akıcı bir kullanım deneyimi sağlandı
+- Mouse wheel ile sayısal alanlarda yanlışlıkla değer değişmesi engellendi
 
 ---
 

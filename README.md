@@ -558,7 +558,19 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.3 - Haftalık Hedef Sistemi İyileştirmeleri (Son Güncelleme)
+### v2.10.6 - Performans İyileştirmeleri ve Kural Güncellemeleri (Son Güncelleme)
+- ✅ **Anlık Güncelleme**: Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler giderildi, anlık hesaplama desteği eklendi
+- ✅ **Zaman Aşım Kuralı**: Toplam hedef süre kullanılabilir süreyi aşamaz, mesai süresi ile kapasite artırılabilir
+- ✅ **Görsel Uyarılar**: Kapasite aşımı durumunda kırmızı border ve uyarı mesajları gösterilir
+- ✅ **Boş Liste Desteği**: Tüm görevleri silmek için boş liste kaydedilebilir
+- ✅ **Mouse Wheel Koruması**: Sayısal alanlarda yanlışlıkla değer değişmesi engellendi
+
+### v2.10.5 - Performans İyileştirmeleri ve Tema Sistemi
+- ✅ **Yazma Deneyimi**: Metin alanlarında gecikmeler giderildi, anlık yazım desteği
+- ✅ **Gelişmiş Tema Sistemi**: 6 hazır tema + özel tema oluşturma
+- ✅ **Kilitleme Kuralları**: Haftalık hedefler için gelişmiş kilitleme sistemi
+
+### v2.10.3 - Haftalık Hedef Sistemi İyileştirmeleri
 - ✅ **İzin ve Mesai Alanları Bağımsız**: İzin ve Mesai input alanları artık hedef kilitleme durumundan bağımsız çalışıyor (sadece observer rolü için kilitli)
 - ✅ **Önceki Haftadan İş Aktarma**: Önceki haftadan tamamlanmamış planlı işleri mevcut haftaya aktarma özelliği eklendi
 - ✅ **Akıllı İş Aktarma**: Sadece tamamlanmamış (`is_completed: false`) ve planlı (`is_unplanned: false`) işler aktarılır
