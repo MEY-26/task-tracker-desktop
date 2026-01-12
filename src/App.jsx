@@ -6606,7 +6606,6 @@ function App() {
                               // Get actual index in weeklyGoals.items array
                               const actualIndex = weeklyGoals.items.indexOf(row);
                               const hasValidationError = weeklyValidationErrors.invalidItems.includes(actualIndex);
-                              const isOverCapacity = weeklyValidationErrors.overCapacity;
                               return (
                                 <tr key={row.id || `u-${idx}`} style={{
                                   backgroundColor: currentTheme.tableBackground || currentTheme.background

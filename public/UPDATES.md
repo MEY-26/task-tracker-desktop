@@ -1,3 +1,14 @@
+## v2.10.6 – 07.01.2026
+
+### Performans İyileştirmeleri
+**Sayısal Alanlarda Anlık Güncelleme**
+- Haftalık Hedefler panelindeki Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler giderildi
+- Bu alanlara değer girildiğinde Hedef Ayrıntısı bölümü anında güncelleniyor
+- Yazılan sayılar artık anında ekranda görünüyor ve hesaplamalar anlık olarak yapılıyor
+- İzin (dk) ve Mesai (dk) alanlarındaki gibi akıcı bir kullanım deneyimi sağlandı
+
+---
+
 ## v2.10.5 – 07.01.2026
 
 ### Performans İyileştirmeleri
