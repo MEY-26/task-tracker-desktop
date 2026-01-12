@@ -13,7 +13,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 
 
-const WEEKLY_BASE_MINUTES = 2715;
+const WEEKLY_BASE_MINUTES = 2700;
 
 const PRIORITY_LEVELS = [
   {
@@ -788,14 +788,14 @@ function App() {
     return { grade: 'E', color: '#fa3200', description: 'Yetersiz' };
   }
 
-  // Günlük gerçekleşme limitlerini döndürür
+  // Günlük gerçekleşme limitlerini döndürür (her gün 540 dk)
   function getDailyActualLimits() {
     return {
-      1: 555,   // Pazartesi
-      2: 1110,  // Pazartesi + Salı
-      3: 1665,  // Pazartesi + Salı + Çarşamba
-      4: 2220,  // Pazartesi + Salı + Çarşamba + Perşembe
-      5: 2715,  // Pazartesi + Salı + Çarşamba + Perşembe + Cuma
+      1: 540,   // Pazartesi
+      2: 1080,  // Pazartesi + Salı
+      3: 1620,  // Pazartesi + Salı + Çarşamba
+      4: 2160,  // Pazartesi + Salı + Çarşamba + Perşembe
+      5: 2700,  // Pazartesi + Salı + Çarşamba + Perşembe + Cuma
     };
   }
 
@@ -826,16 +826,16 @@ function App() {
     const nextMonday = new Date(monday);
     nextMonday.setDate(nextMonday.getDate() + 7);
     if (today >= nextMonday) {
-      return 2715; // Geçmiş hafta için tam limit
+      return 2700; // Geçmiş hafta için tam limit
     }
     
     const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
     const limits = getDailyActualLimits();
     
     // Temel günlük limit
-    let baseLimit = 2715;
+    let baseLimit = 2700;
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-      baseLimit = limits[dayOfWeek] ?? 2715;
+      baseLimit = limits[dayOfWeek] ?? 2700;
     }
     
     // Mesai süresini ekle (günlük mesai limitine göre)
@@ -972,6 +972,33 @@ function App() {
       overTargetWarnedRef.current = false;
     }
   }, [weeklyLive.totalTarget, weeklyLive.availableMinutes]);
+
+  // Kullanılan Süre + Plandışı Süre kontrolü - anlık uyarı
+  useEffect(() => {
+    const plannedActual = Number(weeklyLive?.plannedActual || 0);
+    const unplannedMinutes = Number(weeklyLive?.unplannedMinutes || 0);
+    const totalUsedMinutes = plannedActual + unplannedMinutes;
+    const capacity = Number.isFinite(weeklyLive?.availableMinutes)
+      ? Number(weeklyLive.availableMinutes)
+      : WEEKLY_BASE_MINUTES;
+
+    if (totalUsedMinutes > capacity) {
+      // Anlık görsel geri bildirim için state'i güncelle
+      setWeeklyValidationErrors(prev => ({
+        ...prev,
+        overCapacity: true
+      }));
+    } else {
+      // Eğer hedef süre kontrolü de geçiyorsa overCapacity false olabilir
+      const tt = Number(weeklyLive?.totalTarget || 0);
+      if (tt <= capacity) {
+        setWeeklyValidationErrors(prev => ({
+          ...prev,
+          overCapacity: false
+        }));
+      }
+    }
+  }, [weeklyLive.plannedActual, weeklyLive.unplannedMinutes, weeklyLive.availableMinutes, weeklyLive.totalTarget]);
 
   // Günlük kota kontrolü - sadece gerçekleşme süresi günlük limiti aştığında uyarı
   // Not: Hedef süresi toplam süreye (2715 + mesai - izin) göre kontrol edilir, günlük kotaya göre değil
@@ -1305,12 +1332,14 @@ function App() {
           return;
         }
 
-        // Toplam gerçekleşen süre kontrolü (planlı + plandışı)
-        // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
-        const totalActual = weeklyLive?.totalActual || 0;
+        // Kullanılan Süre + Plandışı Süre kontrolü
+        // Toplam Süre <= Kullanılan Süre + Plandışı Süre olmalı
+        const plannedActual = weeklyLive?.plannedActual || 0;
+        const unplannedMinutes = weeklyLive?.unplannedMinutes || 0;
+        const totalUsedMinutes = plannedActual + unplannedMinutes;
 
-        if (totalActual > availableMinutes) {
-          const errorMsg = `Toplam gerçekleşen süre (${totalActual} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
+        if (totalUsedMinutes > availableMinutes) {
+          const errorMsg = `Kullanılan süre (${plannedActual} dk) + Plandışı süre (${unplannedMinutes} dk) = ${totalUsedMinutes} dk, toplam süreyi (${availableMinutes} dk) aşamaz.`;
           addNotification(errorMsg, 'error');
           setWeeklyValidationErrors({ overCapacity: true, invalidItems: [] });
           setWeeklySaveState('idle');
@@ -7057,6 +7086,7 @@ function App() {
 
                             {/* Üçüncü Sütun - Label'lar */}
                             <div className="flex flex-col gap-3 ml-4">
+                              <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılan Süre:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılabilir Süre:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı İş:</div>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Plandışı İş:</div>
@@ -7065,6 +7095,9 @@ function App() {
 
                             {/* Dördüncü Sütun - Değerler (sola yaslı) */}
                             <div className="flex flex-col gap-3">
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
+                                {weeklyLive.plannedActual || 0} dk
+                              </div>
                               <div 
                                 className="font-semibold whitespace-nowrap text-left cursor-help" 
                                 style={{ color: currentTheme.text }}
@@ -7104,7 +7137,7 @@ function App() {
                       })()}
                     </div>
                     {/* Genel Uyarı Bileşeni - Süre Aşımı */}
-                    {weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes && (
+                    {weeklyValidationErrors.overCapacity && (
                       <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{ 
                         backgroundColor: 'rgba(239, 68, 68, 0.1)', 
                         borderColor: '#ef4444',
@@ -7112,12 +7145,29 @@ function App() {
                       }}>
                         <div className="font-semibold text-lg mb-2">⚠️ Süre Aşımı Uyarısı</div>
                         <div className="text-base">
-                          Toplam hedef süre ({weeklyLive.totalTarget} dk) kullanılabilir süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
-                          {weeklyLive.overtimeMinutes > 0 && (
-                            <span className="block mt-1">
-                              Not: Mesai süresi ({weeklyLive.overtimeMinutes} dk) zaten kullanılabilir süreye dahil edilmiştir.
-                            </span>
+                          {weeklyLive.totalTarget > weeklyLive.availableMinutes && (
+                            <div>
+                              Toplam hedef süre ({weeklyLive.totalTarget} dk) kullanılabilir süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
+                              {weeklyLive.overtimeMinutes > 0 && (
+                                <span className="block mt-1">
+                                  Not: Mesai süresi ({weeklyLive.overtimeMinutes} dk) zaten kullanılabilir süreye dahil edilmiştir.
+                                </span>
+                              )}
+                            </div>
                           )}
+                          {(() => {
+                            const plannedActual = weeklyLive?.plannedActual || 0;
+                            const unplannedMinutes = weeklyLive?.unplannedMinutes || 0;
+                            const totalUsedMinutes = plannedActual + unplannedMinutes;
+                            if (totalUsedMinutes > weeklyLive.availableMinutes) {
+                              return (
+                                <div className={weeklyLive.totalTarget > weeklyLive.availableMinutes ? 'mt-2' : ''}>
+                                  Kullanılan süre ({plannedActual} dk) + Plandışı süre ({unplannedMinutes} dk) = {totalUsedMinutes} dk, toplam süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                     )}

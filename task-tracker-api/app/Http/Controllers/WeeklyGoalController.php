@@ -57,6 +57,87 @@ class WeeklyGoalController extends Controller
         return max(0, self::WEEKLY_BASE_MINUTES - $leave + $overtime);
     }
 
+    /**
+     * Günlük gerçekleşme limitlerini döndürür (her gün 540 dk)
+     */
+    private function getDailyActualLimits(): array
+    {
+        return [
+            1 => 540,  // Pazartesi
+            2 => 1080, // Pazartesi + Salı
+            3 => 1620, // Pazartesi + Salı + Çarşamba
+            4 => 2160, // Pazartesi + Salı + Çarşamba + Perşembe
+            5 => 2700, // Pazartesi + Salı + Çarşamba + Perşembe + Cuma
+        ];
+    }
+
+    /**
+     * Bugünün tarihine göre maksimum gerçekleşme limitini döndürür (mesai dahil)
+     */
+    private function getMaxActualLimitForToday(string $weekStart, int $overtimeMinutes = 0): int
+    {
+        $tz = 'Europe/Istanbul';
+        $monday = Carbon::parse($weekStart, $tz)->startOfDay();
+        $today = Carbon::now($tz)->startOfDay();
+        
+        // Eğer bugün haftanın dışındaysa
+        if ($today->lessThan($monday)) {
+            return 0; // Gelecek hafta
+        }
+        
+        // Eğer bugün haftadan sonraki bir günse (gelecek hafta)
+        $nextMonday = $monday->copy()->addWeek();
+        if ($today->greaterThanOrEqualTo($nextMonday)) {
+            return 2700; // Geçmiş hafta için tam limit
+        }
+        
+        $dayOfWeek = $today->dayOfWeek; // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
+        $limits = $this->getDailyActualLimits();
+        
+        // Temel günlük limit
+        $baseLimit = 2700;
+        if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+            $baseLimit = $limits[$dayOfWeek] ?? 2700;
+        }
+        
+        // Mesai süresini ekle (günlük mesai limitine göre)
+        $maxOvertimeLimit = $this->getMaxOvertimeLimitForToday($weekStart);
+        $allowedOvertime = min($overtimeMinutes, $maxOvertimeLimit);
+        
+        return $baseLimit + $allowedOvertime;
+    }
+
+    /**
+     * Mesai limitlerini kontrol eder
+     * Pazartesi: 150, Salı: 300, Çarşamba: 450, Perşembe: 600, Cuma: 750
+     * Cumartesi: 540, Pazar: 540
+     */
+    private function getMaxOvertimeLimitForToday(string $weekStart): int
+    {
+        $tz = 'Europe/Istanbul';
+        $monday = Carbon::parse($weekStart, $tz)->startOfDay();
+        $today = Carbon::now($tz)->startOfDay();
+        
+        // Eğer bugün haftanın dışındaysa
+        if ($today->lessThan($monday)) {
+            return 0; // Gelecek hafta
+        }
+        
+        $dayOfWeek = $today->dayOfWeek; // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
+        
+        $overtimeLimits = [
+            1 => 150,  // Pazartesi
+            2 => 300,  // Salı (toplam)
+            3 => 450,  // Çarşamba (toplam)
+            4 => 600,  // Perşembe (toplam)
+            5 => 750,  // Cuma (toplam)
+            6 => 540,  // Cumartesi (ek)
+            0 => 540,  // Pazar (ek)
+        ];
+        
+        return $overtimeLimits[$dayOfWeek] ?? 750;
+    }
+
     public function get(Request $request)
     {
         $request->validate([
@@ -525,6 +606,22 @@ class WeeklyGoalController extends Controller
             return max(0, (int)($x['actual_minutes'] ?? 0));
         });
 
+        // Geçmiş hafta kontrolü: Pazartesi 13:30'dan sonra geçmiş haftaya müdahale engellenmeli
+        $tz = 'Europe/Istanbul';
+        $currentWeekStart = $this->mondayOfWeek();
+        $requestedWeekStart = Carbon::parse($weekStart, $tz)->startOfDay();
+        $currentWeekStartCarbon = Carbon::parse($currentWeekStart, $tz)->startOfDay();
+        
+        // Eğer geçmiş hafta ise ve Pazartesi 13:30'dan sonra ise
+        if ($requestedWeekStart->lessThan($currentWeekStartCarbon)) {
+            $monday1330 = $currentWeekStartCarbon->copy()->addHours(13)->addMinutes(30);
+            $now = Carbon::now($tz);
+            
+            if ($now->greaterThanOrEqualTo($monday1330) && $auth->role !== 'admin') {
+                return response()->json(['message' => 'Geçmiş haftalara Pazartesi 13:30\'dan sonra müdahale edilemez.'], 422);
+            }
+        }
+        
         // Admin için kapasite kontrollerini bypass et
         if ($auth->role !== 'admin') {
             // Planlı + plansız hedef süre toplamı, kullanılabilir süreyi (mesai dahil) aşmamalı
@@ -533,9 +630,40 @@ class WeeklyGoalController extends Controller
                 return response()->json(['message' => "Toplam hedef süre ({$totalTargetMinutes} dk) kullanılabilir süreyi ({$capacity} dk) aşamaz."], 422);
             }
             
-            // Sadece gerçekleşen süre kullanılabilir süreyi aşmamalı
-            if ($totalActual > $capacity) {
-                return response()->json(['message' => "Toplam gerçekleşen süre ({$totalActual} dk) kullanılabilir süreyi ({$capacity} dk) aşamaz."], 422);
+            // Kullanılan Süre + Plandışı Süre kontrolü
+            // Toplam Süre <= Kullanılan Süre + Plandışı Süre olmalı
+            $plannedActual = (int)$planned->sum(function ($x) {
+                return max(0, (int)($x['actual_minutes'] ?? 0));
+            });
+            $unplannedMinutes = (int)$unplanned->sum(function ($x) {
+                return max(0, (int)($x['actual_minutes'] ?? 0));
+            });
+            $totalUsedMinutes = $plannedActual + $unplannedMinutes;
+            
+            if ($totalUsedMinutes > $capacity) {
+                return response()->json(['message' => "Kullanılan süre ({$plannedActual} dk) + Plandışı süre ({$unplannedMinutes} dk) = {$totalUsedMinutes} dk, toplam süreyi ({$capacity} dk) aşamaz."], 422);
+            }
+            
+            // Günlük gerçekleşme limiti kontrolü (sadece mevcut hafta için, mesai dahil)
+            if ($requestedWeekStart->equalTo($currentWeekStartCarbon)) {
+                $maxActualLimit = $this->getMaxActualLimitForToday($weekStart, $overtimeMinutes);
+                if ($totalActual > $maxActualLimit) {
+                    $dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+                    $today = Carbon::now($tz);
+                    $dayName = $dayNames[$today->dayOfWeek] ?? 'Bugün';
+                    return response()->json(['message' => "{$dayName} için maksimum gerçekleşme süresi {$maxActualLimit} dakikadır (mesai dahil). Girilen toplam: {$totalActual} dakika."], 422);
+                }
+                
+                // Mesai limiti kontrolü (sadece mevcut hafta için ve sadece mesai değiştiriliyorsa)
+                if ($canEditTargets) {
+                    $maxOvertimeLimit = $this->getMaxOvertimeLimitForToday($weekStart);
+                    if ($requestedOvertime > $maxOvertimeLimit) {
+                        $dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+                        $today = Carbon::now($tz);
+                        $dayName = $dayNames[$today->dayOfWeek] ?? 'Bugün';
+                        return response()->json(['message' => "{$dayName} için maksimum mesai süresi {$maxOvertimeLimit} dakikadır. Girilen: {$requestedOvertime} dakika."], 422);
+                    }
+                }
             }
         }
 
