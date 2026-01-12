@@ -45,6 +45,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 📅 **Günlük Gerçekleşme Kotası**: Haftalık taban süre 2700 dk, günlük limitler (her gün 540 dk) ile haftanın önden doldurulması engellenir
 - ⏱️ **Günlük Mesai Kotası**: Günlük mesai limitleri ve hafta sonu ek mesai desteği
 - 🚫 **Geçmiş Hafta Kilitleme**: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir
+- 🔒 **Gelecek Haftalar Kilitleme**: Gelecek haftalar için gerçekleşme alanları kilitlidir (sadece mevcut hafta için açık)
 - ⚠️ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
 - 🛡️ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
 
@@ -563,7 +564,13 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.6 - Günlük Kota Sistemi ve Anlık Uyarılar (Son Güncelleme)
+### v2.10.7 - Gelecek Haftalar İçin Gerçekleşme Kilitleme (Son Güncelleme)
+- ✅ **Gelecek Haftalar Kilitleme**: Gelecek haftalar için gerçekleşme alanları kilitlidir
+- ✅ **Sadece Mevcut Hafta**: Sadece içinde bulunulan hafta için gerçekleşme alanları açıktır
+- ✅ **Otomatik Açılma**: Yeni haftaya geçildiğinde (kota kontrolü başladığında) gerçekleşme alanları otomatik açılır
+- ✅ **Hedef Alanları Açık**: Hedef alanları gelecek haftalar için açık kalmaya devam eder
+
+### v2.10.6 - Günlük Kota Sistemi ve Anlık Uyarılar
 - ✅ **Günlük Gerçekleşme Kotası**: Haftalık taban süre 2700 dk, günlük limitler (her gün 540 dk: Pazartesi: 540 dk, Salı: 1080 dk, vb.)
 - ✅ **Günlük Mesai Kotası**: Günlük mesai limitleri (Pazartesi: 150 dk, Salı: 300 dk, vb.) ve hafta sonu ek mesai desteği
 - ✅ **Geçmiş Hafta Kilitleme**: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir (mesai ve izin dahil)

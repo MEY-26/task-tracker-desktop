@@ -665,9 +665,9 @@ function App() {
       let actualsUnlocked = false;
 
       if (isSelectedFuture) {
-        // Future weeks: no locks at all
+        // Future weeks: targets open, actuals locked until the week starts
         targetsUnlocked = true;
-        actualsUnlocked = true; // Gelecek haftalar için gerçekleşme açık
+        actualsUnlocked = false; // Gelecek haftalar için gerçekleşme kilitli (kota kontrolü başladığında açılacak)
       } else if (isSelectedCurrent) {
         // Current week: targets closed after Mon 13:30, actuals always open
         targetsUnlocked = isBefore1330;
