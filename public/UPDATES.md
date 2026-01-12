@@ -1,15 +1,3 @@
-## v2.10.7 – 13.01.2026
-
-### Değişiklikler
-**Gelecek Haftalar İçin Gerçekleşme Kilitleme**
-- Gelecek haftalar için gerçekleşme alanları artık kilitlidir
-- Sadece içinde bulunulan hafta için gerçekleşme alanları açıktır
-- Yeni haftaya geçildiğinde (kota kontrolü başladığında) gerçekleşme alanları otomatik olarak açılır
-- Hedef alanları gelecek haftalar için açık kalmaya devam eder
-- Bu sayede kullanıcılar gelecek haftaları önceden dolduramaz ve sadece ilgili hafta için gerçekleşme girebilir
-
----
-
 ## v2.10.6 – 12.01.2026
 
 ### Yeni Özellikler
@@ -50,6 +38,13 @@
 - Mesai süresi girilerek kullanılabilir süre artırılabilir
 - Kapasite aşımı durumunda görsel uyarılar ve hata mesajları gösterilir
 - Boş görev listesi kaydedilebilir (tüm görevleri silme özelliği)
+
+**Gelecek Haftalar İçin Gerçekleşme Kilitleme**
+- Gelecek haftalar için gerçekleşme alanları artık kilitlidir
+- Sadece içinde bulunulan hafta için gerçekleşme alanları açıktır
+- Yeni haftaya geçildiğinde (kota kontrolü başladığında) gerçekleşme alanları otomatik olarak açılır
+- Hedef alanları gelecek haftalar için açık kalmaya devam eder
+- Bu sayede kullanıcılar gelecek haftaları önceden dolduramaz ve sadece ilgili hafta için gerçekleşme girebilir
 
 ### Performans İyileştirmeleri
 **Sayısal Alanlarda Anlık Güncelleme**
