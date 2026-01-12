@@ -1,8 +1,40 @@
 ## v2.10.6 – 12.01.2026
 
+### Yeni Özellikler
+**Günlük Gerçekleşme ve Mesai Kotası Sistemi**
+- Haftalık taban süre 2715 dakika olarak güncellendi
+- Günlük gerçekleşme kotası sistemi eklendi:
+  - Pazartesi: En fazla 555 dk
+  - Salı: En fazla 1110 dk (toplam)
+  - Çarşamba: En fazla 1665 dk (toplam)
+  - Perşembe: En fazla 2220 dk (toplam)
+  - Cuma: En fazla 2715 dk (toplam)
+- Günlük mesai kotası sistemi eklendi:
+  - Pazartesi: En fazla 150 dk
+  - Salı: En fazla 300 dk (toplam)
+  - Çarşamba: En fazla 450 dk (toplam)
+  - Perşembe: En fazla 600 dk (toplam)
+  - Cuma: En fazla 750 dk (toplam)
+  - Cumartesi: En fazla 540 dk (ek mesai)
+  - Pazar: En fazla 540 dk (ek mesai)
+- Geçmiş hafta kilitleme: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir (mesai ve izin dahil)
+- Mesai süresi eklendiğinde günlük gerçekleşme kotası da artar (örnek: Pazartesi 555 + 150 mesai = 705 dk)
+
+**Anlık Uyarı Sistemi**
+- Hedef alanı değiştiğinde toplam süre kontrolü anında yapılır
+- Gerçekleşme alanı değiştiğinde günlük kota kontrolü anında yapılır
+- Uyarı durumlarında görsel geri bildirim (kırmızı renk ve uyarı ikonu)
+- Kaydet butonu uyarı durumlarında devre dışı bırakılır
+
+**Hedef Ayrıntısı Güncellemeleri**
+- Toplam Süre: (2715 + mesai - izin) olarak gösterilir
+- Kullanılabilir Süre: Günlük gerçekleşme kotası + mesai kotası olarak hesaplanır
+- Kalan Süre: Kullanılabilir süre - kullanılan süre olarak gösterilir
+- Tooltip desteği: Kullanılabilir Süre üzerine gelindiğinde haftanın tüm günleri için günlük limitler gösterilir
+
 ### Değişiklikler
 **Haftalık Hedef Zaman Aşım Kuralı**
-- Toplam hedef süre (planlı + plansız) kullanılabilir süreyi aşamaz
+- Toplam hedef süre (planlı + plansız) kullanılabilir süreyi (2715 + mesai - izin) aşamaz
 - Mesai süresi girilerek kullanılabilir süre artırılabilir
 - Kapasite aşımı durumunda görsel uyarılar ve hata mesajları gösterilir
 - Boş görev listesi kaydedilebilir (tüm görevleri silme özelliği)
@@ -12,7 +44,6 @@
 - Haftalık Hedefler panelindeki Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
 - Bu alanlara değer girildiğinde Hedef Ayrıntısı bölümü anında güncelleniyor
 - Yazılan sayılar artık anında ekranda görünüyor ve hesaplamalar anlık olarak yapılıyor
-- İzin (dk) ve Mesai (dk) alanlarındaki gibi akıcı bir kullanım deneyimi sağlandı
 - Mouse wheel ile sayısal alanlarda yanlışlıkla değer değişmesi engellendi
 
 ---

@@ -33,7 +33,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 
 ### 🎯 Haftalık Hedef Sistemi
 - 📊 Haftalık hedef oluşturma ve takibi
-- 🔒 Hedef kilitleme sistemi (Pazartesi 10:00)
+- 🔒 Hedef kilitleme sistemi (Pazartesi 13:30)
 - 🏆 Liderlik tablosu ve performans skorlama
 - 📈 Gerçek zamanlı hedef analizi
 - ⏰ Mesai süresi desteği (overtime minutes)
@@ -42,6 +42,11 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔄 Otomatik liste güncelleme sistemi
 - 🔓 **Bağımsız İzin/Mesai Alanları**: İzin ve Mesai girişleri hedef kilitleme durumundan bağımsız çalışır
 - 📋 **Önceki Haftadan İş Aktarma**: Tamamlanmamış işleri önceki haftadan yeni haftaya aktarma özelliği
+- 📅 **Günlük Gerçekleşme Kotası**: Haftalık taban süre 2715 dk, günlük limitler ile haftanın önden doldurulması engellenir
+- ⏱️ **Günlük Mesai Kotası**: Günlük mesai limitleri ve hafta sonu ek mesai desteği
+- 🚫 **Geçmiş Hafta Kilitleme**: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir
+- ⚠️ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
+- 🛡️ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
 
 ### ⚡ Performans ve Optimizasyon
 - 🚀 Memoized görev filtreleme sistemi
@@ -558,12 +563,15 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.6 - Performans İyileştirmeleri ve Kural Güncellemeleri (Son Güncelleme)
+### v2.10.6 - Günlük Kota Sistemi ve Anlık Uyarılar (Son Güncelleme)
+- ✅ **Günlük Gerçekleşme Kotası**: Haftalık taban süre 2715 dk, günlük limitler (Pazartesi: 555 dk, Salı: 1110 dk, vb.)
+- ✅ **Günlük Mesai Kotası**: Günlük mesai limitleri (Pazartesi: 150 dk, Salı: 300 dk, vb.) ve hafta sonu ek mesai desteği
+- ✅ **Geçmiş Hafta Kilitleme**: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir (mesai ve izin dahil)
+- ✅ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
+- ✅ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
+- ✅ **Hedef Ayrıntısı Güncellemeleri**: Toplam Süre, Kullanılabilir Süre ve Kalan Süre gösterimi, tooltip desteği
 - ✅ **Sayısal Alanlarda Anlık Güncelleme**: Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
-- ✅ **Anlık Hesaplama**: Bu alanlara değer girildiğinde Hedef Ayrıntısı bölümü anında güncelleniyor
 - ✅ **Haftalık Hedef Zaman Aşım Kuralı**: Toplam hedef süre (planlı + plansız) kullanılabilir süreyi aşamaz
-- ✅ **Mesai Süresi Desteği**: Mesai süresi girilerek kullanılabilir süre artırılabilir
-- ✅ **Görsel Uyarılar**: Kapasite aşımı durumunda kırmızı border ve uyarı mesajları gösterilir
 - ✅ **Boş Liste Desteği**: Tüm görevleri silmek için boş liste kaydedilebilir
 - ✅ **Mouse Wheel Koruması**: Sayısal alanlarda yanlışlıkla değer değişmesi engellendi
 
