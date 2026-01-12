@@ -2,13 +2,13 @@
 
 ### Yeni Özellikler
 **Günlük Gerçekleşme ve Mesai Kotası Sistemi**
-- Haftalık taban süre 2715 dakika olarak güncellendi
-- Günlük gerçekleşme kotası sistemi eklendi:
-  - Pazartesi: En fazla 555 dk
-  - Salı: En fazla 1110 dk (toplam)
-  - Çarşamba: En fazla 1665 dk (toplam)
-  - Perşembe: En fazla 2220 dk (toplam)
-  - Cuma: En fazla 2715 dk (toplam)
+- Haftalık taban süre 2700 dakika olarak güncellendi
+- Günlük gerçekleşme kotası sistemi eklendi (her gün 540 dk):
+  - Pazartesi: En fazla 540 dk
+  - Salı: En fazla 1080 dk (toplam)
+  - Çarşamba: En fazla 1620 dk (toplam)
+  - Perşembe: En fazla 2160 dk (toplam)
+  - Cuma: En fazla 2700 dk (toplam)
 - Günlük mesai kotası sistemi eklendi:
   - Pazartesi: En fazla 150 dk
   - Salı: En fazla 300 dk (toplam)
@@ -18,7 +18,7 @@
   - Cumartesi: En fazla 540 dk (ek mesai)
   - Pazar: En fazla 540 dk (ek mesai)
 - Geçmiş hafta kilitleme: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir (mesai ve izin dahil)
-- Mesai süresi eklendiğinde günlük gerçekleşme kotası da artar (örnek: Pazartesi 555 + 150 mesai = 705 dk)
+- Mesai süresi eklendiğinde günlük gerçekleşme kotası da artar (örnek: Pazartesi 540 + 150 mesai = 690 dk)
 
 **Anlık Uyarı Sistemi**
 - Hedef alanı değiştiğinde toplam süre kontrolü anında yapılır
@@ -27,14 +27,14 @@
 - Kaydet butonu uyarı durumlarında devre dışı bırakılır
 
 **Hedef Ayrıntısı Güncellemeleri**
-- Toplam Süre: (2715 + mesai - izin) olarak gösterilir
+- Toplam Süre: (2700 + mesai - izin) olarak gösterilir
 - Kullanılabilir Süre: Günlük gerçekleşme kotası + mesai kotası olarak hesaplanır
 - Kalan Süre: Kullanılabilir süre - kullanılan süre olarak gösterilir
 - Tooltip desteği: Kullanılabilir Süre üzerine gelindiğinde haftanın tüm günleri için günlük limitler gösterilir
 
 ### Değişiklikler
 **Haftalık Hedef Zaman Aşım Kuralı**
-- Toplam hedef süre (planlı + plansız) kullanılabilir süreyi (2715 + mesai - izin) aşamaz
+- Toplam hedef süre (planlı + plansız) kullanılabilir süreyi (2700 + mesai - izin) aşamaz
 - Mesai süresi girilerek kullanılabilir süre artırılabilir
 - Kapasite aşımı durumunda görsel uyarılar ve hata mesajları gösterilir
 - Boş görev listesi kaydedilebilir (tüm görevleri silme özelliği)
