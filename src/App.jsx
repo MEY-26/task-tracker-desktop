@@ -333,29 +333,14 @@ function App() {
     invalidItems: [] // Array of item indices with missing required fields
   });
 
-  // Debounce timers for inputs (moved to top level to avoid hooks rule violation)
-  const numberInputDebounceTimers = useRef({});
-
-  // Debounced update function for number inputs (instant update for performance)
+  // Instant update function for number inputs (no debounce - updates immediately like leave/overtime inputs)
   const updateNumberInput = useCallback((row, field, value) => {
-    const rowId = row.id || `row-${weeklyGoals.items.indexOf(row)}`;
-    const timerKey = `${rowId}-${field}`;
-
-    // Clear existing timer
-    if (numberInputDebounceTimers.current[timerKey]) {
-      clearTimeout(numberInputDebounceTimers.current[timerKey]);
+    const items = [...weeklyGoals.items];
+    const itemIndex = items.findIndex(r => r === row);
+    if (itemIndex >= 0) {
+      items[itemIndex][field] = Number(value || 0);
+      setWeeklyGoals({ ...weeklyGoals, items });
     }
-
-    // Set new timer (150ms delay)
-    numberInputDebounceTimers.current[timerKey] = setTimeout(() => {
-      const items = [...weeklyGoals.items];
-      const itemIndex = items.findIndex(r => r === row);
-      if (itemIndex >= 0) {
-        items[itemIndex][field] = Number(value || 0);
-        setWeeklyGoals({ ...weeklyGoals, items });
-      }
-      delete numberInputDebounceTimers.current[timerKey];
-    }, 150);
   }, [weeklyGoals]);
 
   // Refs to store text input values without triggering re-renders
@@ -6916,25 +6901,6 @@ function App() {
                               </div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.unplannedMinutes} dk</div>
                             </div>
-                            
-                            {/* Süre aşımı uyarı mesajı */}
-                            {weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes && (
-                              <div className="col-span-full mt-4 p-4 rounded-lg border-2" style={{ 
-                                backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-                                borderColor: '#ef4444',
-                                color: '#ef4444'
-                              }}>
-                                <div className="font-semibold text-lg mb-2">⚠️ Süre Aşımı Uyarısı</div>
-                                <div className="text-base">
-                                  Toplam hedef süre ({weeklyLive.totalTarget} dk) kullanılabilir süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
-                                  {weeklyLive.overtimeMinutes > 0 && (
-                                    <span className="block mt-1">
-                                      Not: Mesai süresi ({weeklyLive.overtimeMinutes} dk) zaten kullanılabilir süreye dahil edilmiştir.
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
 
                             {/* Üçüncü Sütun - Label'lar */}
                             <div className="flex flex-col gap-3 ml-4">
@@ -6980,6 +6946,23 @@ function App() {
                         );
                       })()}
                     </div>
+                    {weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes && (
+                      <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{ 
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                        borderColor: '#ef4444',
+                        color: '#ef4444'
+                      }}>
+                        <div className="font-semibold text-lg mb-2">⚠️ Süre Aşımı Uyarısı</div>
+                        <div className="text-base">
+                          Toplam hedef süre ({weeklyLive.totalTarget} dk) kullanılabilir süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
+                          {weeklyLive.overtimeMinutes > 0 && (
+                            <span className="block mt-1">
+                              Not: Mesai süresi ({weeklyLive.overtimeMinutes} dk) zaten kullanılabilir süreye dahil edilmiştir.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
                     <div className="flex items-center gap-3 w-[98%]" style={{ marginTop: '10px', marginLeft: '16px', marginRight: '16px', marginBottom: '12px' }}>
                       <button className="flex-1 rounded px-4 py-2 transition-colors"
