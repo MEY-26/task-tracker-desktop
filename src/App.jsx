@@ -6989,7 +6989,6 @@ function App() {
                         // Günlük limitleri hesapla (mesai dahil)
                         const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
                         const maxActualLimit = getMaxActualLimitForToday(weeklyWeekStart || fmtYMD(getMonday()), overtimeMinutes);
-                        const maxOvertimeLimit = getMaxOvertimeLimitForToday(weeklyWeekStart || fmtYMD(getMonday()));
                         
                         // Kullanılabilir süre = Günlük gerçekleşme kotası + Mesai süresi
                         const dailyAvailableMinutes = maxActualLimit;
