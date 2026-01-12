@@ -559,23 +559,36 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 ## 🆕 Son Güncellemeler
 
 ### v2.10.6 - Performans İyileştirmeleri ve Kural Güncellemeleri (Son Güncelleme)
-- ✅ **Anlık Güncelleme**: Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler giderildi, anlık hesaplama desteği eklendi
-- ✅ **Zaman Aşım Kuralı**: Toplam hedef süre kullanılabilir süreyi aşamaz, mesai süresi ile kapasite artırılabilir
+- ✅ **Sayısal Alanlarda Anlık Güncelleme**: Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
+- ✅ **Anlık Hesaplama**: Bu alanlara değer girildiğinde Hedef Ayrıntısı bölümü anında güncelleniyor
+- ✅ **Haftalık Hedef Zaman Aşım Kuralı**: Toplam hedef süre (planlı + plansız) kullanılabilir süreyi aşamaz
+- ✅ **Mesai Süresi Desteği**: Mesai süresi girilerek kullanılabilir süre artırılabilir
 - ✅ **Görsel Uyarılar**: Kapasite aşımı durumunda kırmızı border ve uyarı mesajları gösterilir
 - ✅ **Boş Liste Desteği**: Tüm görevleri silmek için boş liste kaydedilebilir
 - ✅ **Mouse Wheel Koruması**: Sayısal alanlarda yanlışlıkla değer değişmesi engellendi
 
 ### v2.10.5 - Performans İyileştirmeleri ve Tema Sistemi
-- ✅ **Yazma Deneyimi**: Metin alanlarında gecikmeler giderildi, anlık yazım desteği
-- ✅ **Gelişmiş Tema Sistemi**: 6 hazır tema + özel tema oluşturma
-- ✅ **Kilitleme Kuralları**: Haftalık hedefler için gelişmiş kilitleme sistemi
+- ✅ **Yazma Deneyimi İyileştirildi**: Haftalık Hedefler panelindeki metin alanlarında yaşanan gecikmeler giderildi
+- ✅ **Anlık Yazım**: Yazılan karakterler artık anında ekranda görünüyor, uzun metinlerde performans artırıldı
+- ✅ **Gelişmiş Tema Sistemi**: Uygulama genelinde dinamik tema desteği eklendi
+- ✅ **6 Hazır Tema**: Koyu, Açık, Mavi, Yeşil, Mor, Turuncu tema seçenekleri
+- ✅ **Özel Tema Oluşturma**: 9 farklı renk alanı ayrı ayrı özelleştirilebilir, koyu/açık logo seçimi
+- ✅ **Tema Kaydetme**: Tema tercihleri kullanıcı hesabına kaydedilir ve otomatik yüklenir
+- ✅ **Haftalık Hedefler Kilitleme Kuralları**: Mevcut hafta, önceki hafta ve gelecek haftalar için detaylı kilitleme sistemi
+- ✅ **UI/UX İyileştirmeleri**: Tema ayarları paneli yeniden tasarlandı, disabled butonlar iyileştirildi
+
+### v2.10.4 - Görev Ekleme Sorunu Giderildi
+- ✅ **Görev Ekleme Düzeltmesi**: Manuel olarak görevden çıkarılan kullanıcılar, otomatik ekleme sırasında yeniden eklenmiyor
+- ✅ **Seçili Kullanıcılar**: Artık yalnızca seçilen kullanıcılar göreve atanıyor
+- ✅ **Bildirim Optimizasyonu**: Gereksiz bildirim gönderimi engellendi
 
 ### v2.10.3 - Haftalık Hedef Sistemi İyileştirmeleri
-- ✅ **İzin ve Mesai Alanları Bağımsız**: İzin ve Mesai input alanları artık hedef kilitleme durumundan bağımsız çalışıyor (sadece observer rolü için kilitli)
-- ✅ **Önceki Haftadan İş Aktarma**: Önceki haftadan tamamlanmamış planlı işleri mevcut haftaya aktarma özelliği eklendi
-- ✅ **Akıllı İş Aktarma**: Sadece tamamlanmamış (`is_completed: false`) ve planlı (`is_unplanned: false`) işler aktarılır
-- ✅ **Otomatik Sıfırlama**: Aktarılan işlerin gerçekleşme süreleri ve tamamlanma durumları sıfırlanır
-- ✅ **Hedef Kilitleme Kontrolü**: İş aktarma butonu sadece hedefler açıkken aktif olur
+- ✅ **Kilitleme Kuralları Güncellendi**: Hedef alanları Pazartesi 13:30'a kadar düzenlenebilir (önceki sınır: 10:00)
+- ✅ **Gerçekleşme Alanı**: Gerçekleşme alanı sürekli açık olacak şekilde düzenlendi
+- ✅ **Planlı Süre Kontrolü Kaldırıldı**: İzin eklenirken planlı süre, kullanılabilir süreyi aşsa bile kaydedilebilir
+- ✅ **Gerçekleşen Süre Kontrolü**: Sadece gerçekleşen süre, kullanılabilir süreyi aşarsa kaydetme engellenir
+- ✅ **Tamamlanmayan İşleri Aktar**: Haftalık Hedefler penceresine "Tamamlanmayan İşleri Aktar" butonu eklendi
+- ✅ **Akıllı İş Aktarma**: Önceki haftadan tamamlanmamış görevler tek tıkla mevcut haftaya aktarılabilir
 
 ### v2.10.2 - Linux Desteği ve Laravel 12 Uyumluluğu
 - ✅ **Linux Güncelleme Script'i**: Linux için otomatik güncelleme script'i eklendi (`scripts/linux-update.sh`)
