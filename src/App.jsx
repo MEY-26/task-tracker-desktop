@@ -858,30 +858,30 @@ function App() {
     monday.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (today < monday) {
       return 0; // Gelecek hafta
     }
-    
+
     const nextMonday = new Date(monday);
     nextMonday.setDate(nextMonday.getDate() + 7);
     if (today >= nextMonday) {
       return 2700; // Geçmiş hafta için tam limit
     }
-    
+
     const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
     const limits = getDailyActualLimits();
-    
+
     // Temel günlük limit
     let baseLimit = 2700;
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
       baseLimit = limits[dayOfWeek] ?? 2700;
     }
-    
+
     // Mesai süresini ekle (günlük mesai limitine göre)
     const maxOvertimeLimit = getMaxOvertimeLimitForToday(weekStart);
     const allowedOvertime = Math.min(overtimeMinutes, maxOvertimeLimit);
-    
+
     return baseLimit + allowedOvertime;
   }
 
@@ -891,14 +891,14 @@ function App() {
     monday.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     if (today < monday) {
       return 0; // Gelecek hafta
     }
-    
+
     const dayOfWeek = today.getDay(); // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
     const limits = getDailyOvertimeLimits();
-    
+
     return limits[dayOfWeek] ?? 750;
   }
 
@@ -1019,7 +1019,7 @@ function App() {
         ...prev,
         overCapacity: true
       }));
-      
+
       if (!overTargetWarnedRef.current) {
         addNotification('Planlı hedef toplamı izin sonrası kullanılabilir süreyi aşıyor', 'warning');
         overTargetWarnedRef.current = true;
@@ -1065,16 +1065,16 @@ function App() {
   // Not: Hedef süresi toplam süreye (2715 + mesai - izin) göre kontrol edilir, günlük kotaya göre değil
   useEffect(() => {
     if (!weeklyWeekStart) return;
-    
+
     const currentWeekStart = fmtYMD(getMonday());
     const requestedWeekStart = weeklyWeekStart;
-    
+
     // Sadece mevcut hafta için kontrol yap
     if (requestedWeekStart === currentWeekStart) {
       const totalActual = Number(weeklyLive?.totalActual || 0);
       const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
       const maxActualLimit = getMaxActualLimitForToday(requestedWeekStart, overtimeMinutes);
-      
+
       // Gerçekleşme süresi kontrolü (günlük kota)
       if (totalActual > maxActualLimit) {
         setWeeklyValidationErrors(prev => ({
@@ -1374,11 +1374,11 @@ function App() {
       // Auto compute weights from target minutes (planned only)
       const planned = itemsToSave.filter(x => !x.is_unplanned);
       const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
-      
+
       // Plansız görevlerin target_minutes toplamı (varsa)
       const unplanned = itemsToSave.filter(x => x.is_unplanned);
       const totalUnplannedTarget = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
-      
+
       // Toplam hedef süre (planlı + plansız) - mesai süresi zaten availableMinutes'a dahil
       const totalTargetMinutes = totalTarget + totalUnplannedTarget;
 
@@ -1407,7 +1407,7 @@ function App() {
           return;
         }
       }
-      
+
       // Clear validation errors if validation passes
       setWeeklyValidationErrors({ overCapacity: false, invalidItems: [] });
 
@@ -6512,8 +6512,8 @@ function App() {
                                       }}
                                       onFocus={(e) => {
                                         e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
-                                        e.target.style.boxShadow = hasValidationError 
-                                          ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                        e.target.style.boxShadow = hasValidationError
+                                          ? '0 0 0 2px rgba(239, 68, 68, 0.3)'
                                           : `0 0 0 2px ${currentTheme.accent}40`;
                                       }}
                                     />
@@ -6563,8 +6563,8 @@ function App() {
                                       }}
                                       onFocus={(e) => {
                                         e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
-                                        e.target.style.boxShadow = hasValidationError 
-                                          ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                        e.target.style.boxShadow = hasValidationError
+                                          ? '0 0 0 2px rgba(239, 68, 68, 0.3)'
                                           : `0 0 0 2px ${currentTheme.accent}40`;
                                       }}
                                     />
@@ -6599,8 +6599,8 @@ function App() {
                                       onFocus={(e) => {
                                         if (!lockedTargets && user?.role !== 'observer') {
                                           e.target.style.borderColor = (hasValidationError || isOverCapacity) ? '#ef4444' : currentTheme.accent;
-                                          e.target.style.boxShadow = (hasValidationError || isOverCapacity) 
-                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                          e.target.style.boxShadow = (hasValidationError || isOverCapacity)
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)'
                                             : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
@@ -6650,8 +6650,8 @@ function App() {
                                       onFocus={(e) => {
                                         if (!lockedActuals && user?.role !== 'observer') {
                                           e.target.style.borderColor = isOverCapacity ? '#ef4444' : currentTheme.accent;
-                                          e.target.style.boxShadow = isOverCapacity 
-                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                          e.target.style.boxShadow = isOverCapacity
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)'
                                             : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
@@ -6681,20 +6681,20 @@ function App() {
                                       const hasActualMinutes = Number(row.actual_minutes || 0) > 0;
                                       const canMarkCompleted = !lockedActuals && user?.role !== 'observer' && hasActualMinutes;
                                       return (
-                                    <input
-                                      type="checkbox"
-                                      checked={!!row.is_completed}
-                                      disabled={!canMarkCompleted}
-                                      onChange={e => {
-                                        if (!canMarkCompleted) return;
-                                        const items = [...weeklyGoals.items];
-                                        items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
-                                        setWeeklyGoals({ ...weeklyGoals, items });
-                                      }}
-                                      className="w-6 h-6 cursor-pointer"
-                                      style={{ width: '60px', height: '60px', cursor: canMarkCompleted ? 'pointer' : 'not-allowed' }}
-                                      title={hasActualMinutes ? 'İş tamamlandı mı?' : 'Tamamlandı seçmek için gerçekleşme süresi girin'}
-                                    />
+                                        <input
+                                          type="checkbox"
+                                          checked={!!row.is_completed}
+                                          disabled={!canMarkCompleted}
+                                          onChange={e => {
+                                            if (!canMarkCompleted) return;
+                                            const items = [...weeklyGoals.items];
+                                            items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
+                                            setWeeklyGoals({ ...weeklyGoals, items });
+                                          }}
+                                          className="w-6 h-6 cursor-pointer"
+                                          style={{ width: '60px', height: '60px', cursor: canMarkCompleted ? 'pointer' : 'not-allowed' }}
+                                          title={hasActualMinutes ? 'İş tamamlandı mı?' : 'Tamamlandı seçmek için gerçekleşme süresi girin'}
+                                        />
                                       );
                                     })()}
                                   </td>
@@ -6879,8 +6879,8 @@ function App() {
                                       onFocus={(e) => {
                                         if (!(combinedLocks.actuals_locked && user?.role !== 'admin') && user?.role !== 'observer') {
                                           e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
-                                          e.target.style.boxShadow = hasValidationError 
-                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                          e.target.style.boxShadow = hasValidationError
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)'
                                             : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
@@ -6934,8 +6934,8 @@ function App() {
                                       onFocus={(e) => {
                                         if (!(combinedLocks.actuals_locked && user?.role !== 'admin') && user?.role !== 'observer') {
                                           e.target.style.borderColor = hasValidationError ? '#ef4444' : currentTheme.accent;
-                                          e.target.style.boxShadow = hasValidationError 
-                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)' 
+                                          e.target.style.boxShadow = hasValidationError
+                                            ? '0 0 0 2px rgba(239, 68, 68, 0.3)'
                                             : `0 0 0 2px ${currentTheme.accent}40`;
                                         }
                                       }}
@@ -7082,20 +7082,20 @@ function App() {
                         const plannedCount = plannedItems.length;
                         const unplannedCount = unplannedItems.length;
                         const totalCount = items.length;
-                        
+
                         // Günlük limitleri hesapla (mesai dahil)
                         const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
                         const maxActualLimit = getMaxActualLimitForToday(weeklyWeekStart || fmtYMD(getMonday()), overtimeMinutes);
-                        
+
                         // Kullanılabilir süre = Günlük gerçekleşme kotası + Mesai süresi
                         const dailyAvailableMinutes = maxActualLimit;
                         // Kalan süre = Kullanılabilir süre - Kullanılan süre
                         const remainingTime = Math.max(0, dailyAvailableMinutes - weeklyLive.totalActual);
-                        
+
                         // Tooltip için günlük limitleri hazırla
                         const dailyLimits = getDailyActualLimits();
                         const overtimeLimits = getDailyOvertimeLimits();
-                        
+
                         // Haftanın tüm günleri için tooltip bilgisi
                         const dailyLimitTooltip = [
                           `Günlük Kullanılabilir Süreler (Gerçekleşme Kotası + Mesai):`,
@@ -7145,8 +7145,8 @@ function App() {
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
                                 {WEEKLY_BASE_MINUTES + weeklyLive.overtimeMinutes - weeklyLive.leaveMinutes} dk
                               </div>
-                              <div className="font-semibold whitespace-nowrap text-left" style={{ 
-                                color: (weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) ? '#ef4444' : currentTheme.text 
+                              <div className="font-semibold whitespace-nowrap text-left" style={{
+                                color: (weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) ? '#ef4444' : currentTheme.text
                               }}>
                                 {weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}
                                 {(weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) && (
@@ -7170,8 +7170,8 @@ function App() {
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
                                 {(Number(weeklyLive.plannedActual || 0) + Number(weeklyLive.unplannedMinutes || 0))} dk
                               </div>
-                              <div 
-                                className="font-semibold whitespace-nowrap text-left cursor-help" 
+                              <div
+                                className="font-semibold whitespace-nowrap text-left cursor-help"
                                 style={{ color: currentTheme.text }}
                                 title={dailyLimitTooltip}
                               >
@@ -7210,8 +7210,8 @@ function App() {
                     </div>
                     {/* Genel Uyarı Bileşeni - Süre Aşımı */}
                     {weeklyValidationErrors.overCapacity && (
-                      <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{ 
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                      <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
                         borderColor: '#ef4444',
                         color: '#ef4444'
                       }}>
@@ -7245,8 +7245,8 @@ function App() {
                     )}
                     {/* Günlük Kota Aşımı Uyarısı - Gerçekleşme */}
                     {weeklyValidationErrors.overDailyLimit && weeklyValidationErrors.overDailyLimitAmount > 0 && (
-                      <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{ 
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                      <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
                         borderColor: '#ef4444',
                         color: '#ef4444'
                       }}>
@@ -7285,11 +7285,11 @@ function App() {
                                 ? '#10b981'
                                 : '#10b981',
                             color: '#ffffff',
-                            opacity: (weeklySaveState === 'saving' || 
-                                     (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
-                                     weeklyValidationErrors.overCapacity ||
-                                     weeklyValidationErrors.overDailyLimit ||
-                                     weeklyValidationErrors.invalidItems.length > 0) ? 0.6 : 1
+                            opacity: (weeklySaveState === 'saving' ||
+                              (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
+                              weeklyValidationErrors.overCapacity ||
+                              weeklyValidationErrors.overDailyLimit ||
+                              weeklyValidationErrors.invalidItems.length > 0) ? 0.6 : 1
                           }}
                           disabled={
                             // Kaydetme işlemi devam ediyorsa butonu devre dışı bırak
@@ -7304,21 +7304,21 @@ function App() {
                             weeklyValidationErrors.invalidItems.length > 0
                           }
                           onMouseEnter={(e) => {
-                            const isDisabled = weeklySaveState === 'saving' || 
-                                             (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
-                                             weeklyValidationErrors.overCapacity ||
-                                             weeklyValidationErrors.overDailyLimit ||
-                                             weeklyValidationErrors.invalidItems.length > 0;
+                            const isDisabled = weeklySaveState === 'saving' ||
+                              (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
+                              weeklyValidationErrors.overCapacity ||
+                              weeklyValidationErrors.overDailyLimit ||
+                              weeklyValidationErrors.invalidItems.length > 0;
                             if (!isDisabled) {
                               e.target.style.backgroundColor = weeklySaveState === 'saved' ? '#059669' : '#059669';
                             }
                           }}
                           onMouseLeave={(e) => {
-                            const isDisabled = weeklySaveState === 'saving' || 
-                                             (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
-                                             weeklyValidationErrors.overCapacity ||
-                                             weeklyValidationErrors.overDailyLimit ||
-                                             weeklyValidationErrors.invalidItems.length > 0;
+                            const isDisabled = weeklySaveState === 'saving' ||
+                              (user?.role !== 'admin' && weeklyLive.overActualCapacity) ||
+                              weeklyValidationErrors.overCapacity ||
+                              weeklyValidationErrors.overDailyLimit ||
+                              weeklyValidationErrors.invalidItems.length > 0;
                             if (!isDisabled) {
                               e.target.style.backgroundColor = weeklySaveState === 'saved' ? '#10b981' : '#10b981';
                             }
@@ -9424,7 +9424,7 @@ function App() {
                         backgroundColor: currentTheme.background
                       }}>
                       <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Takım</h2>
-                      <button onClick={() => setShowTeamModal(false)} className="absolute transition-colors" style={{ right: '16px', top: '50%', transform: 'translateY(-50%)', color: currentTheme.textSecondary }}
+                      <button onClick={() => setShowTeamModal(false)} className="absolute transition-colors" style={{ backgroundColor: 'transparent', right: '16px', top: '50%', transform: 'translateY(-50%)', color: currentTheme.textSecondary }}
                         onMouseEnter={(e) => {
                           e.target.style.color = currentTheme.text;
                           e.target.style.backgroundColor = `${currentTheme.border}30`;
