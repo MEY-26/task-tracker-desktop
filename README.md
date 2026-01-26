@@ -564,13 +564,22 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.6 - Günlük Kota Sistemi ve Anlık Uyarılar (Son Güncelleme)
+### v2.10.7 - Hata Düzeltmeleri ve Kullanım İyileştirmeleri (Son Güncelleme)
+- ✅ **Kaydetme Sorunu Düzeltildi**: Hata varken kayıt tuşuna basıldığında oluşan kaydetmeme sorunu giderildi
+- ✅ **Kullanılan Süre Toplamı**: Planlı işler + plana dahil olmayan işler süreleri birlikte gösterilir
+- ✅ **Yenile Butonu**: "Son Kaydedileni Yükle" olarak yeniden adlandırıldı
+- ✅ **Tamamlandı Kuralı**: Gerçekleşme süresi girilmeden Tamamlandı kutucuğu işaretlenemez
+
+### v2.10.6 - Günlük Kota Sistemi ve Anlık Uyarılar
 - ✅ **Günlük Gerçekleşme Kotası**: Haftalık taban süre 2700 dk, günlük limitler (her gün 540 dk: Pazartesi: 540 dk, Salı: 1080 dk, vb.)
 - ✅ **Günlük Mesai Kotası**: Günlük mesai limitleri (Pazartesi: 150 dk, Salı: 300 dk, vb.) ve hafta sonu ek mesai desteği
 - ✅ **Geçmiş Hafta Kilitleme**: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir (mesai ve izin dahil)
 - ✅ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
 - ✅ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
 - ✅ **Hedef Ayrıntısı Güncellemeleri**: Toplam Süre, Kullanılabilir Süre ve Kalan Süre gösterimi, tooltip desteği
+- ✅ **Kullanılan Süre Toplamı**: Planlı gerçekleşme + plandışı süre birlikte gösterilir
+- ✅ **Tamamlandı Kuralı**: Gerçekleşme süresi girilmeden “Tamamlandı” işaretlenemez
+- ✅ **Ceza Zamanlaması**: Cezalar sadece Cuma 18:15 sonrası uygulanır ve gösterilir
 - ✅ **Sayısal Alanlarda Anlık Güncelleme**: Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
 - ✅ **Haftalık Hedef Zaman Aşım Kuralı**: Toplam hedef süre (planlı + plansız) kullanılabilir süreyi aşamaz
 - ✅ **Boş Liste Desteği**: Tüm görevleri silmek için boş liste kaydedilebilir

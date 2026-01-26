@@ -336,6 +336,37 @@ function App() {
     invalidItems: [] // Array of item indices with missing required fields
   });
 
+  const getInvalidItemIndices = useCallback((items) => {
+    if (!Array.isArray(items)) return [];
+    const invalidIndices = [];
+    items.forEach((x, idx) => {
+      const hasTitle = x.title && x.title.trim() !== '';
+      const hasActionPlan = x.action_plan && x.action_plan.trim() !== '';
+      const hasTarget = x.target_minutes && Number(x.target_minutes) > 0;
+
+      if (x.is_unplanned) {
+        if (!hasTitle || !hasActionPlan) {
+          invalidIndices.push(idx);
+        }
+      } else {
+        if (!hasTitle || !hasActionPlan || !hasTarget) {
+          invalidIndices.push(idx);
+        }
+      }
+    });
+    return invalidIndices;
+  }, []);
+
+  const updateInvalidItemsIfActive = useCallback((items) => {
+    setWeeklyValidationErrors(prev => {
+      if (!prev.invalidItems || prev.invalidItems.length === 0) {
+        return prev;
+      }
+      const nextInvalid = getInvalidItemIndices(items);
+      return { ...prev, invalidItems: nextInvalid };
+    });
+  }, [getInvalidItemIndices]);
+
   // Instant update function for number inputs (no debounce - updates immediately like leave/overtime inputs)
   const updateNumberInput = useCallback((row, field, value) => {
     const items = [...weeklyGoals.items];
@@ -343,8 +374,9 @@ function App() {
     if (itemIndex >= 0) {
       items[itemIndex][field] = Number(value || 0);
       setWeeklyGoals({ ...weeklyGoals, items });
+      updateInvalidItemsIfActive(items);
     }
-  }, [weeklyGoals]);
+  }, [weeklyGoals, updateInvalidItemsIfActive]);
 
   // Refs to store text input values without triggering re-renders
   const textInputRefs = useRef({});
@@ -363,8 +395,9 @@ function App() {
     if (itemIndex >= 0) {
       items[itemIndex][field] = value;
       setWeeklyGoals({ ...weeklyGoals, items });
+      updateInvalidItemsIfActive(items);
     }
-  }, [weeklyGoals]);
+  }, [weeklyGoals, updateInvalidItemsIfActive]);
   const [showThemePanel, setShowThemePanel] = useState(false);
   const [themeSaveState, setThemeSaveState] = useState('idle'); // 'idle' | 'saving' | 'saved'
   const isInitialThemeLoadRef = useRef(true);
@@ -700,6 +733,13 @@ function App() {
     };
   }, [weeklyGoals?.locks, uiLocks]);
 
+  useEffect(() => {
+    setWeeklyValidationErrors(prev => {
+      if (!prev.invalidItems || prev.invalidItems.length === 0) return prev;
+      return { ...prev, invalidItems: [] };
+    });
+  }, [weeklyWeekStart]);
+
   const weeklyLeaveMinutes = useMemo(() => {
     try {
       const normalized = (weeklyLeaveMinutesInput ?? '').toString().replace(',', '.').trim();
@@ -878,6 +918,27 @@ function App() {
       actual_minutes: Math.max(0, Number(x?.actual_minutes || 0)),
     }));
 
+    const penaltiesEnabled = (() => {
+      const ws = weeklyWeekStart || fmtYMD(getMonday());
+      const selectedStart = new Date(ws);
+      selectedStart.setHours(0, 0, 0, 0);
+      const currentStart = new Date(fmtYMD(getMonday()));
+      currentStart.setHours(0, 0, 0, 0);
+
+      if (selectedStart > currentStart) {
+        return false;
+      }
+      if (selectedStart < currentStart) {
+        return true;
+      }
+
+      // Current week: apply penalties after Friday 18:15
+      const fridayCutoff = new Date(selectedStart);
+      fridayCutoff.setDate(fridayCutoff.getDate() + 4);
+      fridayCutoff.setHours(18, 15, 0, 0);
+      return new Date() >= fridayCutoff;
+    })();
+
     const breakdown = computeWeeklyScore({
       baseMinutes: WEEKLY_BASE_MINUTES,      // sende zaten var (2700)
       leaveMinutes: weeklyLeaveMinutes,      // senin state'in
@@ -889,11 +950,11 @@ function App() {
         beta: 0.25,
         B_max: 0.20,
         eta_max: 2.0,
-        kappa: 0.50,
-        lambda_: 0.75,
-        mu: 2.5,
+        kappa: penaltiesEnabled ? 0.50 : 0,
+        lambda_: penaltiesEnabled ? 0.75 : 0,
+        mu: penaltiesEnabled ? 2.5 : 0,
         scoreCap: 130,
-        incompletePenalty: 0.10,
+        incompletePenalty: penaltiesEnabled ? 0.10 : 0,
       },
     });
 
@@ -6616,19 +6677,26 @@ function App() {
                                     />
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center" style={{ verticalAlign: 'top' }}>
+                                    {(() => {
+                                      const hasActualMinutes = Number(row.actual_minutes || 0) > 0;
+                                      const canMarkCompleted = !lockedActuals && user?.role !== 'observer' && hasActualMinutes;
+                                      return (
                                     <input
                                       type="checkbox"
                                       checked={!!row.is_completed}
-                                      disabled={lockedActuals || user?.role === 'observer'}
+                                      disabled={!canMarkCompleted}
                                       onChange={e => {
+                                        if (!canMarkCompleted) return;
                                         const items = [...weeklyGoals.items];
                                         items.find((r, i) => i === weeklyGoals.items.indexOf(row)).is_completed = e.target.checked;
                                         setWeeklyGoals({ ...weeklyGoals, items });
                                       }}
                                       className="w-6 h-6 cursor-pointer"
-                                      style={{ width: '60px', height: '60px', cursor: 'pointer' }}
-                                      title="İş tamamlandı mı?"
+                                      style={{ width: '60px', height: '60px', cursor: canMarkCompleted ? 'pointer' : 'not-allowed' }}
+                                      title={hasActualMinutes ? 'İş tamamlandı mı?' : 'Tamamlandı seçmek için gerçekleşme süresi girin'}
                                     />
+                                      );
+                                    })()}
                                   </td>
                                   <td className="px-3 py-2 align-middle text-center align-middle">
                                     <button
@@ -7100,7 +7168,7 @@ function App() {
                             {/* Dördüncü Sütun - Değerler (sola yaslı) */}
                             <div className="flex flex-col gap-3">
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
-                                {weeklyLive.plannedActual || 0} dk
+                                {(Number(weeklyLive.plannedActual || 0) + Number(weeklyLive.unplannedMinutes || 0))} dk
                               </div>
                               <div 
                                 className="font-semibold whitespace-nowrap text-left cursor-help" 
@@ -7205,7 +7273,7 @@ function App() {
                         onMouseLeave={(e) => {
                           e.target.style.backgroundColor = currentTheme.accent;
                         }}
-                        onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Yenile</button>
+                        onClick={() => loadWeeklyGoals(weeklyWeekStart)}>Son Kaydedileni Yükle</button>
                       <span className="w-[10px]"></span>
                       {user?.role !== 'observer' && (!combinedLocks.targets_locked || user?.role === 'admin' || user?.role === 'team_member' || user?.role === 'team_leader') && (
                         <button

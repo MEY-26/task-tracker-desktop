@@ -1,3 +1,13 @@
+## v2.10.7 – 26.01.2026
+
+### Düzeltmeler ve İyileştirmeler
+- Hata varken kayıt tuşuna basıldığında oluşan kaydetmeme sorunu giderildi
+- Kullanılan süre artık planlı işler + plana dahil olmayan işler toplamı olarak gösteriliyor
+- Yenile butonu kafa karıştırmaması için gerçek işlevi olan "Son Kaydedileni Yükle" olarak değiştirildi
+- Gerçekleşme süresi girilmemişse Tamamlandı kutucuğu işaretlenemez
+
+---
+
 ## v2.10.6 – 12.01.2026
 
 ### Yeni Özellikler
