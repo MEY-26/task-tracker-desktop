@@ -995,7 +995,7 @@ function App() {
       overtimeBonus,
       overtimeUsed,
       availableMinutes,
-      overCapacity: totalTarget > availableMinutes,
+      overCapacity: false, // Planlı süre kontrolü kaldırıldı - sadece gerçekleşen süre kontrol edilecek
       overActualCapacity: totalActual > availableMinutes,
 
       // debug/rapor için detay
@@ -1005,36 +1005,11 @@ function App() {
   }, [weeklyGoals.items, weeklyLeaveMinutes, weeklyOvertimeMinutes]);
 
 
-  // Warn if total planned time exceeds available minutes after leave - anlık kontrol
-  const overTargetWarnedRef = useRef(false);
-  useEffect(() => {
-    const tt = Number(weeklyLive?.totalTarget || 0);
-    const capacity = Number.isFinite(weeklyLive?.availableMinutes)
-      ? Number(weeklyLive.availableMinutes)
-      : WEEKLY_BASE_MINUTES;
-
-    if (capacity >= 0 && tt > capacity) {
-      // Anlık görsel geri bildirim için state'i güncelle
-      setWeeklyValidationErrors(prev => ({
-        ...prev,
-        overCapacity: true
-      }));
-
-      if (!overTargetWarnedRef.current) {
-        addNotification('Planlı hedef toplamı izin sonrası kullanılabilir süreyi aşıyor', 'warning');
-        overTargetWarnedRef.current = true;
-      }
-    } else {
-      // Kapasiteyi aşmıyorsa state'i temizle
-      setWeeklyValidationErrors(prev => ({
-        ...prev,
-        overCapacity: false
-      }));
-      overTargetWarnedRef.current = false;
-    }
-  }, [weeklyLive.totalTarget, weeklyLive.availableMinutes]);
+  // Planlı süre kontrolü kaldırıldı - kullanıcı izin alsa bile 2700 dk hedefleyebilir
+  // Kontrol sadece gerçekleşen süre için yapılacak
 
   // Kullanılan Süre + Plandışı Süre kontrolü - anlık uyarı
+  // Sadece gerçekleşen süre kontrol edilir, planlı süre kontrolü yapılmaz
   useEffect(() => {
     const plannedActual = Number(weeklyLive?.plannedActual || 0);
     const unplannedMinutes = Number(weeklyLive?.unplannedMinutes || 0);
@@ -1050,16 +1025,13 @@ function App() {
         overCapacity: true
       }));
     } else {
-      // Eğer hedef süre kontrolü de geçiyorsa overCapacity false olabilir
-      const tt = Number(weeklyLive?.totalTarget || 0);
-      if (tt <= capacity) {
-        setWeeklyValidationErrors(prev => ({
-          ...prev,
-          overCapacity: false
-        }));
-      }
+      // Gerçekleşen süre kapasiteyi aşmıyorsa overCapacity false
+      setWeeklyValidationErrors(prev => ({
+        ...prev,
+        overCapacity: false
+      }));
     }
-  }, [weeklyLive.plannedActual, weeklyLive.unplannedMinutes, weeklyLive.availableMinutes, weeklyLive.totalTarget]);
+  }, [weeklyLive.plannedActual, weeklyLive.unplannedMinutes, weeklyLive.availableMinutes]);
 
   // Günlük kota kontrolü - sadece gerçekleşme süresi günlük limiti aştığında uyarı
   // Not: Hedef süresi toplam süreye (2715 + mesai - izin) göre kontrol edilir, günlük kotaya göre değil
@@ -1383,15 +1355,8 @@ function App() {
       const totalTargetMinutes = totalTarget + totalUnplannedTarget;
 
       if (user?.role !== 'admin') {
-        // Planlı + plansız hedef süre toplamı, kullanılabilir süreyi (mesai dahil) aşmamalı
-        // Mesai süresi zaten availableMinutes'a dahil (2700 - izin + mesai)
-        if (totalTargetMinutes > availableMinutes) {
-          const errorMsg = `Toplam hedef süre (${totalTargetMinutes} dk) kullanılabilir süreyi (${availableMinutes} dk) aşamaz.`;
-          addNotification(errorMsg, 'error');
-          setWeeklyValidationErrors({ overCapacity: true, invalidItems: [] });
-          setWeeklySaveState('idle');
-          return;
-        }
+        // Planlı süre kontrolü kaldırıldı - kullanıcı izin alsa bile 2700 dk hedefleyebilir
+        // Kontrol sadece gerçekleşen süre için yapılacak
 
         // Kullanılan Süre + Plandışı Süre kontrolü
         // Toplam Süre <= Kullanılan Süre + Plandışı Süre olmalı
@@ -7145,13 +7110,8 @@ function App() {
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
                                 {WEEKLY_BASE_MINUTES + weeklyLive.overtimeMinutes - weeklyLive.leaveMinutes} dk
                               </div>
-                              <div className="font-semibold whitespace-nowrap text-left" style={{
-                                color: (weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) ? '#ef4444' : currentTheme.text
-                              }}>
+                              <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
                                 {weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}
-                                {(weeklyValidationErrors.overCapacity && weeklyLive.totalTarget > weeklyLive.availableMinutes) && (
-                                  <span className="ml-2 text-sm" style={{ color: '#ef4444' }}>⚠️</span>
-                                )}
                               </div>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.unplannedMinutes} dk</div>
                             </div>
@@ -7208,41 +7168,27 @@ function App() {
                         );
                       })()}
                     </div>
-                    {/* Genel Uyarı Bileşeni - Süre Aşımı */}
-                    {weeklyValidationErrors.overCapacity && (
-                      <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        borderColor: '#ef4444',
-                        color: '#ef4444'
-                      }}>
-                        <div className="font-semibold text-lg mb-2">⚠️ Süre Aşımı Uyarısı</div>
-                        <div className="text-base">
-                          {weeklyLive.totalTarget > weeklyLive.availableMinutes && (
-                            <div>
-                              Toplam hedef süre ({weeklyLive.totalTarget} dk) kullanılabilir süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
-                              {weeklyLive.overtimeMinutes > 0 && (
-                                <span className="block mt-1">
-                                  Not: Mesai süresi ({weeklyLive.overtimeMinutes} dk) zaten kullanılabilir süreye dahil edilmiştir.
-                                </span>
-                              )}
+                    {/* Genel Uyarı Bileşeni - Süre Aşımı (Sadece Gerçekleşen Süre) */}
+                    {weeklyValidationErrors.overCapacity && (() => {
+                      const plannedActual = weeklyLive?.plannedActual || 0;
+                      const unplannedMinutes = weeklyLive?.unplannedMinutes || 0;
+                      const totalUsedMinutes = plannedActual + unplannedMinutes;
+                      if (totalUsedMinutes > weeklyLive.availableMinutes) {
+                        return (
+                          <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderColor: '#ef4444',
+                            color: '#ef4444'
+                          }}>
+                            <div className="font-semibold text-lg mb-2">⚠️ Süre Aşımı Uyarısı</div>
+                            <div className="text-base">
+                              Kullanılan süre ({plannedActual} dk) + Plandışı süre ({unplannedMinutes} dk) = {totalUsedMinutes} dk, toplam süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
                             </div>
-                          )}
-                          {(() => {
-                            const plannedActual = weeklyLive?.plannedActual || 0;
-                            const unplannedMinutes = weeklyLive?.unplannedMinutes || 0;
-                            const totalUsedMinutes = plannedActual + unplannedMinutes;
-                            if (totalUsedMinutes > weeklyLive.availableMinutes) {
-                              return (
-                                <div className={weeklyLive.totalTarget > weeklyLive.availableMinutes ? 'mt-2' : ''}>
-                                  Kullanılan süre ({plannedActual} dk) + Plandışı süre ({unplannedMinutes} dk) = {totalUsedMinutes} dk, toplam süreyi ({weeklyLive.availableMinutes} dk) aşıyor.
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      </div>
-                    )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                     {/* Günlük Kota Aşımı Uyarısı - Gerçekleşme */}
                     {weeklyValidationErrors.overDailyLimit && weeklyValidationErrors.overDailyLimitAmount > 0 && (
                       <div className="mt-4 mx-4 p-4 rounded-lg border-2" style={{

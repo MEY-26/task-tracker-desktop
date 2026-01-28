@@ -624,11 +624,8 @@ class WeeklyGoalController extends Controller
         
         // Admin için kapasite kontrollerini bypass et
         if ($auth->role !== 'admin') {
-            // Planlı + plansız hedef süre toplamı, kullanılabilir süreyi (mesai dahil) aşmamalı
-            // Mesai süresi zaten capacity'ye dahil (2700 - izin + mesai)
-            if ($totalTargetMinutes > $capacity) {
-                return response()->json(['message' => "Toplam hedef süre ({$totalTargetMinutes} dk) kullanılabilir süreyi ({$capacity} dk) aşamaz."], 422);
-            }
+            // Planlı süre kontrolü kaldırıldı - kullanıcı izin alsa bile 2700 dk hedefleyebilir
+            // Kontrol sadece gerçekleşen süre için yapılacak
             
             // Kullanılan Süre + Plandışı Süre kontrolü
             // Toplam Süre <= Kullanılan Süre + Plandışı Süre olmalı
