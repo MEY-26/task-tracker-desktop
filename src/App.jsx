@@ -1347,10 +1347,6 @@ function App() {
       const planned = itemsToSave.filter(x => !x.is_unplanned);
       const totalTarget = planned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
 
-      // Plansız görevlerin target_minutes toplamı (varsa)
-      const unplanned = itemsToSave.filter(x => x.is_unplanned);
-      const totalUnplannedTarget = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
-
       if (user?.role !== 'admin') {
         // Planlı süre kontrolü kaldırıldı - kullanıcı izin alsa bile 2700 dk hedefleyebilir
         // Kontrol sadece gerçekleşen süre için yapılacak
