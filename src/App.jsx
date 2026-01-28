@@ -1351,9 +1351,6 @@ function App() {
       const unplanned = itemsToSave.filter(x => x.is_unplanned);
       const totalUnplannedTarget = unplanned.reduce((acc, x) => acc + Math.max(0, Number(x.target_minutes || 0)), 0);
 
-      // Toplam hedef süre (planlı + plansız) - mesai süresi zaten availableMinutes'a dahil
-      const totalTargetMinutes = totalTarget + totalUnplannedTarget;
-
       if (user?.role !== 'admin') {
         // Planlı süre kontrolü kaldırıldı - kullanıcı izin alsa bile 2700 dk hedefleyebilir
         // Kontrol sadece gerçekleşen süre için yapılacak
