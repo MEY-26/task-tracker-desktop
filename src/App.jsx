@@ -2502,8 +2502,9 @@ function App() {
         const isAdmin = user?.role === 'admin';
         const isResponsible = user?.id === selectedTask.responsible?.id;
 
-        // Takım lideri sadece bitiş tarihi ve durum değiştirebilir
-        if (isTeamLeader && !isAdmin && !isResponsible) {
+        // Takım lideri sadece bitiş tarihi ve durum değiştirebilir (oluşturan değilse)
+        const isCreatorModal = user?.id === selectedTask.creator?.id;
+        if (isTeamLeader && !isAdmin && !isResponsible && !isCreatorModal) {
           // Sadece status ve due_date
           if (detailDraft) {
             if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
