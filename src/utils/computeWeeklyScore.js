@@ -108,7 +108,7 @@ export function computeWeeklyScore({ baseMinutes, leaveMinutes, overtimeMinutes,
     UnplannedScore = U_extra / T_allow;
   }
 
-  // A devamı) Planlı Skor — tablodaki Gerçekleşme(%) ile birebir aynı formül
+  // A devamı) Planlı Skor — tablodaki Gerçekleşme(%) formülüne dayalı
   const hasUnplannedWork = U > 0;
   for (let i = 0; i < pl.length; i++) {
     const t = P[i];
@@ -125,48 +125,36 @@ export function computeWeeklyScore({ baseMinutes, leaveMinutes, overtimeMinutes,
       // Tamamlanan görev: effectiveActual = gerçekleşme (hız bonusu otomatik dahil)
       effectiveActual = a;
     } else {
-      // Tamamlanmayan görev: ceza hesaplanır
-      // Plandışı iş varsa tamamlanmadı cezası uygulanmaz
-      if (hasUnplannedWork) {
-        if (a > t) {
-          // Gecikme cezası: (a - t) kadar fazla süre harcanmış
-          effectiveActual = a; // sadece gecikme etkisi (tamamlanmadı cezası yok)
-        } else if (a === t) {
-          effectiveActual = a; // tam süre ama tamamlanmadı (ceza yok)
-        } else {
-          effectiveActual = a; // eksik süre (ceza yok)
-        }
+      // Tamamlanmayan görev:
+      // - Gecikme/eksik süre cezası her zaman uygulanır
+      // - Tamamlanmadı cezası (0.1*t): sadece plandışı iş YOKSA uygulanır
+      //   (plandışı iş varsa, görev plandışı iş yüzünden tamamlanamamış olabilir)
+      const incompPen = hasUnplannedWork ? 0 : (cfg.incompletePenalty * t);
+      if (a > t) {
+        // Gecikme: hedeften fazla süre harcanmış
+        effectiveActual = a + incompPen;
+      } else if (a === t) {
+        // Tam süre ama tamamlanmadı
+        effectiveActual = t + incompPen;
       } else {
-        // Plandışı iş yoksa hem gecikme/eksik cezası hem tamamlanmadı cezası
-        if (a > t) {
-          // Gecikme + tamamlanmadı cezası
-          const pen = (a - t) + (cfg.incompletePenalty * t);
-          effectiveActual = t + pen;
-        } else if (a === t) {
-          // Tam süre ama tamamlanmadı: sadece tamamlanmadı cezası
-          effectiveActual = t + (cfg.incompletePenalty * t);
-        } else {
-          // Eksik süre + tamamlanmadı cezası
-          const shortage = Math.max(0, t - a);
-          const pen = shortage + (cfg.incompletePenalty * t);
-          effectiveActual = t + pen;
-        }
+        // Eksik süre: hedeften az çalışılmış
+        const shortage = Math.max(0, t - a);
+        effectiveActual = t + shortage + incompPen;
       }
     }
 
-    // Görevin Gerçekleşme(%) katkısı = (t / effectiveActual) * w
+    // Görevin katkısı = (t / effectiveActual) * w
     const eff = effectiveActual > 0 && isFinite(effectiveActual) ? (t / effectiveActual) : 0;
     const rate = eff * w; // 0..1+ arası
 
     PlanlyScore += rate;
 
-    // Hız bonusu/cezası takibi (gösterim için)
+    // Hız bonusu takibi (gösterim için)
     if (Done[i] && rate > w) {
-      // Tamamlanan görevde hız bonusu: rate > w demek daha hızlı tamamlanmış
       SpeedBonusRaw += (rate - w);
     }
     if (!Done[i] && !hasUnplannedWork) {
-      // Tamamlanmama cezası (gösterim için)
+      // Tamamlanmama cezası (gösterim için, sadece plandışı iş yoksa)
       IncompleteCapPenaltyRaw += w * cfg.incompletePenalty;
     }
   }

@@ -954,7 +954,7 @@ function App() {
         lambda_: penaltiesEnabled ? 0.75 : 0,
         mu: penaltiesEnabled ? 2.5 : 0,
         scoreCap: 130,
-        incompletePenalty: penaltiesEnabled ? 0.10 : 0,
+        incompletePenalty: penaltiesEnabled ? 0.10 : 0, // Cuma 18:15 sonrasında uygulanır
       },
     });
 
