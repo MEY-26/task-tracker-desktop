@@ -1,3 +1,30 @@
+## v2.10.8 – 09.02.2026
+
+### Yeni Özellikler
+**Görev Detayı: Başlık Düzenleme**
+- Görev Detayı penceresinde başlık alanı artık düzenlenebilir
+- Admin, Sorumlu ve Oluşturan rolleri başlığı değiştirebilir
+- Başlık değişiklikleri Görev Geçmişi'nde eski ve yeni değer olarak gösterilir (ör: "Eski Başlık → Yeni Başlık")
+
+### Değişiklikler
+**Performans Hesaplama Sistemi Güncellendi**
+- Performans skoru artık tablodaki Gerçekleşme(%) değerlerinin toplamı üzerinden hesaplanır
+- Tamamlanan görev: `rate = (hedef / gerçekleşme) × ağırlık` → hız bonusu otomatik dahil
+- Tamamlanmayan görev: Gecikme cezası + tamamlanmadı cezası (hedefin %10'u) uygulanır
+- Plandışı iş varsa tamamlanmadı cezası uygulanmaz
+- Kesinti/Bonus alanı artık doğru net değeri gösterir: `Performans Skoru - Taban Skor`
+- Tooltip güncellendi: Hız/Tasarruf Bonusu ve Gecikme + Tamamlanmama Cezası ayrı ayrı gösterilir
+
+**Planlı Süre Validasyonu Kaldırıldı**
+- Kullanıcılar izin alsalar bile 2700 dk hedef koyabilir
+- İzin girişinde planlı süre hatası artık oluşmuyor
+- Kontrol sadece gerçekleşen süre (Kullanılan Süre + Plandışı Süre) üzerinden yapılır
+
+### Düzeltmeler
+- Takım modal kapatma butonu stil düzeltmesi
+
+---
+
 ## v2.10.7 – 26.01.2026
 
 ### Düzeltmeler ve İyileştirmeler
