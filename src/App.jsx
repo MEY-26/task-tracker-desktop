@@ -7076,20 +7076,21 @@ function App() {
                         // Breakdown'dan gelen değerler normalize (0-1 arası), yüzdeye çevir
                         const p1 = Number(((bd.PenaltyP1 || 0) * 100).toFixed(2));
                         const peasa = Number(((bd.PenaltyEASA || 0) * 100).toFixed(2));
-                        const bonus = Number(((bd.BonusB || 0) * 100).toFixed(2));
-                        const incCap = Number(((bd.IncompleteCapPenaltyRaw || 0) * 100).toFixed(2));
-                        // OvertimeBonus breakdown'dan normalize (0-1 arası) olarak geliyor, yüzdeye çevir
+                        const speedBonus = Number(((bd.SpeedBonusRaw || 0) * 100).toFixed(2));
                         const overtimeBonus = Number(((bd.OvertimeBonus || 0) * 100).toFixed(2));
                         const overtimeUsed = Number(weeklyLive.overtimeUsed || 0);
 
-                        // Net değer: Breakdown'dan gelen bonuslar - tüm cezalar
-                        // Tüm cezalar: PenaltyP1 + PenaltyEASA + IncompleteCapPenaltyRaw
-                        const totalPenalties = p1 + peasa + incCap;
-                        const totalBonuses = bonus + overtimeBonus;
-                        // Net = Bonuslar - Tüm Cezalar (final skorda uygulanan net etki)
-                        const net = totalBonuses - totalPenalties;
+                        // Taban skor: tüm görevler tam sürede tamamlansaydı alınacak skor
+                        const baseScore = bd.T_allow > 0 ? (bd.sumPlannedMinutes / bd.T_allow) * 100 : 0;
+                        // Planlı skor etkisi: PlanlyScore - taban (hız bonusu ve gecikme/tamamlanmama dahil)
+                        const planlyEffect = Number(((bd.PlanlyScore || 0) * 100 - baseScore).toFixed(2));
+                        // Gecikme + Tamamlanmama etkisi = Planlı etki - Hız bonusu
+                        const incompleteEffect = Number((planlyEffect - speedBonus).toFixed(2));
 
-                        const tip = `Kesinti/Bonus Detayı\n\n🔴 CEZALAR:\nAçık Cezası (P1): -${p1.toFixed(2)}%\nKullanılmayan Süre Cezası (EASA): -${peasa.toFixed(2)}%\nTamamlanmama Cezası: -${incCap.toFixed(2)}%\n\n🟢 BONUSLAR:\nHız/Tasarruf Bonusu: ${bonus > 0 ? '+' : ''}${bonus.toFixed(2)}%\nMesai Bonusu: ${overtimeBonus > 0 ? '+' : ''}${overtimeBonus.toFixed(2)}% (${overtimeUsed} dk mesai, 1.5x çarpan)\n\n📊 TOPLAM:\nCezalar: -${totalPenalties.toFixed(2)}%\nBonuslar: ${totalBonuses > 0 ? '+' : ''}${totalBonuses.toFixed(2)}%\nNet: ${net >= 0 ? '+' : ''}${net.toFixed(2)}%\n\nPerformans Sonucu: ${weeklyLive.finalScore}%`;
+                        // Net = Performans Skoru - Taban Skor
+                        const net = Number((weeklyLive.finalScore - baseScore).toFixed(2));
+
+                        const tip = `Kesinti/Bonus Detayı\n\n🔴 CEZALAR:\nGecikme + Tamamlanmama Cezası: ${incompleteEffect < 0 ? '' : '+'}${incompleteEffect.toFixed(2)}%\nAçık Cezası (P1): -${p1.toFixed(2)}%\nKullanılmayan Süre Cezası (EASA): -${peasa.toFixed(2)}%\n\n🟢 BONUSLAR:\nHız/Tasarruf Bonusu: ${speedBonus > 0 ? '+' : ''}${speedBonus.toFixed(2)}%\nMesai Bonusu: ${overtimeBonus > 0 ? '+' : ''}${overtimeBonus.toFixed(2)}% (${overtimeUsed} dk mesai, 1.5x çarpan)\n\n📊 TOPLAM:\nNet: ${net >= 0 ? '+' : ''}${net.toFixed(2)}%\n\nPerformans Sonucu: ${weeklyLive.finalScore}%`;
 
                         return (
                           <div className="grid grid-cols-[5%_13%_20%_13%_20%_13%_15%_5%] gap-x-8 gap-y-3 text-[20px] items-center">

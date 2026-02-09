@@ -13,6 +13,13 @@ const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
 
 /**
  * Haftalık performans hesaplayıcı (yüzde döner: 0..scoreCap)
+ *
+ * Hesaplama mantığı:
+ * - Her görev için Gerçekleşme(%) hesaplanır (tablodaki değerle aynı)
+ * - Tamamlanan görev: rate = (hedef/gerçekleşme) * ağırlık → hız bonusu otomatik dahil
+ * - Tamamlanmayan görev: ceza eklenerek effectiveActual bulunur, rate = (hedef/effectiveActual) * ağırlık
+ * - Performans Skoru = Σ rate + plandışı skor + mesai bonusu - P1 cezası - EASA cezası
+ *
  * @param {Object} opts
  * @param {number} opts.baseMinutes   - Haftalık taban (örn 2700)
  * @param {number} opts.leaveMinutes  - İzin dk
@@ -23,17 +30,12 @@ const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
  */
 export function computeWeeklyScore({ baseMinutes, leaveMinutes, overtimeMinutes, planned, unplanned, params = {} }) {
   const cfg = {
-    alpha:   params.alpha   ?? 0.10,  // hız bonus ağırlığı
-    beta:    params.beta    ?? 0.25,  // plandışı bonus ağırlığı
-    B_max:   params.B_max   ?? 0.20,  // toplam bonus tavanı (+%20)
-    eta_max: params.eta_max ?? 2.0,   // tamamlanan görev için verim tavanı (2x)
-
     kappa:   params.kappa   ?? 0.50,  // W>=T_allow iken açık cezası
     lambda_: params.lambda_ ?? 0.75,  // W< T_allow iken açık cezası
     mu:      params.mu      ?? 2.5,   // EASA: eksik görev varken kullanılmayan süre cezası
 
     scoreCap: params.scoreCap ?? 130, // puan üst sınırı
-    incompletePenalty: params.incompletePenalty ?? 0.10, // tamamlanmamış ama hedefe ulaşmış iş için sabit ceza
+    incompletePenalty: params.incompletePenalty ?? 0.10, // tamamlanmamış görev için sabit ceza oranı (hedefin %10'u)
   };
 
   const T_cap   = Math.max(0, Math.round(baseMinutes || 0));
@@ -64,11 +66,13 @@ export function computeWeeklyScore({ baseMinutes, leaveMinutes, overtimeMinutes,
     };
   }
 
-  // A) Planlı skor (verim katsayısı ile) — affetmeyi (F) dağıtarak hesaplayacağız
-  // (PlanlyScore hesaplaması, affetme hesaplarından sonra yapılacak)
+  // A) Planlı skor — Tablodaki Gerçekleşme(%) formülüyle aynı hesaplama
+  // Her görev için: rate = (t / effectiveActual) * w
+  // Tamamlanan görev: effectiveActual = a (hız bonusu otomatik dahil)
+  // Tamamlanmayan görev: effectiveActual = t + ceza (hız cezası + tamamlanmadı cezası dahil)
   let PlanlyScore = 0;
-  let IncompleteCapPenaltyRaw = 0; // satır içi tamamlanmama tavanından kaynaklı kayıp (ham, 0..1)
-  let SpeedBonusRaw = 0; // görev bazında hız/tasarruf bonusu (ham, 0..1)
+  let SpeedBonusRaw = 0; // hız bonusu (tamamlanan görevlerde rate > w olan fark)
+  let IncompleteCapPenaltyRaw = 0; // tamamlanmama cezası (gösterim için)
 
   // C) Affetme (time-credit)
   let Pg = 0;
@@ -88,95 +92,95 @@ export function computeWeeklyScore({ baseMinutes, leaveMinutes, overtimeMinutes,
   const L = Math.max(0, T_allow - W);
   const unfinishedCount = Done.filter(d => !d).length;
 
-  // E) Cezalar
+  // E) Cezalar (P1 ve EASA)
   let PenaltyP1 = 0;
-  // Eğer plandışı süre planlı eksikliği karşılıyorsa (D = 0 veya F >= Def), ceza yok
   if (D > 1e-9) {
     PenaltyP1 = (W >= T_allow ? cfg.kappa : cfg.lambda_) * (D / T_allow);
   }
   const PenaltyEASA = (unfinishedCount > 0 && L > 0) ? (cfg.mu * (L / T_allow)) : 0;
 
-  // B) Plandışı skor (oran)
-  // Eğer plandışı süre planlı eksikliği karşılıyorsa (F > 0), karşılanan eksiklik oranı kadar eklenir
-  // Böylece Planlı Skor (örn 80%) + Plandışı Skor (örn 20%) = 100% olur
+  // B) Plandışı skor
   const U_extra = Math.max(0, U - F);
   let UnplannedScore = 0;
   if (F > 1e-9) {
-    // Plandışı süre planlı eksikliği karşılıyor → karşılanan eksiklik oranı kadar skor ekle
     UnplannedScore = F / T_allow;
   } else if (unfinishedCount === 0 && U_extra > 0) {
-    // Tüm planlılar tamamlandı ve fazladan plandışı süre var → bonus olarak ekle
     UnplannedScore = U_extra / T_allow;
   }
 
-  // A devamı) Planlı Skor — affetmeyi satırlara dağıtarak hesapla
+  // A devamı) Planlı Skor — tablodaki Gerçekleşme(%) ile birebir aynı formül
+  const hasUnplannedWork = U > 0;
   for (let i = 0; i < pl.length; i++) {
     const t = P[i];
     const a = A[i];
     if (t <= 0) continue;
-    const w = t / T_allow;
+    const w = t / T_allow; // ağırlık (0..1 arası)
 
-    if (Done[i]) {
-      // Verim katsayısı için üst sınır yok (eta_max kaldırıldı)
-      const eff = Math.max(1.0, t / Math.max(a, 1));
-      // Temel skor: w * 1.0 (bonus ayrı hesaplanacak)
-      PlanlyScore += w * 1.0;
-      // Hız bonusu: w * (eff - 1.0) (verim katsayısı 1.0'ı aşan kısım)
-      if (eff > 1.0) {
-        SpeedBonusRaw += w * (eff - 1.0);
-      }
+    let effectiveActual;
+
+    if (a === 0) {
+      // Hiç çalışılmamışsa verimlilik 0
+      effectiveActual = Infinity; // rate = 0
+    } else if (Done[i]) {
+      // Tamamlanan görev: effectiveActual = gerçekleşme (hız bonusu otomatik dahil)
+      effectiveActual = a;
     } else {
-      // Planlı skor, planlı işte harcanan gerçek süre oranına göre hesaplanır.
-      // Plandışı süre, planlı skoru ARTIRMAZ; sadece cezaları önler.
-      // Tamamlanmamış görev için tamamlanmadı cezası uygula
-      // ANCAK: Plana dahil olmayan işler varsa (U > 0), tamamlanmadı cezası uygulanmaz
-      // çünkü plandışı işler yüzünden planlı işler tamamlanamamış olabilir
-      const hasUnplannedWork = U > 0;
-      if (!hasUnplannedWork) {
-        IncompleteCapPenaltyRaw += w * cfg.incompletePenalty;
-      }
-      
-      let eff;
-      if (a < t) {
-        // Eksik süre var: gerçekleşen oran - tamamlanmadı cezası (sadece plandışı iş yoksa)
-        if (hasUnplannedWork) {
-          eff = Math.min(a / t, 1.0);
+      // Tamamlanmayan görev: ceza hesaplanır
+      // Plandışı iş varsa tamamlanmadı cezası uygulanmaz
+      if (hasUnplannedWork) {
+        if (a > t) {
+          // Gecikme cezası: (a - t) kadar fazla süre harcanmış
+          effectiveActual = a; // sadece gecikme etkisi (tamamlanmadı cezası yok)
+        } else if (a === t) {
+          effectiveActual = a; // tam süre ama tamamlanmadı (ceza yok)
         } else {
-          eff = Math.max(0, Math.min(a / t, 1.0) - cfg.incompletePenalty);
+          effectiveActual = a; // eksik süre (ceza yok)
         }
       } else {
-        // Hedefe ulaşmış ama tamamlanmamış: sabit tavan uygulanır (ceza zaten içinde)
-        if (hasUnplannedWork) {
-          eff = 1.0; // Plandışı iş varsa ceza yok
+        // Plandışı iş yoksa hem gecikme/eksik cezası hem tamamlanmadı cezası
+        if (a > t) {
+          // Gecikme + tamamlanmadı cezası
+          const pen = (a - t) + (cfg.incompletePenalty * t);
+          effectiveActual = t + pen;
+        } else if (a === t) {
+          // Tam süre ama tamamlanmadı: sadece tamamlanmadı cezası
+          effectiveActual = t + (cfg.incompletePenalty * t);
         } else {
-          eff = clamp(1 - cfg.incompletePenalty, 0, 1);
+          // Eksik süre + tamamlanmadı cezası
+          const shortage = Math.max(0, t - a);
+          const pen = shortage + (cfg.incompletePenalty * t);
+          effectiveActual = t + pen;
         }
       }
-      PlanlyScore += w * eff;
+    }
+
+    // Görevin Gerçekleşme(%) katkısı = (t / effectiveActual) * w
+    const eff = effectiveActual > 0 && isFinite(effectiveActual) ? (t / effectiveActual) : 0;
+    const rate = eff * w; // 0..1+ arası
+
+    PlanlyScore += rate;
+
+    // Hız bonusu/cezası takibi (gösterim için)
+    if (Done[i] && rate > w) {
+      // Tamamlanan görevde hız bonusu: rate > w demek daha hızlı tamamlanmış
+      SpeedBonusRaw += (rate - w);
+    }
+    if (!Done[i] && !hasUnplannedWork) {
+      // Tamamlanmama cezası (gösterim için)
+      IncompleteCapPenaltyRaw += w * cfg.incompletePenalty;
     }
   }
 
-  // D) Bonus
-  // Görev bazında hız/tasarruf bonusu (her görev için verim katsayısı 1.0'ı aşan kısım)
-  let BonusB = SpeedBonusRaw;
-  
-  // Ekstra bonus (yalnız tüm planlılar bitti ve D==0 ise)
-  if (unfinishedCount === 0 && Math.abs(D) < 1e-9) {
-    const Saved = pl.reduce((s, p, i) => s + (Done[i] ? Math.max(0, P[i] - A[i]) : 0), 0);
-    const s = Saved / T_allow;
-    const U_extra = Math.max(0, U - F);
-    const e = U_extra / T_allow;
-    const extraBonus = Math.min(cfg.B_max, cfg.alpha * s + cfg.beta * e);
-    BonusB += extraBonus;
-  }
+  // D) Bonus — Hız bonusu doğrudan PlanlyScore'a dahil, ayrıca BonusB olarak takip
+  const BonusB = SpeedBonusRaw;
 
   // G) Mesai Bonusu (1.5x çarpan ile)
-  // Mesai süresi kullanıldığında (W > T_cap), kullanılan mesai süresine göre bonus
   const T_overtime_used = Math.max(0, Math.min(T_overtime, W - T_cap));
   const OvertimeBonus = T_overtime_used > 0 ? (T_overtime_used / T_cap) * 1.5 : 0;
 
   // F) Final
-  const ScoreRaw = PlanlyScore + UnplannedScore + BonusB + OvertimeBonus - (PenaltyP1 + PenaltyEASA);
+  // PlanlyScore zaten hız bonusu/cezası dahil, ayrıca BonusB eklemeye gerek yok
+  const ScoreRaw = PlanlyScore + UnplannedScore + OvertimeBonus - (PenaltyP1 + PenaltyEASA);
   const Score = 100 * clamp(ScoreRaw, 0, cfg.scoreCap); // yüzde
 
   return {
@@ -186,6 +190,7 @@ export function computeWeeklyScore({ baseMinutes, leaveMinutes, overtimeMinutes,
     PlanlyScore, UnplannedScore, BonusB, OvertimeBonus,
     PenaltyP1, PenaltyEASA,
     IncompleteCapPenaltyRaw,
+    SpeedBonusRaw,
     ScoreRaw,
     Score,
     T_overtime_used,
