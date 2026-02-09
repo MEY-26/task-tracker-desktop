@@ -2529,6 +2529,13 @@ function App() {
                 updates.no = detailDraft.no || '';
               }
             }
+            // Başlık alanı Admin, Sorumlu veya Oluşturan tarafından değiştirilebilir
+            const isCreator = user?.id === selectedTask.creator?.id;
+            if (isAdmin || isResponsible || isCreator) {
+              if (detailDraft.title !== undefined && (detailDraft.title || '') !== (selectedTask.title || '')) {
+                updates.title = detailDraft.title || '';
+              }
+            }
             if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
               updates.status = detailDraft.status || 'waiting';
             }
@@ -8050,9 +8057,35 @@ function App() {
                           <label className="!text-[24px] sm:!text-[16px] font-medium text-left" style={{ color: currentTheme.text }}>
                             Başlık
                           </label>
-                          <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
-                            {selectedTask.title ?? ""}
-                          </div>
+                          {(user?.role === 'admin' || user?.id === selectedTask.responsible?.id || user?.id === selectedTask.creator?.id) ? (
+                            <input
+                              type="text"
+                              value={detailDraft?.title ?? selectedTask.title ?? ''}
+                              onChange={(e) => setDetailDraft(prev => ({ ...(prev || {}), title: e.target.value }))}
+                              className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] focus:outline-none"
+                              style={{
+                                minHeight: '35px',
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                color: currentTheme.text,
+                                borderColor: currentTheme.border,
+                                borderWidth: '1px',
+                                borderStyle: 'solid'
+                              }}
+                              onFocus={(e) => {
+                                e.target.style.borderColor = currentTheme.accent;
+                                e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
+                              }}
+                              onBlur={(e) => {
+                                e.target.style.borderColor = currentTheme.border;
+                                e.target.style.boxShadow = 'none';
+                              }}
+                              placeholder="Başlık girin..."
+                            />
+                          ) : (
+                            <div className="w-full rounded-lg px-3 sm:px-4 py-2 sm:py-3 !text-[24px] sm:!text-[16px] flex items-center" style={{ minHeight: '24px', backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background, color: currentTheme.text }}>
+                              {selectedTask.title ?? ""}
+                            </div>
+                          )}
                         </div>
                         <br />
                         <div className="grid grid-cols-[180px_1fr] sm:grid-cols-[240px_1fr] gap-2 sm:gap-4 items-center">
@@ -8958,6 +8991,7 @@ function App() {
                                       <span className="break-words whitespace-normal block max-w-full" style={{ color: currentTheme.text }}>{renderHistoryValue(h.field, h.new_value)}</span>
                                     </div>
                                   ) : (h.new_value && typeof h.new_value === 'string' && h.new_value.trim().length > 0 &&
+                                    !h.field.includes('title') && // Başlık değişiklikleri old→new formatında gösterilecek
                                     !h.field.includes('status') && !h.field.includes('priority') &&
                                     !h.field.includes('task_type') && !h.field.includes('date') &&
                                     !h.field.includes('attachments') && !h.field.includes('assigned') &&
