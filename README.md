@@ -577,9 +577,6 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 - ✅ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
 - ✅ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
 - ✅ **Hedef Ayrıntısı Güncellemeleri**: Toplam Süre, Kullanılabilir Süre ve Kalan Süre gösterimi, tooltip desteği
-- ✅ **Kullanılan Süre Toplamı**: Planlı gerçekleşme + plandışı süre birlikte gösterilir
-- ✅ **Tamamlandı Kuralı**: Gerçekleşme süresi girilmeden “Tamamlandı” işaretlenemez
-- ✅ **Ceza Zamanlaması**: Cezalar sadece Cuma 18:15 sonrası uygulanır ve gösterilir
 - ✅ **Sayısal Alanlarda Anlık Güncelleme**: Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
 - ✅ **Haftalık Hedef Zaman Aşım Kuralı**: Toplam hedef süre (planlı + plansız) kullanılabilir süreyi aşamaz
 - ✅ **Boş Liste Desteği**: Tüm görevleri silmek için boş liste kaydedilebilir

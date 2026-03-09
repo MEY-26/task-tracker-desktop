@@ -1393,7 +1393,8 @@ function App() {
         week_start: weeklyWeekStart || fmtYMD(getMonday()),
         leave_minutes: leaveMinutesForSave,
         overtime_minutes: overtimeMinutesForSave,
-        items: itemsToSave,
+        // Backend doğrulaması için sayısal alanları normalize edilmiş listeyi gönder
+        items,
         ...(weeklyUserId ? { user_id: weeklyUserId } : {}),
       };
       const res = await WeeklyGoals.save(payload);
