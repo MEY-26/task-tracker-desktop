@@ -51,7 +51,7 @@ function App() {
   const usersHook = useUsers({ setLoading });
   const { users, showUserPanel, setShowUserPanel, teamMembers, loadUsers, loadTeamMembers, handleBulkUserImport } = usersHook;
   const weeklyGoalsHook = useWeeklyGoals();
-  const { weeklyGoals, setWeeklyGoals, weeklyWeekStart, weeklyUserId, setWeeklyUserId, weeklyLeaveMinutesInput, setWeeklyLeaveMinutesInput, weeklyOvertimeMinutesInput, setWeeklyOvertimeMinutesInput, weeklySaveState, setWeeklySaveState, transferButtonText, weeklyValidationErrors, weeklyLive, combinedLocks, loadWeeklyGoals, saveWeeklyGoals, approveWeeklyGoals, transferIncompleteTasksFromPreviousWeek, updateNumberInput, saveTextInputToState, getTextInputKey, handleWeeklyLeaveMinutesChange, handleWeeklyLeaveMinutesBlur, handleWeeklyOvertimeMinutesChange, handleWeeklyOvertimeMinutesBlur, textInputRefs, goalDescriptionRef, prevWeeklyDataRef } = weeklyGoalsHook;
+  const { weeklyGoals, setWeeklyGoals, weeklyWeekStart, weeklyUserId, setWeeklyUserId, weeklyLeaveMinutesInput, weeklyOvertimeMinutesInput, weeklySaveState, setWeeklySaveState, transferButtonText, weeklyValidationErrors, weeklyLive, combinedLocks, loadWeeklyGoals, saveWeeklyGoals, approveWeeklyGoals, transferIncompleteTasksFromPreviousWeek, updateNumberInput, saveTextInputToState, getTextInputKey, handleWeeklyLeaveMinutesChange, handleWeeklyLeaveMinutesBlur, handleWeeklyOvertimeMinutesChange, handleWeeklyOvertimeMinutesBlur, textInputRefs, goalDescriptionRef, prevWeeklyDataRef } = weeklyGoalsHook;
   const [tasks, setTasks] = useState([]);
   const [addingTask, setAddingTask] = useState(false);
   const [error, setError] = useState(null);

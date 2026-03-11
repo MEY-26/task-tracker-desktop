@@ -26,6 +26,7 @@ function UserPanel({
   passwordResetRequests = []
 }) {
   const [showEditGrantModal, setShowEditGrantModal] = useState(false);
+  const CreateUserForm = AdminCreateUser;
 
   if (!open) return null;
 
@@ -69,7 +70,7 @@ function UserPanel({
               {user?.role === 'admin' && (
                 <div className="pt-4" style={{ paddingTop: '5px' }}>
                   <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
-                  <AdminCreateUser />
+                  <CreateUserForm />
                 </div>
               )}
             </div>

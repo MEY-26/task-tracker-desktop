@@ -17,8 +17,6 @@ export function WeeklyGoalsModal({
   weeklyWeekStart,
   loadWeeklyGoals,
   weeklyLeaveMinutesInput,
-  handleWeeklyLeaveMinutesChange: _handleWeeklyLeaveMinutesChange,
-  handleWeeklyLeaveMinutesBlur: _handleWeeklyLeaveMinutesBlur,
   weeklyOvertimeMinutesInput,
   handleWeeklyOvertimeMinutesChange,
   handleWeeklyOvertimeMinutesBlur,
@@ -38,7 +36,6 @@ export function WeeklyGoalsModal({
   updateNumberInput,
   saveTextInputToState,
   getTextInputKey,
-  addNotification: _addNotification,
 }) {
   const canShowFullScore = user?.role === 'admin';
 
