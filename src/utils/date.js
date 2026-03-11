@@ -7,6 +7,29 @@ export function getMonday(date = new Date()) {
   return d;
 }
 
+export function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+/** 1=Mon .. 5=Fri, 0=Sat, 6=Sun */
+export function getWeekday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  return day === 0 ? 7 : day;
+}
+
+export function isWeekday(date) {
+  const wd = getWeekday(date);
+  return wd >= 1 && wd <= 5;
+}
+
+/** date is before today (start of day) */
+export function isPast(date) {
+  return fmtYMD(date) < fmtYMD(new Date());
+}
+
 export function fmtYMD(date) {
   const d = new Date(date);
   const pad = (n) => String(n).padStart(2, '0');
@@ -25,6 +48,12 @@ export function at10AM(date) {
   const d = new Date(date);
   d.setHours(10, 0, 0, 0);
   return d;
+}
+
+export function at1330(d) {
+  const x = new Date(d);
+  x.setHours(13, 30, 0, 0);
+  return x;
 }
 
 export function formatDate(dateLike) {

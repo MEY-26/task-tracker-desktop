@@ -626,6 +626,75 @@ export const WeeklyGoals = {
       console.error('Weekly goals save error:', error.response?.data || error.message);
       throw error;
     }
+  },
+  approve: async (payload) => {
+    try {
+      const response = await api.post('/weekly-goals/approve', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Weekly goals approve error:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+};
+
+export const LeaveRequests = {
+  list: async (params = {}) => {
+    try {
+      const response = await api.get('/leave-requests', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Leave requests list error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  create: async (payload) => {
+    try {
+      const response = await api.post('/leave-requests', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Leave request create error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/leave-requests/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Leave request delete error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+};
+
+export const EditGrants = {
+  list: async (params = {}) => {
+    try {
+      const response = await api.get('/weekly-goal-edit-grants', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Edit grants list error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  create: async (payload) => {
+    try {
+      const response = await api.post('/weekly-goal-edit-grants', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Edit grant create error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/weekly-goal-edit-grants/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Edit grant delete error:', error.response?.data || error.message);
+      throw error;
+    }
   }
 };
 

@@ -10,6 +10,8 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\WeeklyGoalController;
+use App\Http\Controllers\LeaveRequestController;
+use App\Http\Controllers\WeeklyGoalEditGrantController;
 use App\Http\Controllers\TaskTypeController;
 use App\Http\Controllers\TaskStatusController;
 
@@ -69,6 +71,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/weekly-goals/leaderboard', [WeeklyGoalController::class, 'leaderboard']);
     Route::get('/weekly-goals', [WeeklyGoalController::class, 'get']);
     Route::post('/weekly-goals', [WeeklyGoalController::class, 'save']);
+    Route::post('/weekly-goals/approve', [WeeklyGoalController::class, 'approve']);
+
+    // Leave Requests
+    Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
+    Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
+    Route::delete('/leave-requests/{id}', [LeaveRequestController::class, 'destroy']);
+
+    // Weekly Goal Edit Grants (admin only)
+    Route::get('/weekly-goal-edit-grants', [WeeklyGoalEditGrantController::class, 'index']);
+    Route::post('/weekly-goal-edit-grants', [WeeklyGoalEditGrantController::class, 'store']);
+    Route::delete('/weekly-goal-edit-grants/{id}', [WeeklyGoalEditGrantController::class, 'destroy']);
 
     // Task Types
     Route::get('/task-types', [TaskTypeController::class, 'index']);

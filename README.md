@@ -15,10 +15,13 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🎯 **Akıllı Durum Yönetimi**: Görev türü değiştiğinde durum otomatik reset
 
 ### 👥 Kullanıcı Yönetimi
-- 🎯 Rol tabanlı erişim kontrolü
+- 🎯 Rol tabanlı erişim kontrolü (Admin, Takım Lideri, Takım Üyesi, Gözlemci)
 - 📊 Excel'den toplu kullanıcı ekleme
 - 🔍 Gelişmiş kullanıcı arama sistemi
 - 🔐 Şifre sıfırlama sistemi
+- 👥 **Toplu Lider Atama**: Seçili takım üyelerine toplu lider atama
+- 🗑️ **Toplu Kullanıcı Silme**: Seçili kullanıcıları toplu silme (admin hariç)
+- 🔑 **Özel Düzenleme İzni**: Admin'ler kullanıcılara geçici haftalık hedef düzenleme izni verebilir
 
 ### 📎 Dosya Yönetimi
 - 📎 Görevlere dosya ekleme desteği
@@ -30,24 +33,31 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔔 Gerçek zamanlı bildirim güncellemeleri
 - 🔄 Görev durumu değişiklik bildirimleri
 - 👥 Kullanıcı atama bildirimleri
+- ✅ Haftalık hedef onay/red bildirimleri
+- 📅 İzin bildirimi entegrasyonu
 
 ### 🎯 Haftalık Hedef Sistemi
 - 📊 Haftalık hedef oluşturma ve takibi
-- 🔒 Hedef kilitleme sistemi (Pazartesi 13:30)
+- 🔒 Hedef kilitleme sistemi (rol bazlı: üye 10:00, lider 13:30, admin sınırsız)
 - 🏆 Liderlik tablosu ve performans skorlama
 - 📈 Gerçek zamanlı hedef analizi
 - ⏰ Mesai süresi desteği (overtime minutes)
 - 🎁 Mesai bonusu sistemi (1.5x çarpan)
 - 👨‍💼 Admin kilitleme bypass yetkisi
 - 🔄 Otomatik liste güncelleme sistemi
+- ✅ **Onay Sistemi**: Takım üyelerinin haftalık hedefleri lider/admin onayı gerektirir
+- 📝 **Onay Notu**: Onayla/Reddet butonları, onay durumu badge'i ve bildirim entegrasyonu
+- 📅 **İzin Bildirimi**: Takvim seçimli izin bildirimi modalı, izin süreleri otomatik hedeflere yansır
+- 🔑 **Özel Düzenleme İzni**: Admin'ler kullanıcılara geçici hedef düzenleme izni verebilir
 - 🔓 **Bağımsız İzin/Mesai Alanları**: İzin ve Mesai girişleri hedef kilitleme durumundan bağımsız çalışır
 - 📋 **Önceki Haftadan İş Aktarma**: Tamamlanmamış işleri önceki haftadan yeni haftaya aktarma özelliği
 - 📅 **Günlük Gerçekleşme Kotası**: Haftalık taban süre 2700 dk, günlük limitler (her gün 540 dk) ile haftanın önden doldurulması engellenir
 - ⏱️ **Günlük Mesai Kotası**: Günlük mesai limitleri ve hafta sonu ek mesai desteği
-- 🚫 **Geçmiş Hafta Kilitleme**: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir
+- 🚫 **Geçmiş Hafta Kilitleme**: Rol bazlı kilitleme kuralları
 - 🔒 **Gelecek Haftalar Kilitleme**: Gelecek haftalar için gerçekleşme alanları kilitlidir (sadece mevcut hafta için açık)
 - ⚠️ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
 - 🛡️ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
+- 📊 **Rol Bazlı Puanlama**: Admin tam skor, Takım Lideri harf notu, diğer roller puanlama gizli
 
 ### ⚡ Performans ve Optimizasyon
 - 🚀 Memoized görev filtreleme sistemi
@@ -237,17 +247,54 @@ task-tracker-desktop/
 │   ├── main.jsx             # Uygulama giriş noktası
 │   ├── api.js               # API bağlantı ayarları
 │   ├── components/          # React bileşenleri
-│   │   ├── auth/            # Kimlik doğrulama bileşenleri
-│   │   ├── admin/           # Admin paneli bileşenleri
-│   │   └── account/         # Hesap yönetimi bileşenleri
+│   │   ├── account/         # Hesap yönetimi (PasswordChangeForm)
+│   │   ├── admin/           # Admin bileşenleri (AdminCreateUser)
+│   │   ├── auth/            # Kimlik doğrulama (LoginScreen)
+│   │   ├── forms/           # Form bileşenleri (AddTaskForm)
+│   │   ├── layout/          # Sayfa düzeni (AppFooter)
+│   │   ├── modals/          # Modal bileşenler
+│   │   │   ├── EditGrantModal.jsx
+│   │   │   ├── GoalDescriptionModal.jsx
+│   │   │   ├── LeaveRequestModal.jsx
+│   │   │   ├── TaskDetailModal.jsx
+│   │   │   ├── TaskSettingsModal.jsx
+│   │   │   ├── TeamModal.jsx
+│   │   │   ├── ThemePanel.jsx
+│   │   │   ├── UpdatesModal.jsx
+│   │   │   ├── UserProfileModal.jsx
+│   │   │   └── WeeklyGoalsModal.jsx
+│   │   ├── panels/          # Panel bileşenler
+│   │   │   ├── NotificationsPanel.jsx
+│   │   │   ├── ProfileMenuDropdown.jsx
+│   │   │   └── UserPanel.jsx
+│   │   ├── shared/          # Paylaşılan bileşenler
+│   │   │   ├── PriorityLabelWithTooltip.jsx
+│   │   │   └── TooltipStatus.jsx
+│   │   └── views/           # Görünüm bileşenleri
+│   │       ├── TaskListView.jsx
+│   │       └── WeeklyOverviewView.jsx
+│   ├── contexts/            # React Context'ler
+│   │   ├── AuthContext.jsx
+│   │   ├── NotificationContext.jsx
+│   │   └── ThemeContext.jsx
 │   ├── hooks/               # Custom React hooks
-│   │   └── useNotifications.js
+│   │   ├── useBodyScrollLock.js
+│   │   ├── useNotifications.js
+│   │   ├── usePreventAutofill.js
+│   │   ├── useTaskSettings.js
+│   │   ├── useUsers.js
+│   │   ├── useWeeklyGoals.js
+│   │   └── useWeeklyOverview.js
 │   ├── utils/               # Yardımcı fonksiyonlar
+│   │   ├── computeWeeklyScore.js
 │   │   ├── date.js
+│   │   ├── performance.js
 │   │   ├── string.js
 │   │   ├── tasks.js
-│   │   └── computeWeeklyScore.js
-│   └── assets/              # Statik dosyalar
+│   │   ├── teamAssignments.js
+│   │   ├── themes.js
+│   │   └── weeklyLimits.js
+│   └── assets/              # Statik dosyalar (logolar, ikonlar)
 ├── task-tracker-api/        # Laravel API backend
 │   ├── app/
 │   │   ├── Http/Controllers/
@@ -255,59 +302,37 @@ task-tracker-desktop/
 │   │   │   ├── TaskController.php
 │   │   │   ├── TaskTypeController.php
 │   │   │   ├── TaskStatusController.php
+│   │   │   ├── TaskHistoryController.php
 │   │   │   ├── UserController.php
 │   │   │   ├── PasswordResetController.php
 │   │   │   ├── NotificationController.php
-│   │   │   └── WeeklyGoalController.php
+│   │   │   ├── WeeklyGoalController.php
+│   │   │   ├── WeeklyGoalEditGrantController.php
+│   │   │   └── LeaveRequestController.php
 │   │   ├── Models/
-│   │   │   ├── Task.php
-│   │   │   ├── TaskType.php
-│   │   │   ├── TaskStatus.php
-│   │   │   ├── User.php
-│   │   │   ├── TaskHistory.php
-│   │   │   └── TaskAttachment.php
 │   │   ├── Notifications/
-│   │   │   ├── TaskUpdated.php
-│   │   │   └── PasswordResetRequested.php
 │   │   └── Mail/
-│   │       └── TaskNotificationMail.php
 │   ├── database/
 │   │   ├── database.sqlite  # SQLite veritabanı
 │   │   ├── migrations/      # Veritabanı şemaları
-│   │   │   ├── create_task_types_table.php
-│   │   │   ├── create_task_statuses_table.php
-│   │   │   ├── create_tasks_table.php
-│   │   │   ├── create_task_histories_table.php
-│   │   │   ├── create_notifications_table.php
-│   │   │   ├── create_task_attachments_table.php
-│   │   │   ├── create_weekly_goals_tables.php
-│   │   │   ├── add_is_completed_to_weekly_goal_items_table.php
-│   │   │   ├── add_overtime_minutes_to_weekly_goals_table.php
-│   │   │   └── add_text_columns_to_tasks_table.php
 │   │   └── seeders/         # Başlangıç verileri
-│   │       ├── DatabaseSeeder.php
-│   │       └── TaskTypeSeeder.php
 │   ├── routes/
 │   │   ├── api.php          # API rotaları
 │   │   └── web.php          # Web rotaları (dosya indirme)
 │   └── .env                 # Ortam değişkenleri
 ├── scripts/                 # Kurulum ve yönetim scriptleri
 │   ├── backup-sqlite.ps1    # Veritabanı yedekleme
-│   ├── restore-sqlite.ps1   # Veritabanı geri yükleme
 │   ├── setup.bat           # Windows kurulum
 │   ├── setup.sh            # Linux/Mac kurulum
-│   ├── start-api.bat       # Windows için API otomatik yeniden başlatma
-│   ├── start-api.sh        # Linux/Mac için API otomatik yeniden başlatma
-│   ├── start-api.cjs       # Node.js ile API otomatik yeniden başlatma
+│   ├── start-api.bat       # Windows için API başlatma
+│   ├── start-api.cjs       # Node.js ile API başlatma
 │   ├── windows-auto-update.ps1  # Windows otomatik güncelleme
 │   ├── linux-update.sh     # Linux otomatik güncelleme
+│   ├── deploy-via-scp.sh   # SCP ile deploy
 │   └── linux-systemd/      # Linux systemd servis dosyaları
-│       ├── task-tracker-api.service.example
-│       ├── task-tracker-frontend.service.example
-│       └── README.md
 ├── .github/workflows/       # CI/CD pipeline
 │   └── ci.yml              # GitHub Actions
-├── public/                  # Statik web dosyaları
+├── public/                  # Statik web dosyaları (UPDATES.md)
 ├── package.json             # Node.js bağımlılıkları
 └── index.html              # Ana HTML dosyası
 ```
@@ -564,150 +589,33 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v2.10.7 - Hata Düzeltmeleri ve Kullanım İyileştirmeleri (Son Güncelleme)
-- ✅ **Kaydetme Sorunu Düzeltildi**: Hata varken kayıt tuşuna basıldığında oluşan kaydetmeme sorunu giderildi
-- ✅ **Kullanılan Süre Toplamı**: Planlı işler + plana dahil olmayan işler süreleri birlikte gösterilir
-- ✅ **Yenile Butonu**: "Son Kaydedileni Yükle" olarak yeniden adlandırıldı
-- ✅ **Tamamlandı Kuralı**: Gerçekleşme süresi girilmeden Tamamlandı kutucuğu işaretlenemez
+### v3.0.0 - Büyük Mimari Güncelleme, Onay Sistemi ve İzin Yönetimi (Son Güncelleme)
+- ✅ **Haftalık Hedef Onay Sistemi**: Takım üyelerinin hedefleri lider/admin onayı ile kesinleşir
+- ✅ **İzin Bildirimi Sistemi**: Takvim seçimli izin bildirimi modalı, otomatik hedef entegrasyonu
+- ✅ **Kullanıcı Yönetimi Paneli**: Toplu lider atama, toplu silme, özel düzenleme izni
+- ✅ **Rol Bazlı Puanlama**: Admin tam skor, Takım Lideri harf notu, diğer roller gizli
+- ✅ **Mimari Yeniden Yapılandırma**: 20+ bileşen, 7 hook, 3 context, 4 utility modülü ayrıştırıldı
+- ✅ **Rol Bazlı Kilitleme**: Üye 10:00, Lider 13:30, Admin sınırsız
+- ✅ **UI/UX Tutarlılığı**: Tüm inputlar yuvarlak köşe, tema uyumlu formlar
+- ✅ **Backend Genişletildi**: Onay, izin, düzenleme izni endpoint'leri ve migration'lar
 
-### v2.10.6 - Günlük Kota Sistemi ve Anlık Uyarılar
-- ✅ **Günlük Gerçekleşme Kotası**: Haftalık taban süre 2700 dk, günlük limitler (her gün 540 dk: Pazartesi: 540 dk, Salı: 1080 dk, vb.)
-- ✅ **Günlük Mesai Kotası**: Günlük mesai limitleri (Pazartesi: 150 dk, Salı: 300 dk, vb.) ve hafta sonu ek mesai desteği
-- ✅ **Geçmiş Hafta Kilitleme**: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir (mesai ve izin dahil)
-- ✅ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
-- ✅ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
-- ✅ **Hedef Ayrıntısı Güncellemeleri**: Toplam Süre, Kullanılabilir Süre ve Kalan Süre gösterimi, tooltip desteği
-- ✅ **Sayısal Alanlarda Anlık Güncelleme**: Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
-- ✅ **Haftalık Hedef Zaman Aşım Kuralı**: Toplam hedef süre (planlı + plansız) kullanılabilir süreyi aşamaz
-- ✅ **Boş Liste Desteği**: Tüm görevleri silmek için boş liste kaydedilebilir
-- ✅ **Mouse Wheel Koruması**: Sayısal alanlarda yanlışlıkla değer değişmesi engellendi
-- ✅ **Gelecek Haftalar Kilitleme**: Gelecek haftalar için gerçekleşme alanları kilitlidir (sadece mevcut hafta için açık)
+### v2.10.8 - Başlık Düzenleme ve Performans Hesaplama
+- ✅ Görev Detayı'nda başlık düzenleme, performans skoru güncelleme, planlı süre validasyonu kaldırma
 
-### v2.10.5 - Performans İyileştirmeleri ve Tema Sistemi
-- ✅ **Yazma Deneyimi İyileştirildi**: Haftalık Hedefler panelindeki metin alanlarında yaşanan gecikmeler giderildi
-- ✅ **Anlık Yazım**: Yazılan karakterler artık anında ekranda görünüyor, uzun metinlerde performans artırıldı
-- ✅ **Gelişmiş Tema Sistemi**: Uygulama genelinde dinamik tema desteği eklendi
-- ✅ **6 Hazır Tema**: Koyu, Açık, Mavi, Yeşil, Mor, Turuncu tema seçenekleri
-- ✅ **Özel Tema Oluşturma**: 9 farklı renk alanı ayrı ayrı özelleştirilebilir, koyu/açık logo seçimi
-- ✅ **Tema Kaydetme**: Tema tercihleri kullanıcı hesabına kaydedilir ve otomatik yüklenir
-- ✅ **Haftalık Hedefler Kilitleme Kuralları**: Mevcut hafta, önceki hafta ve gelecek haftalar için detaylı kilitleme sistemi
-- ✅ **UI/UX İyileştirmeleri**: Tema ayarları paneli yeniden tasarlandı, disabled butonlar iyileştirildi
+### v2.10.5–v2.10.7 - Tema, Kota Sistemi, Performans
+- ✅ Gelişmiş tema sistemi (6 hazır + özel tema), günlük gerçekleşme/mesai kotası, anlık uyarılar
 
-### v2.10.4 - Görev Ekleme Sorunu Giderildi
-- ✅ **Görev Ekleme Düzeltmesi**: Manuel olarak görevden çıkarılan kullanıcılar, otomatik ekleme sırasında yeniden eklenmiyor
-- ✅ **Seçili Kullanıcılar**: Artık yalnızca seçilen kullanıcılar göreve atanıyor
-- ✅ **Bildirim Optimizasyonu**: Gereksiz bildirim gönderimi engellendi
+### v2.10.0–v2.10.4 - Footer, Güncelleme, Kilitleme
+- ✅ Footer bar, otomatik güncelleme betikleri, Linux systemd desteği, haftalık hedef kilitleme kuralları
 
-### v2.10.3 - Haftalık Hedef Sistemi İyileştirmeleri
-- ✅ **Kilitleme Kuralları Güncellendi**: Hedef alanları Pazartesi 13:30'a kadar düzenlenebilir (önceki sınır: 10:00)
-- ✅ **Gerçekleşme Alanı**: Gerçekleşme alanı sürekli açık olacak şekilde düzenlendi
-- ✅ **Planlı Süre Kontrolü Kaldırıldı**: İzin eklenirken planlı süre, kullanılabilir süreyi aşsa bile kaydedilebilir
-- ✅ **Gerçekleşen Süre Kontrolü**: Sadece gerçekleşen süre, kullanılabilir süreyi aşarsa kaydetme engellenir
-- ✅ **Tamamlanmayan İşleri Aktar**: Haftalık Hedefler penceresine "Tamamlanmayan İşleri Aktar" butonu eklendi
-- ✅ **Akıllı İş Aktarma**: Önceki haftadan tamamlanmamış görevler tek tıkla mevcut haftaya aktarılabilir
+### v2.9.0–v2.9.2 - Görev Türleri, Mesai, Dosya İndirme
+- ✅ Custom görev türleri/durumları, mesai bonusu sistemi, kalıcı dosya indirme
 
-### v2.10.2 - Linux Desteği ve Laravel 12 Uyumluluğu
-- ✅ **Linux Güncelleme Script'i**: Linux için otomatik güncelleme script'i eklendi (`scripts/linux-update.sh`)
-- ✅ **Linux Dokümantasyonu**: Linux kurulum ve güncelleme dokümantasyonu eklendi
-- ✅ **Laravel 12 Uyumluluğu**: Laravel 12 log parse hatası düzeltildi
-- ✅ **Output Filtreleme**: `start-api.cjs` dosyasında output filtreleme eklendi
-- ✅ **Systemd Desteği**: API ve Frontend servisleri için systemd yapılandırmaları eklendi
+### v2.0.0–v2.8.0 - Observer Rolü, Performans, CI/CD
+- ✅ Gözlemci rolü, görev türü filtreleme, performans optimizasyonu, GitHub Actions CI/CD
 
-### v2.10.1 - Sorumlu Takim Lideri Izinleri ve UI Iyilestirmeleri
-- ✅ **Sorumlu Takim Lideri NO Alani**: Sorumlu olan takim liderleri NO alanini degistirebilir
-- ✅ **Modal Boyut Optimizasyonu**: Gorev Detayı penceresi sabit boyutta kaliyor
-- ✅ **Hata Mesaji Hizzalamasi**: Hata mesajlari ana icerikle ayni genislik ve hizalanmis
-- ✅ **Backend Izin Duzeltmesi**: TaskController takim lideri kontrolunde sorumlu durumu eklendi
-- ✅ **Frontend Modal Yukseklik**: max-h yerine h kullanilarak sabit boyut saglandi
-
-### v2.10.0 - Footer ve Otomatik Guncelleme Sistemi
-- ✅ **Footer Bar Eklendi**: Sayfanin altinda VADEN logo, tasarim bilgisi, iletisim ve sosyal medya linkleri
-- ✅ **Otomatik Guncelleme Betigi**: Windows icin PowerShell tabanli haftalik otomatik guncelleme sistemi
-- ✅ **Izın Sistemleri Iyilestirildi**: Dosya silme yetkisi Admin/Takim Lideri/Sorumlu ile sinirlandirildi
-- ✅ **Atanan Kullanicilar Icin Durum Kontrolu**: Atananlar sadece combobox ile durum degistirebilir
-- ✅ **NO Alani Eklendi**: Manuel giriş yapilabilen, yalnizca Admin/Sorumlu tarafindan duzenlenebilen alan
-- ✅ **Takim Lideri Otomatik Atama**: Sorumlu olarak takim lideri secildiginde ekibi otomatik atanir
-- ✅ **Aninda Guncelleme**: Takim atamalari ve durum degisiklikleri aninda gorunur
-- ✅ **Veritabani Migration**: NO alani icin yeni migration dosyasi eklendi
-
-### v2.9.2 - Haftalik Hedef Sistemi Iyilestirmeleri
-- ✅ **Mesai Süresi Desteği**: Overtime minutes (mesai dakikaları) eklenmesi
-- ✅ **Mesai Bonusu Sistemi**: 1.5x çarpan ile mesai bonusu hesaplama
-- ✅ **Admin Kilitleme Bypass**: Admin kullanıcılar kilitleme durumunda da kayıt yapabilir
-- ✅ **Final Skor Hesaplama Düzeltmesi**: Backend ve frontend skor hesaplamaları senkronize edildi
-- ✅ **Otomatik Liste Güncelleme**: Haftalık hedef listesi otomatik güncelleniyor
-- ✅ **Hedef Ayrıntısı Düzenleme**: 3 sütunlu düzen ile daha iyi görünüm
-- ✅ **Kesinti/Bonus Sistemi**: Cezalar ve bonuslar ayrıntılı gösterimi
-- ✅ **Backend Hesaplama İyileştirmesi**: computeSummary fonksiyonu frontend ile uyumlu hale getirildi
-- ✅ **Veritabanı Migration**: overtime_minutes kolonu eklendi
-- ✅ **Kaydet Butonu İyileştirmesi**: Buton durumu korunması ve doğru çalışması
-
-### v2.9.1 - Kalıcı Dosya İndirme Sistemi
-- ✅ **Zaman Sınırı Kaldırıldı**: Dosyalar artık süresiz erişilebilir
-- ✅ **Token Tabanlı Güvenlik**: MD5 hash ile korumalı kalıcı indirme linkleri
-- ✅ **Signed URL Sistemi Kaldırıldı**: Expires parametresi ve signature hatalarının çözümü
-- ✅ **Cache Friendly URLs**: Bookmark'a kaydedilebilir, paylaşılabilir dosya linkleri
-- ✅ **Geliştirilmiş Hata Yönetimi**: Dosya bulunamadı ve geçersiz token durumları için detaylı mesajlar
-- ✅ **Fallback Sistem**: download_url → storage URL yedekleme mekanizması
-- ✅ **Backend Optimizasyonu**: showAttachment metodu kaldırıldı, tek endpoint sistemi
-- ✅ **Güvenlik Artırımı**: Token kontrolü ile yetkisiz erişim engellenmiş
-
-### v2.9.0 - Görev Türü ve Durum Yönetimi Sistemi
-- ✅ **Custom Görev Türleri**: Admin'ler özel görev türleri oluşturabilir ve yönetebilir
-- ✅ **Custom Görev Durumları**: Her görev türü için özel durumlar tanımlanabilir
-- ✅ **Gelişmiş Görev Oluşturma**: Görev türü seçimi ve otomatik durum yönetimi
-- ✅ **Görev Detayı İyileştirmeleri**: Görev türü değiştiğinde durum otomatik reset
-- ✅ **Atananlar Listesi Düzenlendi**: Daha düzenli badge görünümü
-- ✅ **Backend API Genişletildi**: TaskType ve TaskStatus controller'ları eklendi
-- ✅ **Veritabanı Şeması Güncellendi**: Yeni tablolar ve migration'lar eklendi
-- ✅ **Kod Temizliği**: Gereksiz import'lar ve kod blokları kaldırıldı
-
-### v2.8.0 - Performans İyileştirmeleri ve Kod Optimizasyonu
-- ✅ **Görev Filtreleme Optimizasyonu**: `filteredTasks` useMemo ile performans artırıldı
-- ✅ **Kod Organizasyonu**: Gereksiz yorumlar ve kullanılmayan component referansları temizlendi
-- ✅ **Filtreleme Mantığı İyileştirildi**: Aktif/tamamlanan tab'lar için daha verimli filtreleme
-- ✅ **React Hooks Optimizasyonu**: useCallback dependency array'leri düzeltildi
-- ✅ **CI/CD Hataları Çözüldü**: GitHub Actions pipeline'ı başarılı çalışıyor
-- ✅ **Laravel Controller'ları Eklendi**: WeeklyGoalController ve PasswordResetRequested notification
-- ✅ **Gitignore Düzeltildi**: Laravel app klasörü artık GitHub'da mevcut
-
-### v2.7.3 - Dosya İndirme ve UI İyileştirmeleri
-- ✅ **Dosya İndirme Sorunu Çözüldü**: Dosyalar artık orijinal isimleriyle ve uzantılarıyla iniyor
-- ✅ **Backend İyileştirmesi**: Attachment endpoint'i güncellendi, proper download header'ları eklendi
-- ✅ **Frontend İyileştirmesi**: Dosya linklerine download attribute'u eklendi
-- ✅ **Form Düzeni İyileştirildi**: Sol taraftaki etiketler genişletildi, sağ taraftaki girişler daraltıldı
-- ✅ **Mesaj Butonu İyileştirmesi**: Buton yüksekliği dinamik olarak ayarlandı, ok simgesi merkezde kalıyor
-- ✅ **Deprecated Event Handler**: onKeyPress yerine onKeyDown kullanılıyor
-- ✅ **Responsive İyileştirmeler**: Tüm ekran boyutlarında daha iyi görünüm
-
-### v2.1.0 - Hata Düzeltmeleri ve İyileştirmeler
-- ✅ **PasswordResetController Eklendi**: Eksik controller sınıfı oluşturuldu
-- ✅ **Mail Sistemi Düzeltildi**: TaskNotificationMail hatası çözüldü
-- ✅ **WebSocket Bağlantı Sorunu**: Vite HMR ayarları düzeltildi
-- ✅ **Mobil Responsive İyileştirmeleri**: Tab butonları ve layout düzeltildi
-- ✅ **Gereksiz Dosyalar Temizlendi**: Kullanılmayan script dosyaları kaldırıldı
-
-### v2.0.0 - Observer Rolü ve Görev Türü Filtreleme
-- ✅ **Observer (Gözlemci) Rolü**: Sadece görevleri görüntüleyebilen, hiçbir değişiklik yapamayan kullanıcı rolü
-- ✅ **Görev Türü Filtreleme**: Yeni Ürün, Fikstür, Aparat, Geliştirme, Revizyon, Kalıp, Test Cihazı
-- ✅ **Gelişmiş UI/UX**: Bildirim ikonları büyütüldü, kullanıcı ayarları paneli genişletildi
-- ✅ **Gerçek Zamanlı Bildirimler**: Yeni görev eklendiğinde bildirimler anında güncellenir
-- ✅ **Görev Geçmişi İyileştirmeleri**: Tarih formatı düzeltildi, görev türü değişiklikleri "Eski → Yeni" formatında
-- ✅ **Atanan Kullanıcı Geçmişi**: Hangi kullanıcıların eklendiği/çıkarıldığı gösterilir
-- ✅ **Şifre Sıfırlama Sistemi**: Admin'ler kullanıcı şifrelerini sıfırlayabilir
-- ✅ **Input Görünürlük Düzeltmeleri**: Tüm input alanlarında metin görünürlüğü iyileştirildi
-
-### v1.5.0 - Mail Sistemi ve Toplu Kullanıcı Ekleme
-- ✅ **E-posta Bildirimleri**: Görev atamaları ve durum değişiklikleri için
-- ✅ **Şifre Sıfırlama**: E-posta ile şifre sıfırlama kodu gönderimi
-- ✅ **Excel Toplu Kullanıcı Ekleme**: Admin'ler Excel dosyasından toplu kullanıcı ekleyebilir
-- ✅ **Gelişmiş Kullanıcı Arama**: İsim, e-posta ve rol bazlı arama
-
-### v1.0.0 - Temel Özellikler
-- ✅ **Görev Yönetimi**: Oluşturma, düzenleme, silme
-- ✅ **Kullanıcı Yönetimi**: Rol tabanlı erişim kontrolü
-- ✅ **Dosya Ekleme**: Görevlere dosya ekleme desteği
-- ✅ **Responsive Tasarım**: Mobil ve masaüstü uyumluluk
+### v1.0.0–v1.5.0 - Temel Özellikler
+- ✅ Görev yönetimi, kullanıcı yönetimi, dosya ekleme, mail sistemi, Excel toplu kullanıcı ekleme
 
 ## 🔄 Güncellemeler
 

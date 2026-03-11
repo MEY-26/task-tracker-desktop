@@ -1,3 +1,64 @@
+## v3.0.0 – 11.03.2026
+
+### Yeni Özellikler
+
+**Haftalık Hedef Onay Sistemi**
+- Takım üyelerinin haftalık hedefleri lider/admin onayı gerektirir
+- Onayla/Reddet butonları ve onay durumu badge'i
+- Onay notu ve bildirim entegrasyonu
+- Veritabanı: approval_status, approved_by, approved_at, approval_note sütunları
+
+**İzin Bildirimi Sistemi**
+- Kullanıcıların izin günlerini bildirebildiği takvim seçimli modal
+- Takım liderleri geçmiş tarihe de izin girebilir
+- İzin süreleri otomatik olarak haftalık hedeflere yansır
+- İzin input'u devre dışı, sadece gösterim amaçlı
+
+**Kullanıcı Yönetimi Paneli (UserPanel)**
+- Toplu lider atama (sadece takım üyeleri için)
+- Toplu kullanıcı silme (admin hariç)
+- Özel düzenleme izni verme modalı (EditGrantModal)
+- Takım liderleri seçilebilir, ancak lider ataması sadece üyelere yapılır
+
+**Rol Bazlı Puanlama Görünürlüğü**
+- Admin: tam performans skoru görünür
+- Takım Lideri: harf notu görünür
+- Diğer: puanlama gizli
+
+**Kilitleme Kuralları Güncellendi**
+- Takım üyesi: Pazartesi 10:00'dan sonra hedefler kilitli
+- Takım lideri: Pazartesi 13:30'dan sonra hedefler kilitli
+- Admin: sınırsız düzenleme yetkisi
+
+### Değişiklikler
+
+**Mimari Yeniden Yapılandırma**
+- App.jsx'ten bağımsız bileşenler çıkarıldı: AddTaskForm, TaskDetailModal, TaskSettingsModal, TeamModal, ThemePanel, UserProfileModal, WeeklyGoalsModal, GoalDescriptionModal, EditGrantModal, LeaveRequestModal, UpdatesModal
+- Panel bileşenler ayrıldı: UserPanel, NotificationsPanel, ProfileMenuDropdown
+- Context'ler oluşturuldu: AuthContext, NotificationContext, ThemeContext
+- Hook'lar oluşturuldu: useTaskSettings, useUsers, useWeeklyGoals, useWeeklyOverview, useBodyScrollLock, usePreventAutofill
+- Utility modülleri eklendi: performance.js, themes.js, weeklyLimits.js, teamAssignments.js
+
+**UI/UX İyileştirmeleri**
+- Tüm input alanları tutarlı yuvarlak köşeye (borderRadius: 8px) geçirildi
+- Yeni Kullanıcı Ekle formu tema uyumlu hale getirildi
+- Yeni Görev formu input stilleri tutarlı hale getirildi
+- Kullanıcı paneli eylem çubuğu: eşit boşluklarla dizilim, ayırıcı çizgi, açıklayıcı buton isimleri
+
+**Backend Yeni Endpoint'ler**
+- POST /weekly-goals/approve (onay/red)
+- GET/POST/DELETE /leave-requests
+- GET/POST/DELETE /weekly-goal-edit-grants
+- Veritabanı migration'ları: leave_requests, weekly_goal_edit_grants, approval sütunları
+
+### Düzeltmeler
+- Per-row Gerçekleşme(%) tutarsızlığı düzeltildi
+- Kullanılmayan parametreler (alpha, beta, B_max, eta_max) temizlendi
+- Tooltip fallback değerleri getDailyActualLimits() ile eşleştirildi
+- Şifre tekrar alanı kullanıcı ekleme formundan kaldırıldı
+
+---
+
 ## v2.10.8 – 09.02.2026
 
 ### Yeni Özellikler

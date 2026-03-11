@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use App\Models\User;
+use App\Notifications\WeeklyGoalRejected;
 
 class WeeklyGoalController extends Controller
 {
@@ -20,15 +21,38 @@ class WeeklyGoalController extends Controller
         return $c->startOfWeek(Carbon::MONDAY)->toDateString();
     }
 
-    private function locksForWeek(string $weekStart): array
+    private function locksForWeek(string $weekStart, $user = null, ?int $targetUserId = null): array
     {
         $tz = 'Europe/Istanbul';
-        $monday = Carbon::parse($weekStart, $tz)->startOfDay()->addHours(13)->addMinutes(30); // Monday 13:30
+        $monday = Carbon::parse($weekStart, $tz)->startOfDay();
+        $memberDeadline = $monday->copy()->addHours(10);      // 10:00
+        $leaderDeadline = $monday->copy()->addHours(13)->addMinutes(30); // 13:30
         $now = Carbon::now($tz);
+
+        $isAdmin = $user && $user->role === 'admin';
+        $isLeader = $user && in_array($user->role, ['admin', 'team_leader']);
+
+        $targetsLocked = $isAdmin ? false : ($isLeader
+            ? $now->greaterThanOrEqualTo($leaderDeadline)
+            : $now->greaterThanOrEqualTo($memberDeadline));
+
+        // Admin-granted edit permission override
+        if ($targetsLocked && $targetUserId) {
+            $grant = DB::table('weekly_goal_edit_grants')
+                ->where('user_id', $targetUserId)
+                ->where('week_start', $weekStart)
+                ->where('expires_at', '>', $now)
+                ->first();
+            if ($grant) {
+                $targetsLocked = false;
+            }
+        }
+
         return [
-            'targets_locked' => $now->greaterThanOrEqualTo($monday),
-            'actuals_locked' => false, // Gerçekleşme alanı sürekli açık
-            'monday_13_30' => $monday->toIso8601String(),
+            'targets_locked' => $targetsLocked,
+            'actuals_locked' => false,
+            'member_deadline' => $memberDeadline->toIso8601String(),
+            'leader_deadline' => $leaderDeadline->toIso8601String(),
         ];
     }
 
@@ -55,6 +79,28 @@ class WeeklyGoalController extends Controller
         $leave = $this->normalizeLeaveMinutes($leaveMinutes);
         $overtime = max(0, (int)$overtimeMinutes);
         return max(0, self::WEEKLY_BASE_MINUTES - $leave + $overtime);
+    }
+
+    /**
+     * leave_requests tablosundan haftalık izin dakikasını hesaplar (her gün = 540 dk)
+     */
+    private function getLeaveMinutesFromLeaveRequests(int $userId, string $weekStart): int
+    {
+        $leave = DB::table('leave_requests')
+            ->where('user_id', $userId)
+            ->where('week_start', $weekStart)
+            ->first();
+        if (!$leave) {
+            return 0;
+        }
+        $minutesPerDay = (int)(self::WEEKLY_BASE_MINUTES / 5);
+        $days = 0;
+        if ($leave->monday) $days++;
+        if ($leave->tuesday) $days++;
+        if ($leave->wednesday) $days++;
+        if ($leave->thursday) $days++;
+        if ($leave->friday) $days++;
+        return min(self::WEEKLY_BASE_MINUTES, $days * $minutesPerDay);
     }
 
     /**
@@ -152,9 +198,10 @@ class WeeklyGoalController extends Controller
 
         $weekStart = $request->input('week_start');
         $weekStart = $this->mondayOfWeek($weekStart);
-        $locks = $this->locksForWeek($weekStart);
+        $locks = $this->locksForWeek($weekStart, $auth, $userId);
 
         $goal = DB::table('weekly_goals')->where('user_id', $userId)->where('week_start', $weekStart)->first();
+
         if (!$goal) {
             // Observers weekly goals should not be auto-created
             $targetUser = \App\Models\User::find($userId);
@@ -172,6 +219,7 @@ class WeeklyGoalController extends Controller
                 'week_start' => $weekStart,
                 'leave_minutes' => 0,
                 'overtime_minutes' => 0,
+                'approval_status' => 'pending',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -185,9 +233,19 @@ class WeeklyGoalController extends Controller
             $goal->overtime_minutes = 0;
         }
 
+        $leaveMinutesFromRequests = $this->getLeaveMinutesFromLeaveRequests($userId, $weekStart);
+        $oldLeave = (int)($goal->leave_minutes ?? 0);
+        if ($leaveMinutesFromRequests !== $oldLeave) {
+            DB::table('weekly_goals')->where('id', $goal->id)->update([
+                'leave_minutes' => $leaveMinutesFromRequests,
+                'updated_at' => now(),
+            ]);
+        }
+        $goal->leave_minutes = $leaveMinutesFromRequests;
+
         $items = DB::table('weekly_goal_items')->where('weekly_goal_id', $goal->id)->orderBy('id')->get();
 
-        $summary = $this->computeSummary($items, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0));
+        $summary = $this->computeSummary($items, $leaveMinutesFromRequests, (int)($goal->overtime_minutes ?? 0));
 
         return response()->json([
             'goal' => $goal,
@@ -409,6 +467,7 @@ class WeeklyGoalController extends Controller
                     'wg.user_id',
                     'wg.leave_minutes',
                     'wg.overtime_minutes',
+                    'wg.approval_status',
                     'wgi.id as item_id',
                     'wgi.target_minutes',
                     'wgi.actual_minutes',
@@ -423,8 +482,10 @@ class WeeklyGoalController extends Controller
             $itemsByUser = $rawItems
                 ->groupBy('user_id')
                 ->map(function ($rows) {
-                    $leave = (int)($rows->first()->leave_minutes ?? 0);
-                    $overtime = (int)($rows->first()->overtime_minutes ?? 0);
+                    $first = $rows->first();
+                    $leave = (int)($first->leave_minutes ?? 0);
+                    $overtime = (int)($first->overtime_minutes ?? 0);
+                    $approvalStatus = $first->approval_status ?? 'pending';
                     $items = $rows
                         ->filter(function ($row) {
                             return $row->item_id !== null;
@@ -443,6 +504,7 @@ class WeeklyGoalController extends Controller
                     return (object) [
                         'leave_minutes' => $leave,
                         'overtime_minutes' => $overtime,
+                        'approval_status' => $approvalStatus,
                         'items' => $items,
                     ];
                 });
@@ -452,10 +514,12 @@ class WeeklyGoalController extends Controller
             $userData = $itemsByUser->get($user->id, (object) [
                 'leave_minutes' => 0,
                 'overtime_minutes' => 0,
+                'approval_status' => 'pending',
                 'items' => collect(),
             ]);
 
             $leaveMinutes = (int)($userData->leave_minutes ?? 0);
+            $approvalStatus = $userData->approval_status ?? 'pending';
             $overtimeMinutes = (int)($userData->overtime_minutes ?? 0);
             $userItems = $userData->items instanceof \Illuminate\Support\Collection
                 ? $userData->items
@@ -477,6 +541,7 @@ class WeeklyGoalController extends Controller
                 'role' => $user->role,
                 'leader_id' => $user->leader_id,
                 'leader_name' => $user->leader_name,
+                'approval_status' => $approvalStatus,
                 'total_target_minutes' => $summary['total_target_minutes'] ?? 0,
                 'total_actual_minutes' => $totalActual,
                 'unplanned_minutes' => $summary['unplanned_minutes'] ?? 0,
@@ -530,7 +595,7 @@ class WeeklyGoalController extends Controller
             return response()->json(['message' => 'Yetkiniz yok.'], 403);
         }
         $weekStart = $this->mondayOfWeek($request->input('week_start'));
-        $locks = $this->locksForWeek($weekStart);
+        $locks = $this->locksForWeek($weekStart, $auth, $userId);
 
         $goal = DB::table('weekly_goals')->where('user_id', $userId)->where('week_start', $weekStart)->first();
         if (!$goal) {
@@ -539,18 +604,19 @@ class WeeklyGoalController extends Controller
                 'week_start' => $weekStart,
                 'leave_minutes' => 0,
                 'overtime_minutes' => 0,
+                'approval_status' => 'pending',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
             $goal = DB::table('weekly_goals')->where('id', $id)->first();
         }
 
-        $requestedLeave = $this->normalizeLeaveMinutes($request->input('leave_minutes'));
+        $leaveMinutesFromRequests = $this->getLeaveMinutesFromLeaveRequests($userId, $weekStart);
         $existingLeave = $this->normalizeLeaveMinutes($goal->leave_minutes ?? 0);
         $requestedOvertime = max(0, (int)($request->input('overtime_minutes') ?? 0));
         $existingOvertime = max(0, (int)($goal->overtime_minutes ?? 0));
         $canEditTargets = !$locks['targets_locked'] || $auth->role === 'admin';
-        $leaveMinutes = $canEditTargets ? $requestedLeave : $existingLeave;
+        $leaveMinutes = $leaveMinutesFromRequests;
         $overtimeMinutes = $canEditTargets ? $requestedOvertime : $existingOvertime;
         $capacity = $this->weekCapacity($leaveMinutes, $overtimeMinutes);
         
@@ -664,6 +730,37 @@ class WeeklyGoalController extends Controller
             }
         }
 
+        $existingItems = DB::table('weekly_goal_items')->where('weekly_goal_id', $goal->id)->orderBy('id')->get();
+        $hasGoalChanges = $canEditTargets && ($leaveMinutes !== (int)($goal->leave_minutes ?? 0) || $overtimeMinutes !== (int)($goal->overtime_minutes ?? 0));
+        $hasItemChanges = false;
+        if (!$hasGoalChanges && count($items) !== $existingItems->count()) {
+            $hasItemChanges = true;
+        } elseif (!$hasGoalChanges) {
+            $existingById = $existingItems->keyBy('id');
+            foreach ($items as $it) {
+                $existing = !empty($it['id']) ? $existingById->get((int)$it['id']) : null;
+                $reqTitle = trim($it['title'] ?? '');
+                $reqActionPlan = trim($it['action_plan'] ?? '');
+                $reqTarget = (int)($it['target_minutes'] ?? 0);
+                $reqActual = (int)($it['actual_minutes'] ?? 0);
+                $reqCompleted = (bool)($it['is_completed'] ?? false);
+                $reqUnplanned = (bool)($it['is_unplanned'] ?? false);
+                $reqDesc = trim($it['description'] ?? '');
+                if (!$existing) {
+                    $hasItemChanges = true;
+                    break;
+                }
+                $exDesc = trim($existing->description ?? '');
+                if ($reqTitle !== trim($existing->title ?? '') || $reqActionPlan !== trim($existing->action_plan ?? '')
+                    || $reqTarget !== (int)($existing->target_minutes ?? 0) || $reqActual !== (int)($existing->actual_minutes ?? 0)
+                    || $reqCompleted !== (bool)($existing->is_completed ?? false) || $reqUnplanned !== (bool)($existing->is_unplanned ?? false)
+                    || $reqDesc !== $exDesc) {
+                    $hasItemChanges = true;
+                    break;
+                }
+            }
+        }
+
         DB::beginTransaction();
         try {
             $submittedIds = []; // Gönderilen item ID'lerini takip et
@@ -720,13 +817,20 @@ class WeeklyGoalController extends Controller
             }
 
             if ($canEditTargets) {
+                $updateData = [
+                    'leave_minutes' => $leaveMinutes,
+                    'overtime_minutes' => $overtimeMinutes,
+                    'updated_at' => now(),
+                ];
+                if ($hasGoalChanges || $hasItemChanges) {
+                    $updateData['approval_status'] = 'pending';
+                    $updateData['approved_by'] = null;
+                    $updateData['approved_at'] = null;
+                    $updateData['approval_note'] = null;
+                }
                 DB::table('weekly_goals')
                     ->where('id', $goal->id)
-                    ->update([
-                        'leave_minutes' => $leaveMinutes,
-                        'overtime_minutes' => $overtimeMinutes,
-                        'updated_at' => now(),
-                    ]);
+                    ->update($updateData);
             }
 
             DB::commit();
@@ -745,6 +849,70 @@ class WeeklyGoalController extends Controller
             'locks' => $locks,
             'summary' => $this->computeSummary($fresh, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0)),
             'message' => 'Kaydedildi'
+        ]);
+    }
+
+    public function approve(Request $request)
+    {
+        $request->validate([
+            'week_start' => 'required|date',
+            'user_id' => 'required|integer|exists:users,id',
+            'approval_status' => 'required|in:approved,rejected',
+            'approval_note' => 'nullable|string|max:1000',
+        ]);
+
+        $auth = $request->user();
+        if (!in_array($auth->role, ['admin', 'team_leader'])) {
+            return response()->json(['message' => 'Bu işlem için yetkiniz yok.'], 403);
+        }
+
+        $userId = (int)$request->input('user_id');
+        if (!$this->canAccessUser($auth, $userId)) {
+            return response()->json(['message' => 'Bu kullanıcının hedeflerine erişim yetkiniz yok.'], 403);
+        }
+
+        $weekStart = $this->mondayOfWeek($request->input('week_start'));
+        $locks = $this->locksForWeek($weekStart, $auth, $userId);
+
+        // Takım lideri için: 13:30'dan sonra onay yapılamaz (admin hariç)
+        if ($auth->role === 'team_leader' && $locks['targets_locked']) {
+            return response()->json(['message' => 'Onay süresi doldu. Pazartesi 13:30\'dan sonra onay yapılamaz.'], 422);
+        }
+
+        $goal = DB::table('weekly_goals')->where('user_id', $userId)->where('week_start', $weekStart)->first();
+        if (!$goal) {
+            return response()->json(['message' => 'Haftalık hedef bulunamadı.'], 404);
+        }
+
+        $status = $request->input('approval_status');
+        $note = $request->input('approval_note');
+
+        DB::table('weekly_goals')
+            ->where('id', $goal->id)
+            ->update([
+                'approval_status' => $status,
+                'approved_by' => $auth->id,
+                'approved_at' => now(),
+                'approval_note' => $note,
+                'updated_at' => now(),
+            ]);
+
+        if ($status === 'rejected') {
+            $targetUser = User::find($userId);
+            if ($targetUser) {
+                $targetUser->notify(new WeeklyGoalRejected($weekStart, $note));
+            }
+        }
+
+        $goal = DB::table('weekly_goals')->where('id', $goal->id)->first();
+        $items = DB::table('weekly_goal_items')->where('weekly_goal_id', $goal->id)->orderBy('id')->get();
+
+        return response()->json([
+            'goal' => $goal,
+            'items' => $items,
+            'locks' => $locks,
+            'summary' => $this->computeSummary($items, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0)),
+            'message' => $status === 'approved' ? 'Onaylandı' : 'Reddedildi',
         ]);
     }
 }

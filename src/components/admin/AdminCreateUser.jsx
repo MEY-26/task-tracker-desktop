@@ -1,12 +1,16 @@
 import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 
-function AdminCreateUser({ onCreateUser, onBulkImport, pushToast, users = [] }) {
+function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, users = [] }) {
+  const theme = currentTheme || {};
+  const inputBg = theme.tableRowAlt || theme.tableBackground || theme.background || '#1f2937';
+  const inputText = theme.text || '#ffffff';
+  const inputBorder = theme.border || 'rgba(255,255,255,0.1)';
+  const placeholderColor = theme.textSecondary || theme.text || '#9ca3af';
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
-    password_confirmation: '',
     role: 'team_member',
     leader_id: null,
   });
@@ -51,32 +55,61 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast, users = [] }) 
     event.target.value = '';
   };
 
+  const inputStyle = {
+    marginBottom: '10px',
+    borderRadius: '8px',
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    backgroundColor: inputBg,
+    color: inputText,
+    borderColor: inputBorder,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    padding: '12px',
+    fontSize: '24px',
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="border-b border-white/10 pb-4" style={{ paddingBottom: '30px' }}>
+    <div className="space-y-6 min-w-0 max-w-full overflow-hidden" data-admin-create-user>
+      <style>{`
+        [data-admin-create-user] input::placeholder,
+        [data-admin-create-user] input::-webkit-input-placeholder {
+          color: ${placeholderColor};
+          opacity: 0.85;
+        }
+        [data-admin-create-user] input[type="file"]::file-selector-button {
+          background-color: ${theme.accent || '#2563eb'};
+          color: #ffffff;
+        }
+        [data-admin-create-user] input[type="file"]::file-selector-button:hover {
+          opacity: 0.9;
+        }
+      `}</style>
+      <div className="pb-4" style={{ borderBottom: `1px solid ${inputBorder}` }}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
-            className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+            className="w-full"
             placeholder="İsim"
             value={form.name}
             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-            style={{ marginBottom: '10px' }}
+            style={inputStyle}
           />
 
           <input
             type="email"
             name="username"
             autoComplete="username"
-            className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+            className="w-full"
             placeholder="E-posta"
             value={form.email}
             onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-            style={{ marginBottom: '10px' }}
+            style={inputStyle}
           />
 
           <input
             type="password"
-            className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
+            className="w-full"
             placeholder="Şifre"
             value={form.password}
             onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
@@ -86,46 +119,31 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast, users = [] }) 
             spellCheck="false"
             data-lpignore="true"
             name="password"
-            style={{ marginBottom: '10px' }}
-          />
-
-          <input
-            type="password"
-            className="w-full rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white placeholder-gray-400"
-            placeholder="Şifre (tekrar)"
-            value={form.password_confirmation}
-            onChange={(e) => setForm((prev) => ({ ...prev, password_confirmation: e.target.value }))}
-            autoComplete="new-password"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-            data-lpignore="true"
-            name="password-confirm"
-            style={{ marginBottom: '10px' }}
+            style={inputStyle}
           />
 
           <select
-            className="w-[101%] h-[35px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white"
+            className="w-full"
             value={form.role}
             onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
-            style={{ marginBottom: '10px' }}
+            style={{ ...inputStyle, minHeight: '48px' }}
           >
-            <option value="admin" className="bg-gray-800 text-white">Yönetici</option>
-            <option value="team_leader" className="bg-gray-800 text-white">Takım Lideri</option>
-            <option value="team_member" className="bg-gray-800 text-white">Takım Üyesi</option>
-            <option value="observer" className="bg-gray-800 text-white">Gözlemci</option>
+            <option value="admin" style={{ backgroundColor: inputBg, color: inputText }}>Yönetici</option>
+            <option value="team_leader" style={{ backgroundColor: inputBg, color: inputText }}>Takım Lideri</option>
+            <option value="team_member" style={{ backgroundColor: inputBg, color: inputText }}>Takım Üyesi</option>
+            <option value="observer" style={{ backgroundColor: inputBg, color: inputText }}>Gözlemci</option>
           </select>
 
           {/* Opsiyonel: Ekip Lideri seçimi */}
           <select
-            className="w-[101%] h-[35px] rounded border border-white/10 bg-white/5 px-3 py-3 !text-[24px] text-white"
+            className="w-full"
             value={form.leader_id ?? ''}
             onChange={(e) => setForm((prev) => ({ ...prev, leader_id: e.target.value ? Number(e.target.value) : null }))}
-            style={{ marginBottom: '10px' }}
+            style={{ ...inputStyle, minHeight: '48px' }}
           >
-            <option value="" className="bg-gray-800 text-white">Takım Lideri (opsiyonel)</option>
+            <option value="" style={{ backgroundColor: inputBg, color: inputText }}>Takım Lideri (opsiyonel)</option>
             {leaderOptions.map((u) => (
-              <option key={u.id} value={u.id} className="bg-gray-800 text-white">
+              <option key={u.id} value={u.id} style={{ backgroundColor: inputBg, color: inputText }}>
                 {u.name || u.email} {u.role === 'admin' ? '(Yönetici)' : '(Takım Lideri)'}
               </option>
             ))}
@@ -133,37 +151,38 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast, users = [] }) 
 
           <button
             type="submit"
-            className="w-[101%] rounded px-4 py-3 bg-green-600 hover:bg-green-700 !text-[20px]"
-            style={{ marginBottom: '10px' }}
+            className="w-full px-4 py-3 !text-[20px]"
+            style={{ marginBottom: '10px', borderRadius: '8px', backgroundColor: theme.accent || '#16a34a', color: '#ffffff' }}
           >
             Kullanıcı Ekle
           </button>
         </form>
       </div>
 
-      <div className="border-white/10 pb-4">
-        <h2 className="text-white mb-4">Excel'den Toplu Kullanıcı Ekle</h2>
-        <div className="space-y-4 !text-[16px]">
-          <div className="bg-blue-900/20 border-blue-500/30 rounded-lg p-4">
-            <div className="text-blue-200 space-y-1">
+      <div className="pb-4">
+        <h3 className="mb-4" style={{ color: inputText }}>Excel'den Toplu Kullanıcı Ekle</h3>
+        <div className="space-y-4" style={{ fontSize: '16px' }}>
+          <div className="rounded-lg p-4 max-w-full" style={{ backgroundColor: theme.accent ? theme.accent + '20' : 'rgba(59,130,246,0.2)', borderColor: theme.accent || '#3b82f6', borderWidth: '1px', borderStyle: 'solid', boxSizing: 'border-box' }}>
+            <div className="space-y-1" style={{ color: theme.accent ? theme.text : '#bfdbfe' }}>
               <div className="mt-3 text-blue-300">
-                İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.
+              <b style={{ paddingLeft: '10px' }}><i>İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.</i></b>
               </div>
-              <div>• A2: Kullanıcı Adı Soyadı</div>
-              <div>• B2: E-posta Adresi</div>
-              <div>• C2: Rol (admin/team_leader/team_member/observer)</div>
-              <div>• D2: Şifre (boşsa varsayılan: 123456)</div>
-              <div>• E2: Takım Lideri E-posta (opsiyonel)</div>
+              <div>• <b>A2:</b> Kullanıcı Adı Soyadı</div>
+              <div>• <b>B2:</b> E-posta Adresi</div>
+              <div>• <b>C2:</b> Rol (admin/team_leader/team_member/observer)</div>
+              <div>• <b>D2:</b> Şifre (boşsa varsayılan: 123456)</div>
+              <div>• <b>E2:</b> Takım Lideri E-posta (opsiyonel)</div>
             </div>
           </div>
-          <div className="text-gray-400 !text-[24px]" style={{ marginTop: '10px' }}>
+          <div className="!text-[18px]" style={{ color: placeholderColor }}>
             Excel dosyası seçin (.xlsx önerilir)
           </div>
           <input
             type="file"
             accept=".xlsx,.xls"
             onChange={handleFileChange}
-            className="text-gray-300 !text-[18px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer file:transition-colors"
+            className="!text-[18px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:cursor-pointer file:transition-colors"
+            style={{ color: placeholderColor }}
           />
         </div>
       </div>
@@ -172,6 +191,7 @@ function AdminCreateUser({ onCreateUser, onBulkImport, pushToast, users = [] }) 
 }
 
 AdminCreateUser.propTypes = {
+  currentTheme: PropTypes.object,
   onCreateUser: PropTypes.func,
   onBulkImport: PropTypes.func,
   pushToast: PropTypes.func,

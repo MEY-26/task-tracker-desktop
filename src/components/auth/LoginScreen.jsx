@@ -1,5 +1,3 @@
-import PropTypes from 'prop-types';
-
 function LoginScreen({
   logoSrc,
   error,
@@ -97,20 +95,5 @@ function LoginScreen({
     </div>
   );
 }
-
-LoginScreen.propTypes = {
-  logoSrc: PropTypes.string.isRequired,
-  error: PropTypes.string,
-  loading: PropTypes.bool,
-  loginForm: PropTypes.shape({
-    email: PropTypes.string,
-    password: PropTypes.string,
-  }).isRequired,
-  onLoginFormChange: PropTypes.func,
-  onSubmit: PropTypes.func,
-  onForgotPasswordSubmit: PropTypes.func,
-  showForgotPassword: PropTypes.bool,
-  onToggleForgotPassword: PropTypes.func,
-};
 
 export default LoginScreen;

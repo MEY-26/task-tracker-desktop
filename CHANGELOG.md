@@ -52,7 +52,47 @@ Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uyg
 - Linux deployment desteği eklendi
 - Systemd service yapılandırmaları eklendi
 
-## [Unreleased]
+## [3.0.0] - 2026-03-11
+
+### Added
+- Haftalık hedef onay sistemi (approval_status, approved_by, approved_at, approval_note)
+- İzin bildirimi sistemi (LeaveRequestModal, takvim seçimi, otomatik hedef entegrasyonu)
+- Kullanıcı yönetimi paneli (UserPanel) ile toplu lider atama, toplu silme, özel düzenleme izni
+- Özel düzenleme izni modalı (EditGrantModal) ve WeeklyGoalEditGrantController
+- LeaveRequestController ve leave_requests tablosu
+- Rol bazlı puanlama görünürlüğü (admin: tam skor, lider: harf notu, diğer: gizli)
+- Bileşen ayrıştırma: AddTaskForm, TaskDetailModal, TaskSettingsModal, TeamModal, ThemePanel, UserProfileModal, WeeklyGoalsModal, GoalDescriptionModal, UpdatesModal
+- Panel bileşenler: UserPanel, NotificationsPanel, ProfileMenuDropdown
+- Context'ler: AuthContext, NotificationContext, ThemeContext
+- Hook'lar: useTaskSettings, useUsers, useWeeklyGoals, useWeeklyOverview, useBodyScrollLock, usePreventAutofill
+- Utility modülleri: performance.js, themes.js, weeklyLimits.js, teamAssignments.js
+- Shared bileşenler: PriorityLabelWithTooltip, TooltipStatus
+- View bileşenler: TaskListView, WeeklyOverviewView
+- Layout bileşen: AppFooter
+- POST /weekly-goals/approve endpoint'i
+- GET/POST/DELETE /leave-requests endpoint'leri
+- GET/POST/DELETE /weekly-goal-edit-grants endpoint'leri
+- Veritabanı migration'ları: leave_requests, weekly_goal_edit_grants, approval sütunları
+
+### Changed
+- App.jsx'ten 20+ bileşen bağımsız dosyalara çıkarıldı
+- Kilitleme kuralları rol bazlı: takım üyesi 10:00, takım lideri 13:30, admin sınırsız
+- Tüm input alanları tutarlı yuvarlak köşeye (borderRadius: 8px) geçirildi
+- Yeni Kullanıcı Ekle formu tema uyumlu hale getirildi (currentTheme prop)
+- Yeni Görev formu input stilleri tutarlı hale getirildi
+- Kullanıcı paneli eylem çubuğu yeniden tasarlandı: eşit boşluklar, ayırıcı, açıklayıcı buton adları
+- Şifre tekrar alanı kullanıcı ekleme formundan kaldırıldı
+- README.md ve proje yapısı güncellendi
+
+### Fixed
+- Per-row Gerçekleşme(%) tutarsızlığı düzeltildi (hasUnplannedWork flag'i per-row hesaplamaya geçirildi)
+- Kullanılmayan parametreler (alpha, beta, B_max, eta_max) temizlendi
+- Tooltip fallback değerleri getDailyActualLimits() ile eşleştirildi
+
+### Database
+- `leave_requests` tablosu eklendi (user_id, week_start, monday-friday, grace alanları)
+- `weekly_goal_edit_grants` tablosu eklendi
+- `weekly_goals` tablosuna approval_status, approved_by, approved_at, approval_note sütunları eklendi
 
 ## [1.0.0] - 2024-01-XX
 
