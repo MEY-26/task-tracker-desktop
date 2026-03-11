@@ -5,8 +5,6 @@ import { formatDate, formatDateOnly } from '../../utils/date';
 import { renderHistoryValue, renderFieldLabel } from '../../utils/performance';
 import { PriorityLabelWithTooltip } from '../shared/PriorityLabelWithTooltip';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
 
 export function TaskDetailModal({
   open,
@@ -21,19 +19,19 @@ export function TaskDetailModal({
   editingDates,
   setEditingDates,
   handleDateChange,
-  handleUpdateTask,
+  handleUpdateTask: _handleUpdateTask,
   newComment,
   setNewComment,
   handleAddComment,
   taskHistory,
   setTaskHistory,
-  taskHistories,
+  taskHistories: _taskHistories,
   setTaskHistories,
   getEligibleAssignedUsers,
   getEligibleResponsibleUsers,
   users,
   addNotification,
-  getStatusColor,
+  getStatusColor: _getStatusColor,
   getStatusText,
   formatDateOnly: formatDateOnlyProp,
   getTaskTypeText,

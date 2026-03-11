@@ -242,7 +242,7 @@ function UserPanel({
                             try {
                               await deleteUserAdmin(userId);
                               successCount++;
-                            } catch (err) {
+                            } catch {
                               errorCount++;
                             }
                           }
@@ -252,7 +252,7 @@ function UserPanel({
                             setSelectedUsers(prev => prev.filter(id => !toDelete.includes(id)));
                           }
                           if (errorCount > 0) addNotification(`${errorCount} kullanıcı silinemedi`, 'error');
-                        } catch (err) {
+                        } catch {
                           addNotification('Silme işlemi başarısız', 'error');
                         } finally {
                           setLoading(false);

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { login, restore, getUser, getUsers, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, Team, TaskTypes, TaskStatuses } from './api';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { login, restore, getUser, Tasks, Notifications, registerUser, updateUserAdmin, deleteUserAdmin, changePassword, apiOrigin, PasswordReset, TaskViews, Team, TaskTypes, TaskStatuses } from './api';
 import { api } from './api';
 import './App.css'
 import logo from './assets/VadenLogo.svg';
@@ -33,9 +33,8 @@ import { useWeeklyGoals } from './hooks/useWeeklyGoals';
 import { useWeeklyOverview } from './hooks/useWeeklyOverview';
 import { usePreventAutofill } from './hooks/usePreventAutofill';
 import { useBodyScrollLock } from './hooks/useBodyScrollLock';
-import { getMonday, fmtYMD, isoWeekNumber, at1330, formatDate, formatDateOnly } from './utils/date.js';
-import { getPerformanceGrade, getPriorityColor, getPriorityText, getTaskTypeText, getTaskTypeColor, getStatusText, getStatusColor, resolveUserName, renderHistoryValue, renderFieldLabel, getRoleText } from './utils/performance.js';
-import { getDailyActualLimits, getDailyOvertimeLimits, getMaxActualLimitForToday, getMaxOvertimeLimitForToday } from './utils/weeklyLimits.js';
+import { getMonday, fmtYMD, formatDate, formatDateOnly } from './utils/date.js';
+import { getPriorityText, getTaskTypeText, getTaskTypeColor, getStatusText, getStatusColor, resolveUserName, renderHistoryValue, renderFieldLabel, getRoleText } from './utils/performance.js';
 import { buildTasksSignature, buildTaskSignatureOne } from './utils/tasks.js';
 import { applyTeamLeaderAssignments } from './utils/teamAssignments.js';
 
@@ -45,14 +44,14 @@ const WEEKLY_BASE_MINUTES = 2700;
 function App() {
   const { user, setUser } = useAuth();
   const { notifications, setNotifications, addNotification, showNotifications, setShowNotifications } = useNotification();
-  const { currentThemeName, setCurrentThemeName, customTheme, setCustomTheme, currentTheme, currentLogo, predefinedThemes, showThemePanel, setShowThemePanel, themeSaveState, setThemeSaveState, isThemeLoading, saveThemeNow } = useTheme();
+  const { currentTheme, currentLogo, showThemePanel, setShowThemePanel } = useTheme();
   const taskSettings = useTaskSettings(user?.id);
-  const { showTaskSettings, setShowTaskSettings, customTaskTypes, setCustomTaskTypes, customTaskStatuses, setCustomTaskStatuses, allTaskTypesFromAPI, setAllTaskTypesFromAPI, selectedTaskTypeForStatuses, setSelectedTaskTypeForStatuses, newTaskTypeName, setNewTaskTypeName, newTaskTypeColor, setNewTaskTypeColor, newStatusName, setNewStatusName, newStatusColor, setNewStatusColor, editingTaskTypeId, editingTaskTypeName, setEditingTaskTypeName, editingTaskTypeColor, setEditingTaskTypeColor, editingTaskStatusId, editingTaskStatusName, setEditingTaskStatusName, editingTaskStatusColor, setEditingTaskStatusColor, getAllTaskTypes, getAllTaskStatuses, getSystemTaskStatuses, getSystemTaskTypeNames, loadTaskSettings, handleAddTaskType, handleAddTaskStatus, handleDeleteTaskType, handleDeleteTaskStatus, handleEditTaskType, handleEditTaskStatus, handleSaveTaskType, handleSaveTaskStatus, handleCancelEditTaskType, handleCancelEditTaskStatus } = taskSettings;
+  const { showTaskSettings, setShowTaskSettings, customTaskTypes, customTaskStatuses, allTaskTypesFromAPI, selectedTaskTypeForStatuses, setSelectedTaskTypeForStatuses, newTaskTypeName, setNewTaskTypeName, newTaskTypeColor, setNewTaskTypeColor, newStatusName, setNewStatusName, newStatusColor, setNewStatusColor, editingTaskTypeId, editingTaskTypeName, setEditingTaskTypeName, editingTaskTypeColor, setEditingTaskTypeColor, editingTaskStatusId, editingTaskStatusName, setEditingTaskStatusName, editingTaskStatusColor, setEditingTaskStatusColor, getAllTaskTypes, getAllTaskStatuses, getSystemTaskStatuses, handleAddTaskType, handleAddTaskStatus, handleDeleteTaskType, handleDeleteTaskStatus, handleEditTaskType, handleEditTaskStatus, handleSaveTaskType, handleSaveTaskStatus, handleCancelEditTaskType, handleCancelEditTaskStatus } = taskSettings;
   const [loading, setLoading] = useState(false);
   const usersHook = useUsers({ setLoading });
-  const { users, setUsers, showUserPanel, setShowUserPanel, teamMembers, setTeamMembers, loadUsers, loadTeamMembers, handleBulkUserImport } = usersHook;
+  const { users, showUserPanel, setShowUserPanel, teamMembers, loadUsers, loadTeamMembers, handleBulkUserImport } = usersHook;
   const weeklyGoalsHook = useWeeklyGoals();
-  const { weeklyGoals, setWeeklyGoals, weeklyWeekStart, setWeeklyWeekStart, weeklyUserId, setWeeklyUserId, weeklyLeaveMinutesInput, setWeeklyLeaveMinutesInput, weeklyOvertimeMinutesInput, setWeeklyOvertimeMinutesInput, weeklySaveState, setWeeklySaveState, transferButtonText, setTransferButtonText, weeklyValidationErrors, setWeeklyValidationErrors, weeklyLive, uiLocks, combinedLocks, loadWeeklyGoals, saveWeeklyGoals, approveWeeklyGoals, transferIncompleteTasksFromPreviousWeek, updateNumberInput, saveTextInputToState, getTextInputKey, getInvalidItemIndices, updateInvalidItemsIfActive, handleWeeklyLeaveMinutesChange, handleWeeklyLeaveMinutesBlur, handleWeeklyOvertimeMinutesChange, handleWeeklyOvertimeMinutesBlur, textInputRefs, goalDescriptionRef, prevWeeklyDataRef, weeklySaveStateTimeoutRef, weeklyLeaveMinutes, weeklyOvertimeMinutes } = weeklyGoalsHook;
+  const { weeklyGoals, setWeeklyGoals, weeklyWeekStart, weeklyUserId, setWeeklyUserId, weeklyLeaveMinutesInput, setWeeklyLeaveMinutesInput, weeklyOvertimeMinutesInput, setWeeklyOvertimeMinutesInput, weeklySaveState, setWeeklySaveState, transferButtonText, weeklyValidationErrors, weeklyLive, combinedLocks, loadWeeklyGoals, saveWeeklyGoals, approveWeeklyGoals, transferIncompleteTasksFromPreviousWeek, updateNumberInput, saveTextInputToState, getTextInputKey, handleWeeklyLeaveMinutesChange, handleWeeklyLeaveMinutesBlur, handleWeeklyOvertimeMinutesChange, handleWeeklyOvertimeMinutesBlur, textInputRefs, goalDescriptionRef, prevWeeklyDataRef } = weeklyGoalsHook;
   const [tasks, setTasks] = useState([]);
   const [addingTask, setAddingTask] = useState(false);
   const [error, setError] = useState(null);
@@ -104,10 +103,9 @@ function App() {
   const [taskHistories, setTaskHistories] = useState({});
   const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
   const weeklyOverviewHook = useWeeklyOverview();
-  const { showWeeklyOverview, setShowWeeklyOverview, weeklyOverview, weeklyOverviewLoading, weeklyOverviewError, setWeeklyOverviewError, weeklyOverviewWeekStart, loadWeeklyOverview } = weeklyOverviewHook;
+  const { showWeeklyOverview, setShowWeeklyOverview, weeklyOverview, setWeeklyOverview, weeklyOverviewLoading, setWeeklyOverviewLoading, weeklyOverviewError, setWeeklyOverviewError, weeklyOverviewWeekStart, setWeeklyOverviewWeekStart, loadWeeklyOverview } = weeklyOverviewHook;
   const [showGoalDescription, setShowGoalDescription] = useState(false);
   const [selectedGoalIndex, setSelectedGoalIndex] = useState(null);
-  const [goalDescription, setGoalDescription] = useState('');
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [descDraft, setDescDraft] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);

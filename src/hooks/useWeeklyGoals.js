@@ -62,7 +62,7 @@ export function useWeeklyGoals() {
       const minutes = Math.round(Number(normalized));
       if (!Number.isFinite(minutes) || minutes <= 0) return 0;
       return Math.min(WEEKLY_BASE_MINUTES, Math.max(0, minutes));
-    } catch (err) {
+    } catch {
       return 0;
     }
   }, [weeklyLeaveMinutesInput]);
@@ -74,7 +74,7 @@ export function useWeeklyGoals() {
       const minutes = Math.round(Number(normalized));
       if (!Number.isFinite(minutes) || minutes <= 0) return 0;
       return Math.max(0, minutes);
-    } catch (err) {
+    } catch {
       return 0;
     }
   }, [weeklyOvertimeMinutesInput]);
@@ -114,7 +114,7 @@ export function useWeeklyGoals() {
         actualsUnlocked = false;
       }
       return { targets_locked: !targetsUnlocked, actuals_locked: !actualsUnlocked };
-    } catch (e) {
+    } catch {
       return { targets_locked: false, actuals_locked: false };
     }
   }, [weeklyWeekStart, user?.role]);

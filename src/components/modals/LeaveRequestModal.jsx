@@ -36,7 +36,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const [selectedDates, setSelectedDates] = useState(new Set());
   const [viewMonth, setViewMonth] = useState(() => new Date());
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const canSelectPast = ['admin', 'team_leader'].includes(user?.role);
@@ -46,7 +46,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     try {
       const res = await LeaveRequests.list();
       setItems(res.items || []);
-    } catch (err) {
+    } catch {
       addNotification('İzin listesi yüklenemedi.', 'error');
     } finally {
       setLoading(false);

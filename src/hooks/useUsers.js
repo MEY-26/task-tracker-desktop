@@ -196,6 +196,7 @@ export function useUsers(options = {}) {
     if (user?.id && user.role !== 'observer' && (!users || users.length === 0)) {
       loadUsers();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- users intentionally omitted to avoid reload loop
   }, [user?.id, user?.role, users?.length, loadUsers]);
 
   return {

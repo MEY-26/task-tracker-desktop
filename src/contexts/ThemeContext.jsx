@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { getTheme, saveTheme } from '../api';
 import { predefinedThemes } from '../utils/themes.js';

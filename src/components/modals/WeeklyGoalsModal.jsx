@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { getMonday, fmtYMD, isoWeekNumber } from '../../utils/date';
 import { getPerformanceGrade } from '../../utils/performance';
@@ -17,8 +17,8 @@ export function WeeklyGoalsModal({
   weeklyWeekStart,
   loadWeeklyGoals,
   weeklyLeaveMinutesInput,
-  handleWeeklyLeaveMinutesChange,
-  handleWeeklyLeaveMinutesBlur,
+  handleWeeklyLeaveMinutesChange: _handleWeeklyLeaveMinutesChange,
+  handleWeeklyLeaveMinutesBlur: _handleWeeklyLeaveMinutesBlur,
   weeklyOvertimeMinutesInput,
   handleWeeklyOvertimeMinutesChange,
   handleWeeklyOvertimeMinutesBlur,
@@ -38,7 +38,7 @@ export function WeeklyGoalsModal({
   updateNumberInput,
   saveTextInputToState,
   getTextInputKey,
-  addNotification,
+  addNotification: _addNotification,
 }) {
   const canShowFullScore = user?.role === 'admin';
 
@@ -245,9 +245,9 @@ export function WeeklyGoalsModal({
                     {(weeklyGoals.items || []).filter(x => !x.is_unplanned).map((row, idx) => {
                       const lockedTargets = combinedLocks.targets_locked && user?.role !== 'admin';
                       const lockedActuals = combinedLocks.actuals_locked && user?.role !== 'admin';
-                      const t = Math.max(0, Number(row.target_minutes || 0));
-                      const a = Math.max(0, Number(row.actual_minutes || 0));
-                      const isCompleted = row.is_completed === true;
+                      const _t = Math.max(0, Number(row.target_minutes || 0));
+                      const _a = Math.max(0, Number(row.actual_minutes || 0));
+                      const _isCompleted = row.is_completed === true;
                       const actualIndex = weeklyGoals.items.indexOf(row);
                       const hasValidationError = weeklyValidationErrors.invalidItems.includes(actualIndex);
                       const isOverCapacity = weeklyValidationErrors.overCapacity;

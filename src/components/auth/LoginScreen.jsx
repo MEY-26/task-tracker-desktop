@@ -1,3 +1,5 @@
+import { useTheme } from '../../contexts/ThemeContext';
+
 function LoginScreen({
   logoSrc,
   error,
@@ -9,6 +11,8 @@ function LoginScreen({
   showForgotPassword,
   onToggleForgotPassword,
 }) {
+  const { currentTheme } = useTheme();
+
   const handleFormSubmit = async (event) => {
     event.preventDefault();
     if (showForgotPassword) {
@@ -18,32 +22,83 @@ function LoginScreen({
     }
   };
 
+  const inputStyle = {
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    backgroundColor: currentTheme.tableRowAlt || currentTheme.background,
+    color: currentTheme.text,
+    border: `1px solid ${currentTheme.border}`,
+    borderRadius: '12px',
+    padding: '12px 16px',
+    fontSize: '1rem',
+    outline: 'none',
+  };
+
+  const buttonStyle = {
+    width: '100%',
+    backgroundColor: currentTheme.accent,
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '12px',
+    padding: '12px 24px',
+    fontSize: '1rem',
+    fontWeight: 600,
+    cursor: loading ? 'not-allowed' : 'pointer',
+    opacity: loading ? 0.6 : 1,
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4 z-[999800]">
-      <div className="bg-black/20 backdrop-blur-sm rounded-2xl border-gray-800/50 p-8 shadow-2xl w-full max-w-md" style={{ minWidth: '400px' }}>
-        <div className="text-center mb-12">
+    <div
+      className="min-h-screen flex items-center justify-center p-4 z-[999800]"
+      style={{ backgroundColor: currentTheme.background }}
+    >
+      <div
+        className="rounded-2xl p-8 shadow-2xl w-full"
+        style={{
+          maxWidth: '420px',
+          backgroundColor: currentTheme.tableBackground || currentTheme.background,
+          border: `1px solid ${currentTheme.border}`,
+        }}
+      >
+        <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-6">
             <img src={logoSrc} alt="Logo" className="w-16 h-16" />
           </div>
-          <h2 className="text-4xl font-bold text-white tracking-wider">Görev Takip Sistemi</h2>
+          <h2
+            className="text-2xl font-bold tracking-wider"
+            style={{ color: currentTheme.text }}
+          >
+            Görev Takip Sistemi
+          </h2>
         </div>
 
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-6">
+          <div
+            className="px-4 py-3 rounded-xl mb-6"
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#fca5a5',
+            }}
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleFormSubmit} className="space-y-6">
+        <form onSubmit={handleFormSubmit} className="space-y-5">
           <div>
-            <label className="block text-white text-[24px] font-medium mb-3 items-left flex">
+            <label
+              className="block font-medium mb-2"
+              style={{ color: currentTheme.text, fontSize: '0.95rem' }}
+            >
               E-mail
             </label>
             <input
               type="email"
               value={loginForm.email}
               onChange={(e) => onLoginFormChange?.('email', e.target.value)}
-              className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 text-gray-900 focus:outline-none focus:ring-0 text-base text-[32px]"
+              style={inputStyle}
               placeholder="Mail Adresinizi Giriniz"
               required
             />
@@ -51,7 +106,10 @@ function LoginScreen({
 
           {!showForgotPassword && (
             <div>
-              <label className="block text-white text-[24px] font-medium mb-3 items-left flex">
+              <label
+                className="block font-medium mb-2"
+                style={{ color: currentTheme.text, fontSize: '0.95rem' }}
+              >
                 Şifre
               </label>
               <div className="relative">
@@ -59,7 +117,7 @@ function LoginScreen({
                   type="password"
                   value={loginForm.password}
                   onChange={(e) => onLoginFormChange?.('password', e.target.value)}
-                  className="w-full bg-gray-100 border-0 rounded-xl px-4 py-4 pr-12 text-gray-900 focus:outline-none focus:ring-0 text-base text-[32px]"
+                  style={{ ...inputStyle, paddingRight: '48px' }}
                   placeholder="Şifrenizi Giriniz"
                   required
                   autoComplete="current-password"
@@ -71,22 +129,22 @@ function LoginScreen({
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl disabled:opacity-50"
-          >
+          <button type="submit" disabled={loading} style={buttonStyle}>
             {loading
               ? (showForgotPassword ? 'Talep Gönderiliyor...' : 'Giriş yapılıyor...')
               : (showForgotPassword ? 'Talep Gönder' : 'Giriş Yap')}
           </button>
         </form>
 
-        <div className="mt-4 text-center" style={{ paddingTop: '5px' }}>
+        <div className="mt-4 text-center">
           <button
             type="button"
             onClick={onToggleForgotPassword}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 text-lg shadow-lg hover:shadow-xl disabled:opacity-50"
+            style={{
+              ...buttonStyle,
+              backgroundColor: currentTheme.border,
+              marginTop: '8px',
+            }}
           >
             {showForgotPassword ? 'Geri' : 'Şifremi Unuttum'}
           </button>
