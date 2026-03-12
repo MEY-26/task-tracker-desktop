@@ -145,11 +145,15 @@ function App() {
   const previousResponsibleIdRef = useRef(null);
   const previousResponsibleIdDetailRef = useRef(null);
   const manuallyRemovedUsersRef = useRef(new Set()); // Manuel olarak kaldırılan kullanıcıları takip et
+  const showAssigneeDropdownDetailRef = useRef(showAssigneeDropdownDetail);
+  const userRef = useRef(user);
 
   useEffect(() => {
     showDetailModalRef.current = showDetailModal;
     selectedTaskRef.current = selectedTask;
-  }, [showDetailModal, selectedTask]);
+    showAssigneeDropdownDetailRef.current = showAssigneeDropdownDetail;
+    userRef.current = user;
+  }, [showDetailModal, selectedTask, showAssigneeDropdownDetail, user]);
   useEffect(() => {
     setDescDraft(selectedTask?.description ?? '');
   }, [selectedTask, showDetailModal]);
@@ -200,7 +204,7 @@ function App() {
       window.removeEventListener('scroll', place, true);
       document.removeEventListener('mousedown', onDown);
     };
-  }, [showNotifications]);
+  }, [showNotifications, setShowNotifications]);
 
 
   useEffect(() => {
@@ -222,6 +226,7 @@ function App() {
 
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Sadece component mount olduğunda çalış
 
   const isModalOpen = showAddForm || showDetailModal || showWeeklyGoals ||
@@ -233,9 +238,186 @@ function App() {
     if (user?.role !== 'admin' && showWeeklyOverview) {
       setShowWeeklyOverview(false);
     }
-  }, [user?.role, showWeeklyOverview]);
+  }, [user?.role, showWeeklyOverview, setShowWeeklyOverview]);
 
   usePreventAutofill();
+
+  const handleUpdateTask = useCallback(async (taskId, updates) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Tarih validasyonu handleDateChange'de yapılıyor, burada tekrar yapmaya gerek yok
+
+      const response = await Tasks.update(taskId, updates);
+      const updatedTask = response.task;
+
+      if (!updatedTask) {
+        console.error('No task data in update response:', response);
+        throw new Error('Görev güncelleme yanıtında görev verisi bulunamadı');
+      }
+
+      setTasks(prevTasks => {
+        const currentTasks = Array.isArray(prevTasks) ? prevTasks : [];
+        return currentTasks.map(task =>
+          task.id === taskId ? updatedTask : task
+        );
+      });
+
+      if (selectedTask && selectedTask.id === taskId) {
+        // Tarih güncellemesi için selectedTask'ı güncelle
+        const isDateUpdate = Object.keys(updates).some(key =>
+          key === 'start_date' || key === 'due_date' || key === 'end_date'
+        );
+
+        if (isDateUpdate) {
+          // Tarih güncellemesi için sadece ilgili alanı güncelle
+          setSelectedTask(prev => ({
+            ...prev,
+            ...updates
+          }));
+        } else {
+          setSelectedTask(updatedTask);
+        }
+
+        try {
+          const history = await Tasks.getHistory(taskId);
+          setTaskHistory(Array.isArray(history) ? history : []);
+        } catch (err) {
+          console.error('Task history refresh error:', err);
+        }
+      }
+
+      try {
+        const history = await Tasks.getHistory(taskId);
+        setTaskHistories(prev => ({
+          ...prev,
+          [taskId]: Array.isArray(history) ? history : []
+        }));
+      } catch (err) {
+        console.error('Task histories update error:', err);
+        // Geçmiş güncelleme hatası ana işlemi etkilememeli
+      }
+
+      addNotification('Görev başarıyla güncellendi', 'success');
+      return response;
+    } catch (err) {
+      console.error('Update task error:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+
+      const errorMessage = err.response?.data?.message || err.message || 'Görev güncellenemedi';
+      setError(errorMessage);
+      addNotification(errorMessage, 'error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedTask, addNotification]);
+
+  const handleCloseModal = useCallback(async () => {
+    try {
+      if (selectedTask) {
+        const updates = {};
+        const isTeamLeader = user?.role === 'team_leader';
+        const isAdmin = user?.role === 'admin';
+        const isResponsible = user?.id === selectedTask.responsible?.id;
+
+        // Takım lideri sadece bitiş tarihi ve durum değiştirebilir (oluşturan değilse)
+        const isCreatorModal = user?.id === selectedTask.creator?.id;
+        if (isTeamLeader && !isAdmin && !isResponsible && !isCreatorModal) {
+          // Sadece status ve due_date
+          if (detailDraft) {
+            if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
+              updates.status = detailDraft.status || 'waiting';
+            }
+          }
+          const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
+          if ((editingDates.due_date || '') !== curDue) {
+            updates.due_date = editingDates.due_date || null;
+          }
+        } else {
+          // Admin, Sorumlu veya diğer roller için tüm alanlar
+          // Description (admin only in UI, but backend will validate anyway)
+          if ((descDraft ?? '') !== (selectedTask.description ?? '')) {
+            updates.description = descDraft ?? '';
+          }
+
+          // Drafted selectable fields
+          if (detailDraft) {
+            // NO alanı sadece Admin veya Sorumlu tarafından değiştirilebilir
+            if (isAdmin || isResponsible) {
+              if ((detailDraft.no || '') !== (selectedTask.no || '')) {
+                updates.no = detailDraft.no || '';
+              }
+            }
+            // Başlık alanı Admin, Sorumlu veya Oluşturan tarafından değiştirilebilir
+            const isCreator = user?.id === selectedTask.creator?.id;
+            if (isAdmin || isResponsible || isCreator) {
+              if (detailDraft.title !== undefined && (detailDraft.title || '') !== (selectedTask.title || '')) {
+                updates.title = detailDraft.title || '';
+              }
+            }
+            if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
+              updates.status = detailDraft.status || 'waiting';
+            }
+            if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
+              updates.priority = detailDraft.priority || 'medium';
+            }
+            if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
+              updates.task_type = detailDraft.task_type || 'development';
+            }
+            const currentResponsibleId = selectedTask.responsible?.id || null;
+            if ((detailDraft.responsible_id || null) !== currentResponsibleId) {
+              updates.responsible_id = detailDraft.responsible_id || null;
+              const newResponsibleId = detailDraft.responsible_id || null;
+              const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
+              updates.assigned_users = applyTeamLeaderAssignments(users, newResponsibleId, beforeIds, {
+                previousResponsibleId: previousResponsibleIdDetailRef.current
+              });
+              previousResponsibleIdDetailRef.current = newResponsibleId;
+            }
+
+            // Eğer sorumlu değişmediyse, sadece atananları kontrol et
+            if (!updates.assigned_users) {
+              const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
+              const afterIds = Array.isArray(detailDraft.assigned_user_ids) ? detailDraft.assigned_user_ids : beforeIds;
+              const sameLength = beforeIds.length === afterIds.length;
+              const sameSet = sameLength && beforeIds.every(id => afterIds.includes(id));
+              if (!sameSet) {
+                updates.assigned_users = afterIds;
+              }
+            }
+          }
+
+          // Dates (from editingDates)
+          const curStart = selectedTask.start_date ? selectedTask.start_date.slice(0, 10) : '';
+          const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
+          if ((editingDates.start_date || '') !== curStart) {
+            updates.start_date = editingDates.start_date || null;
+          }
+          if ((editingDates.due_date || '') !== curDue) {
+            updates.due_date = editingDates.due_date || null;
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await handleUpdateTask(selectedTask.id, updates);
+          addNotification('Değişiklikler kaydedildi', 'success');
+        }
+      }
+    } catch (error) {
+      console.error('Save-on-close error:', error);
+      addNotification('Değişiklikler kaydedilemedi', 'error');
+    } finally {
+      setShowDetailModal(false);
+      setSelectedTask(null);
+      setNewComment('');
+      setHistoryDeleteMode(false);
+      setEditingDates({ start_date: '', due_date: '' });
+      setDetailDraft(null);
+    }
+  }, [selectedTask, user, descDraft, detailDraft, editingDates, users, handleUpdateTask, addNotification]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -251,7 +433,7 @@ function App() {
       window.addEventListener('keydown', onKey);
       return () => window.removeEventListener('keydown', onKey);
     }
-  }, [showDetailModal, showTaskSettings, selectedTask, descDraft, user?.role, handleCloseModal]);
+  }, [showDetailModal, showTaskSettings, handleCloseModal, setShowTaskSettings]);
 
   // Yeni görev formu açıldığında previousResponsibleIdRef ve manuallyRemovedUsersRef'i sıfırla
   useEffect(() => {
@@ -266,6 +448,7 @@ function App() {
     if (showDetailModal && selectedTask) {
       previousResponsibleIdDetailRef.current = selectedTask.responsible?.id || null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDetailModal]);
 
   // Sorumlu seçildiğinde takım liderinin ekibini otomatik ekle (sadece yeni görev formunda)
@@ -288,6 +471,7 @@ function App() {
     if (showWeeklyGoals && weeklySaveState !== 'idle') {
       setWeeklySaveState('idle');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showWeeklyGoals]);
 
   // Data değiştiğinde state'i sıfırla (yalnızca saved durumundaysa)
@@ -323,7 +507,7 @@ function App() {
       leaveMinutes: currentLeaveMinutes,
       overtimeMinutes: currentOvertimeMinutes
     };
-  }, [weeklyGoals.items, weeklyLeaveMinutesInput, weeklyOvertimeMinutesInput, weeklySaveState]);
+  }, [weeklyGoals.items, weeklyLeaveMinutesInput, weeklyOvertimeMinutesInput, weeklySaveState, prevWeeklyDataRef, setWeeklySaveState]);
 
   // Haftalık hedef listesini otomatik güncelle (kayıt sonrası - sadece showWeeklyOverview açıksa)
   // Not: Bu sadece overview açıkken güncelleme yapar, kaydet butonunun durumunu etkilemez
@@ -337,6 +521,103 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weeklySaveState === 'saved', showWeeklyOverview, weeklyWeekStart]);
+
+  const handleLogout = useCallback(function() {
+    localStorage.removeItem('jwt');
+    setShowWeeklyOverview(false);
+    setWeeklyOverview({ week_start: '', items: [] });
+    setWeeklyOverviewError(null);
+    setWeeklyOverviewWeekStart('');
+    setWeeklyOverviewLoading(false);
+    setUser(null);
+    setTasks([]);
+    setError(null);
+    setSelectedTask(null);
+  }, [setShowWeeklyOverview, setWeeklyOverview, setWeeklyOverviewError, setWeeklyOverviewWeekStart, setWeeklyOverviewLoading, setUser]);
+
+  const loadTasks = useCallback(async () => {
+    try {
+      const tasksList = await Tasks.list();
+      if (Array.isArray(tasksList)) {
+        setTasks(tasksList);
+      } else if (tasksList && Array.isArray(tasksList.data)) {
+        setTasks(tasksList.data);
+      } else {
+        console.warn('Tasks API returned non-array data:', tasksList);
+        setTasks([]);
+      }
+    } catch (err) {
+      console.error('Tasks load error:', err);
+      setError('Görevler yüklenemedi');
+      setTasks([]);
+    }
+  }, []);
+
+  const loadPasswordResetRequests = useCallback(async () => {
+    try {
+      if (userRef.current?.role === 'admin') {
+        const requests = await PasswordReset.getResetRequests();
+        setPasswordResetRequests(requests);
+      }
+    } catch (err) {
+      console.error('Load password reset requests error:', err);
+      setPasswordResetRequests([]);
+    }
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const res = await Notifications.list();
+
+      let list =
+        Array.isArray(res) ? res :
+          Array.isArray(res?.notifications) ? res.notifications :
+            Array.isArray(res?.data) ? res.data :
+              Array.isArray(res?.data?.notifications) ? res.data.notifications :
+                [];
+
+      list = list.map((n, i) => ({
+        id: n.id ?? n.uuid ?? `srv_${i}`,
+        message: n.data?.message ?? n.message ?? 'Bildirim mesajı bulunamadı',
+        created_at: n.created_at ?? n.updated_at ?? n.timestamp ?? new Date().toISOString(),
+        read_at: n.read_at ?? null,
+        isFrontendNotification: false,
+        raw: n,
+        type: n.data?.type || n.type || null,
+        action: n.data?.action || null,
+        task_id: n.data?.task_id || null,
+        task_title: n.data?.task_title || null,
+        user_id: n.data?.user_id || null,
+        user_email: n.data?.user_email || null,
+        request_id: n.data?.request_id || null,
+      }));
+
+      // okundu bilgisi kullanılmıyor; tüm bildirimleri göster
+
+      list = list.filter(n => {
+        const message = n.message || '';
+        return !message.includes('Şifreniz admin tarafından sıfırlandı');
+      });
+
+      setNotifications(list);
+
+      if (userRef.current?.role === 'admin') {
+        await loadPasswordResetRequests();
+      }
+    } catch (err) {
+      console.error('Notifications load error:', err);
+      if (err.response?.status === 401 ||
+        (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
+        console.warn('Unauthorized notification access, clearing notifications');
+        // Authentication sorunu - notifications'ı temizle ama sayfayı reload etme
+      } else if (err.response?.status === 404) {
+        console.warn('Notifications endpoint not found');
+      } else {
+        console.error('Unexpected notification error:', err.message);
+      }
+      setNotifications([]);
+    }
+  }, [loadPasswordResetRequests, setNotifications]);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -370,7 +651,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [handleLogout, loadTasks, loadNotifications, loadUsers]);
+  }, [handleLogout, loadTasks, loadNotifications, loadUsers, setUser]);
 
   async function openTaskById(taskId) {
     try {
@@ -408,25 +689,7 @@ function App() {
     }
   }
 
-  async function loadTasks() {
-    try {
-      const tasksList = await Tasks.list();
-      if (Array.isArray(tasksList)) {
-        setTasks(tasksList);
-      } else if (tasksList && Array.isArray(tasksList.data)) {
-        setTasks(tasksList.data);
-      } else {
-        console.warn('Tasks API returned non-array data:', tasksList);
-        setTasks([]);
-      }
-    } catch (err) {
-      console.error('Tasks load error:', err);
-      setError('Görevler yüklenemedi');
-      setTasks([]);
-    }
-  }
-
-  async function refreshTasksOnce() {
+  const refreshTasksOnce = useCallback(async function() {
     if (isRefreshingTasks.current) return;
     isRefreshingTasks.current = true;
     try {
@@ -453,7 +716,7 @@ function App() {
         if (freshTask) {
           const nextSelSig = buildTaskSignatureOne(freshTask);
           const prevSelSig = lastSelectedSigRef.current;
-          const comboboxOpen = showAssigneeDropdownDetail === true;
+          const comboboxOpen = showAssigneeDropdownDetailRef.current === true;
           if (nextSelSig !== prevSelSig) {
             if (!comboboxOpen) {
               setSelectedTask(freshTask);
@@ -481,7 +744,7 @@ function App() {
     } finally {
       isRefreshingTasks.current = false;
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -506,71 +769,6 @@ function App() {
 
   // loadUsers, loadTaskSettings from hooks; useTaskSettings loads on userId, useUsers loads on panel open / user login
 
-  async function loadPasswordResetRequests() {
-    try {
-      if (user?.role === 'admin') {
-        const requests = await PasswordReset.getResetRequests();
-        setPasswordResetRequests(requests);
-      }
-    } catch (err) {
-      console.error('Load password reset requests error:', err);
-      setPasswordResetRequests([]);
-    }
-  }
-
-  async function loadNotifications() {
-    try {
-      const res = await Notifications.list();
-
-      let list =
-        Array.isArray(res) ? res :
-          Array.isArray(res?.notifications) ? res.notifications :
-            Array.isArray(res?.data) ? res.data :
-              Array.isArray(res?.data?.notifications) ? res.data.notifications :
-                [];
-
-      list = list.map((n, i) => ({
-        id: n.id ?? n.uuid ?? `srv_${i}`,
-        message: n.data?.message ?? n.message ?? 'Bildirim mesajı bulunamadı',
-        created_at: n.created_at ?? n.updated_at ?? n.timestamp ?? new Date().toISOString(),
-        read_at: n.read_at ?? null,
-        isFrontendNotification: false,
-        raw: n,
-        type: n.data?.type || n.type || null,
-        action: n.data?.action || null,
-        task_id: n.data?.task_id || null,
-        task_title: n.data?.task_title || null,
-        user_id: n.data?.user_id || null,
-        user_email: n.data?.user_email || null,
-        request_id: n.data?.request_id || null,
-      }));
-
-      // okundu bilgisi kullanılmıyor; tüm bildirimleri göster
-
-      list = list.filter(n => {
-        const message = n.message || '';
-        return !message.includes('Şifreniz admin tarafından sıfırlandı');
-      });
-
-      setNotifications(list);
-
-      if (user?.role === 'admin') {
-        await loadPasswordResetRequests();
-      }
-    } catch (err) {
-      console.error('Notifications load error:', err);
-      if (err.response?.status === 401 ||
-        (err.response?.status === 500 && err.response?.data?.error === 'Unauthenticated.')) {
-        console.warn('Unauthorized notification access, clearing notifications');
-        // Authentication sorunu - notifications'ı temizle ama sayfayı reload etme
-      } else if (err.response?.status === 404) {
-        console.warn('Notifications endpoint not found');
-      } else {
-        console.error('Unexpected notification error:', err.message);
-      }
-      setNotifications([]);
-    }
-  }
   async function markAllNotificationsAsRead() {
     if (markingAllNotifications) return;
     try {
@@ -625,19 +823,6 @@ function App() {
       setLoading(false);
     }
     }
-
-  function handleLogout() {
-    localStorage.removeItem('jwt');
-    setShowWeeklyOverview(false);
-    setWeeklyOverview({ week_start: '', items: [] });
-    setWeeklyOverviewError(null);
-    setWeeklyOverviewWeekStart('');
-    setWeeklyOverviewLoading(false);
-    setUser(null);
-    setTasks([]);
-    setError(null);
-    setSelectedTask(null);
-  }
 
   // validateDates fonksiyonu kaldırıldı - tarih validasyonu yapılmıyor
 
@@ -744,80 +929,6 @@ function App() {
       setAddingTask(false);
     }
   }
-
-  async function handleUpdateTask(taskId, updates) {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Tarih validasyonu handleDateChange'de yapılıyor, burada tekrar yapmaya gerek yok
-
-      const response = await Tasks.update(taskId, updates);
-      const updatedTask = response.task;
-
-      if (!updatedTask) {
-        console.error('No task data in update response:', response);
-        throw new Error('Görev güncelleme yanıtında görev verisi bulunamadı');
-      }
-
-      setTasks(prevTasks => {
-        const currentTasks = Array.isArray(prevTasks) ? prevTasks : [];
-        return currentTasks.map(task =>
-          task.id === taskId ? updatedTask : task
-        );
-      });
-
-      if (selectedTask && selectedTask.id === taskId) {
-        // Tarih güncellemesi için selectedTask'ı güncelle
-        const isDateUpdate = Object.keys(updates).some(key =>
-          key === 'start_date' || key === 'due_date' || key === 'end_date'
-        );
-
-        if (isDateUpdate) {
-          // Tarih güncellemesi için sadece ilgili alanı güncelle
-          setSelectedTask(prev => ({
-            ...prev,
-            ...updates
-          }));
-        } else {
-          setSelectedTask(updatedTask);
-        }
-
-        try {
-          const history = await Tasks.getHistory(taskId);
-          setTaskHistory(Array.isArray(history) ? history : []);
-        } catch (err) {
-          console.error('Task history refresh error:', err);
-        }
-      }
-
-      try {
-        const history = await Tasks.getHistory(taskId);
-        setTaskHistories(prev => ({
-          ...prev,
-          [taskId]: Array.isArray(history) ? history : []
-        }));
-      } catch (err) {
-        console.error('Task histories update error:', err);
-        // Geçmiş güncelleme hatası ana işlemi etkilememeli
-      }
-
-      addNotification('Görev başarıyla güncellendi', 'success');
-      return response;
-    } catch (err) {
-      console.error('Update task error:', err);
-      console.error('Error response:', err.response?.data);
-      console.error('Error status:', err.response?.status);
-
-      const errorMessage = err.response?.data?.message || err.message || 'Görev güncellenemedi';
-      setError(errorMessage);
-      addNotification(errorMessage, 'error');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }
-
 
   // Check if user can delete a specific task
   async function canDeleteTask(taskId) {
@@ -934,112 +1045,6 @@ function App() {
       setTaskLastViews([]);
     }
   }
-
-  async function handleCloseModal() {
-    try {
-      if (selectedTask) {
-        const updates = {};
-        const isTeamLeader = user?.role === 'team_leader';
-        const isAdmin = user?.role === 'admin';
-        const isResponsible = user?.id === selectedTask.responsible?.id;
-
-        // Takım lideri sadece bitiş tarihi ve durum değiştirebilir (oluşturan değilse)
-        const isCreatorModal = user?.id === selectedTask.creator?.id;
-        if (isTeamLeader && !isAdmin && !isResponsible && !isCreatorModal) {
-          // Sadece status ve due_date
-          if (detailDraft) {
-            if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
-              updates.status = detailDraft.status || 'waiting';
-            }
-          }
-          const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
-          if ((editingDates.due_date || '') !== curDue) {
-            updates.due_date = editingDates.due_date || null;
-          }
-        } else {
-          // Admin, Sorumlu veya diğer roller için tüm alanlar
-          // Description (admin only in UI, but backend will validate anyway)
-          if ((descDraft ?? '') !== (selectedTask.description ?? '')) {
-            updates.description = descDraft ?? '';
-          }
-
-          // Drafted selectable fields
-          if (detailDraft) {
-            // NO alanı sadece Admin veya Sorumlu tarafından değiştirilebilir
-            if (isAdmin || isResponsible) {
-              if ((detailDraft.no || '') !== (selectedTask.no || '')) {
-                updates.no = detailDraft.no || '';
-              }
-            }
-            // Başlık alanı Admin, Sorumlu veya Oluşturan tarafından değiştirilebilir
-            const isCreator = user?.id === selectedTask.creator?.id;
-            if (isAdmin || isResponsible || isCreator) {
-              if (detailDraft.title !== undefined && (detailDraft.title || '') !== (selectedTask.title || '')) {
-                updates.title = detailDraft.title || '';
-              }
-            }
-            if ((detailDraft.status || 'waiting') !== (selectedTask.status || 'waiting')) {
-              updates.status = detailDraft.status || 'waiting';
-            }
-            if ((detailDraft.priority || 'medium') !== (selectedTask.priority || 'medium')) {
-              updates.priority = detailDraft.priority || 'medium';
-            }
-            if ((detailDraft.task_type || 'development') !== (selectedTask.task_type || 'development')) {
-              updates.task_type = detailDraft.task_type || 'development';
-            }
-            const currentResponsibleId = selectedTask.responsible?.id || null;
-            if ((detailDraft.responsible_id || null) !== currentResponsibleId) {
-              updates.responsible_id = detailDraft.responsible_id || null;
-              const newResponsibleId = detailDraft.responsible_id || null;
-              const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
-              updates.assigned_users = applyTeamLeaderAssignments(users, newResponsibleId, beforeIds, {
-                previousResponsibleId: previousResponsibleIdDetailRef.current
-              });
-              previousResponsibleIdDetailRef.current = newResponsibleId;
-            }
-
-            // Eğer sorumlu değişmediyse, sadece atananları kontrol et
-            if (!updates.assigned_users) {
-              const beforeIds = (selectedTask.assigned_users || []).map(x => (typeof x === 'object' ? x.id : x));
-              const afterIds = Array.isArray(detailDraft.assigned_user_ids) ? detailDraft.assigned_user_ids : beforeIds;
-              const sameLength = beforeIds.length === afterIds.length;
-              const sameSet = sameLength && beforeIds.every(id => afterIds.includes(id));
-              if (!sameSet) {
-                updates.assigned_users = afterIds;
-              }
-            }
-          }
-
-          // Dates (from editingDates)
-          const curStart = selectedTask.start_date ? selectedTask.start_date.slice(0, 10) : '';
-          const curDue = selectedTask.due_date ? selectedTask.due_date.slice(0, 10) : '';
-          if ((editingDates.start_date || '') !== curStart) {
-            updates.start_date = editingDates.start_date || null;
-          }
-          if ((editingDates.due_date || '') !== curDue) {
-            updates.due_date = editingDates.due_date || null;
-          }
-        }
-
-        if (Object.keys(updates).length > 0) {
-          await handleUpdateTask(selectedTask.id, updates);
-          addNotification('Değişiklikler kaydedildi', 'success');
-        }
-      }
-    } catch (error) {
-      console.error('Save-on-close error:', error);
-      addNotification('Değişiklikler kaydedilemedi', 'error');
-    } finally {
-      setShowDetailModal(false);
-      setSelectedTask(null);
-      setNewComment('');
-      setHistoryDeleteMode(false);
-      setEditingDates({ start_date: '', due_date: '' });
-      setDetailDraft(null);
-    }
-  }
-
-
 
   async function handleAddComment() {
     const text = newComment.trim();

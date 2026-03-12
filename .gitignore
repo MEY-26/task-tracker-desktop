@@ -175,3 +175,6 @@ scripts/deploy-changed-files.ps1
 *_passwords.txt
 SCP_*.txt
 DEPLOY_*.txt
+
+# Local lint output files
+lint-output.txt
