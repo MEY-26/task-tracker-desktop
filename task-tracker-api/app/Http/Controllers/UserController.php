@@ -39,11 +39,15 @@ class UserController extends Controller
             return response()->json(['message' => 'Bu işlem için yetkiniz yok.'], 403);
         }
 
+        $departments = config('departments', []);
+        $departmentRule = empty($departments) ? 'nullable|string|max:100' : 'nullable|string|max:100|in:' . implode(',', $departments);
+
         $request->validate([
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|email|unique:users,email,' . $id,
             'role' => 'sometimes|in:admin,team_leader,team_member,observer',
             'leader_id' => 'nullable|exists:users,id',
+            'department' => $departmentRule,
         ]);
 
         $user = User::findOrFail($id);
@@ -66,7 +70,11 @@ class UserController extends Controller
             $user->leader_id = $leaderId; // null to clear
         }
 
-        $user->update($request->only(['name', 'email', 'role']));
+        $updateData = $request->only(['name', 'email', 'role']);
+        if ($request->has('department')) {
+            $updateData['department'] = $request->input('department') ?: null;
+        }
+        $user->update($updateData);
         if ($request->has('leader_id')) {
             $user->save();
         }

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'password',
         'role',
         'leader_id',
+        'department',
         'theme_preferences',
     ];
 

@@ -561,6 +561,330 @@ class WeeklyGoalController extends Controller
         ]);
     }
 
+    private function getPerformanceGrade(float $score): string
+    {
+        if ($score >= 111) return 'A';
+        if ($score >= 101) return 'B';
+        if ($score >= 80) return 'C';
+        if ($score >= 55) return 'D';
+        return 'E';
+    }
+
+    /**
+     * Birden fazla haftanın ortalamasını hesaplayan leaderboard. Sadece admin erişebilir.
+     */
+    public function multiWeekLeaderboard(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'roles' => 'nullable|string',
+            'departments' => 'nullable|string',
+            'exclude_user_ids' => 'nullable|string',
+            'include_user_ids' => 'nullable|string',
+            'search' => 'nullable|string',
+        ]);
+
+        $auth = $request->user();
+        if (!$auth || $auth->role !== 'admin') {
+            return response()->json(['message' => 'Bu özellik sadece admin kullanıcılar için.'], 403);
+        }
+
+        $tz = 'Europe/Istanbul';
+        $startMonday = Carbon::parse($request->input('start_date'), $tz)->startOfWeek(Carbon::MONDAY);
+        $endMonday = Carbon::parse($request->input('end_date'), $tz)->startOfWeek(Carbon::MONDAY);
+        if ($endMonday->lt($startMonday)) {
+            return response()->json(['message' => 'Bitiş tarihi başlangıçtan önce olamaz.'], 422);
+        }
+
+        $currentWeekMonday = Carbon::now($tz)->startOfWeek(Carbon::MONDAY);
+        if ($endMonday->gte($currentWeekMonday)) {
+            $endMonday = $currentWeekMonday->copy()->subWeek();
+        }
+
+        $weeks = collect();
+        $cur = $startMonday->copy();
+        while ($cur->lte($endMonday)) {
+            $weeks->push($cur->toDateString());
+            $cur->addWeek();
+        }
+        $weeksCount = $weeks->count();
+
+        $rolesFilter = $request->filled('roles')
+            ? array_map('trim', explode(',', $request->input('roles')))
+            : ['admin', 'team_leader', 'team_member'];
+        $departmentsFilter = $request->filled('departments')
+            ? array_filter(array_map('trim', explode(',', $request->input('departments'))))
+            : [];
+        $excludeIds = $request->filled('exclude_user_ids')
+            ? array_map('intval', array_filter(explode(',', $request->input('exclude_user_ids'))))
+            : [];
+        $includeIds = $request->filled('include_user_ids')
+            ? array_map('intval', array_filter(explode(',', $request->input('include_user_ids'))))
+            : [];
+        $excludeIds = array_diff($excludeIds, $includeIds);
+
+        $usersQuery = User::query()
+            ->select('users.id', 'users.name', 'users.email', 'users.role', 'users.leader_id', 'users.department', 'leaders.name as leader_name')
+            ->leftJoin('users as leaders', 'leaders.id', '=', 'users.leader_id')
+            ->where('users.role', '!=', 'observer')
+            ->where(function ($q) use ($rolesFilter, $includeIds) {
+                $q->whereIn('users.role', $rolesFilter);
+                if (!empty($includeIds)) {
+                    $q->orWhereIn('users.id', $includeIds);
+                }
+            });
+
+        if (!empty($excludeIds)) {
+            $usersQuery->whereNotIn('users.id', $excludeIds);
+        }
+
+        if (!empty($departmentsFilter)) {
+            $usersQuery->whereIn('users.department', $departmentsFilter);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $like = '%' . $search . '%';
+            $usersQuery->where(function ($q) use ($like) {
+                $q->where('users.name', 'like', $like)
+                    ->orWhere('users.email', 'like', $like)
+                    ->orWhere('leaders.name', 'like', $like);
+            });
+        }
+
+        $users = $usersQuery->orderBy('users.name')->get();
+        $userIds = $users->pluck('id')->all();
+
+        if (empty($userIds)) {
+            return response()->json([
+                'start_date' => $startMonday->toDateString(),
+                'end_date' => $endMonday->toDateString(),
+                'weeks_count' => $weeksCount,
+                'items' => [],
+            ]);
+        }
+
+        $rawGoals = DB::table('weekly_goals as wg')
+            ->leftJoin('weekly_goal_items as wgi', 'wgi.weekly_goal_id', '=', 'wg.id')
+            ->select(
+                'wg.id as goal_id',
+                'wg.user_id',
+                'wg.week_start',
+                'wg.leave_minutes',
+                'wg.overtime_minutes',
+                'wg.approval_status',
+                'wgi.id as item_id',
+                'wgi.target_minutes',
+                'wgi.actual_minutes',
+                'wgi.weight_percent',
+                'wgi.is_unplanned',
+                'wgi.is_completed'
+            )
+            ->whereIn('wg.week_start', $weeks->all())
+            ->whereIn('wg.user_id', $userIds)
+            ->get();
+
+        $byUserWeek = $rawGoals->groupBy('user_id')->map(function ($userRows) {
+            return $userRows->groupBy('week_start')->map(function ($weekRows) {
+                $first = $weekRows->first();
+                $leave = (int)($first->leave_minutes ?? 0);
+                $overtime = (int)($first->overtime_minutes ?? 0);
+                $approvalStatus = $first->approval_status ?? 'pending';
+                $items = $weekRows
+                    ->filter(fn($r) => $r->item_id !== null)
+                    ->map(fn($r) => (object)[
+                        'target_minutes' => (int)($r->target_minutes ?? 0),
+                        'actual_minutes' => (int)($r->actual_minutes ?? 0),
+                        'weight_percent' => (float)($r->weight_percent ?? 0),
+                        'is_unplanned' => (bool)($r->is_unplanned ?? false),
+                        'is_completed' => (bool)($r->is_completed ?? false),
+                    ]);
+                $summary = $this->computeSummary($items, $leave, $overtime);
+                $plannedItems = $items->where('is_unplanned', false);
+                $totalActual = (int)$plannedItems->sum('actual_minutes');
+                return [
+                    'final_score' => $summary['final_score'] ?? 0,
+                    'planned_score' => $summary['planned_score'] ?? 0,
+                    'unplanned_bonus' => $summary['unplanned_bonus'] ?? 0,
+                    'total_target_minutes' => $summary['total_target_minutes'] ?? 0,
+                    'total_actual_minutes' => $totalActual,
+                    'unplanned_minutes' => $summary['unplanned_minutes'] ?? 0,
+                    'approval_status' => $approvalStatus,
+                ];
+            });
+        });
+
+        $items = $users->map(function ($user) use ($byUserWeek, $weeksCount) {
+            $weeksData = $byUserWeek->get($user->id, collect());
+            $count = $weeksData->count();
+            $approvedWeeks = $weeksData->filter(fn($w) => ($w['approval_status'] ?? '') === 'approved');
+            $approved = $approvedWeeks->count();
+
+            $avgFinal = $count > 0 ? $weeksData->avg('final_score') : 0;
+            $avgFinalApproved = $approved > 0 ? $approvedWeeks->avg('final_score') : null;
+            $avgPlanned = $count > 0 ? $weeksData->avg('planned_score') : 0;
+            $avgUnplanned = $count > 0 ? $weeksData->avg('unplanned_bonus') : 0;
+            $avgTarget = $count > 0 ? round($weeksData->avg('total_target_minutes'), 0) : 0;
+            $avgActual = $count > 0 ? round($weeksData->avg('total_actual_minutes'), 0) : 0;
+
+            return [
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'leader_id' => $user->leader_id,
+                'leader_name' => $user->leader_name,
+                'department' => $user->department ?? null,
+                'avg_final_score' => round($avgFinal, 2),
+                'avg_final_score_approved' => $avgFinalApproved !== null ? round($avgFinalApproved, 2) : null,
+                'avg_planned_score' => round($avgPlanned, 2),
+                'avg_unplanned_bonus' => round($avgUnplanned, 2),
+                'avg_target_minutes' => $avgTarget,
+                'avg_actual_minutes' => $avgActual,
+                'total_weeks_with_data' => $count,
+                'weeks_approved' => $approved,
+                'grade' => $this->getPerformanceGrade((float)$avgFinal),
+                'grade_approved' => $avgFinalApproved !== null ? $this->getPerformanceGrade((float)$avgFinalApproved) : null,
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'start_date' => $startMonday->toDateString(),
+            'end_date' => $endMonday->toDateString(),
+            'weeks_count' => $weeksCount,
+            'items' => $items,
+        ]);
+    }
+
+    /**
+     * Bir kullanıcının belirli tarih aralığındaki haftalık detaylarını döner. Sadece admin/team_leader erişebilir.
+     */
+    public function userDetail(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'include_items' => 'nullable|in:1,0,true,false',
+        ]);
+
+        $auth = $request->user();
+        if (!$auth) {
+            return response()->json(['message' => 'Yetkilendirme başarısız.'], 401);
+        }
+
+        $userId = (int)$request->input('user_id');
+        if (!$this->canAccessUser($auth, $userId)) {
+            return response()->json(['message' => 'Bu kullanıcının verilerine erişim yetkiniz yok.'], 403);
+        }
+
+        $includeItems = $request->boolean('include_items', true);
+
+        $tz = 'Europe/Istanbul';
+        $startMonday = Carbon::parse($request->input('start_date'), $tz)->startOfWeek(Carbon::MONDAY);
+        $endMonday = Carbon::parse($request->input('end_date'), $tz)->startOfWeek(Carbon::MONDAY);
+
+        $user = User::query()
+            ->select('users.id', 'users.name', 'users.email', 'users.role', 'users.leader_id', 'leaders.name as leader_name')
+            ->leftJoin('users as leaders', 'leaders.id', '=', 'users.leader_id')
+            ->where('users.id', $userId)
+            ->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Kullanıcı bulunamadı.'], 404);
+        }
+
+        $currentWeekMonday = Carbon::now($tz)->startOfWeek(Carbon::MONDAY);
+        $effectiveEndMonday = $endMonday->gte($currentWeekMonday)
+            ? $currentWeekMonday->copy()->subWeek()
+            : $endMonday;
+
+        $weeks = collect();
+        $cur = $startMonday->copy();
+        while ($cur->lte($effectiveEndMonday)) {
+            $weeks->push($cur->toDateString());
+            $cur->addWeek();
+        }
+
+        $goals = DB::table('weekly_goals')
+            ->where('user_id', $userId)
+            ->whereIn('week_start', $weeks->all())
+            ->orderBy('week_start')
+            ->get();
+
+        $weeksData = [];
+        $scores = [];
+        foreach ($goals as $goal) {
+            $rawItems = DB::table('weekly_goal_items')
+                ->where('weekly_goal_id', $goal->id)
+                ->orderBy('id')
+                ->get();
+
+            $itemsForSummary = $rawItems->map(fn($i) => (object)[
+                'target_minutes' => (int)($i->target_minutes ?? 0),
+                'actual_minutes' => (int)($i->actual_minutes ?? 0),
+                'weight_percent' => (float)($i->weight_percent ?? 0),
+                'is_unplanned' => (bool)($i->is_unplanned ?? false),
+                'is_completed' => (bool)($i->is_completed ?? false),
+            ]);
+
+            $items = $includeItems
+                ? $rawItems->map(fn($i) => [
+                    'title' => $i->title ?? '',
+                    'target_minutes' => (int)($i->target_minutes ?? 0),
+                    'actual_minutes' => (int)($i->actual_minutes ?? 0),
+                    'is_completed' => (bool)($i->is_completed ?? false),
+                    'is_unplanned' => (bool)($i->is_unplanned ?? false),
+                ])->all()
+                : [];
+            $summary = $this->computeSummary(
+                $itemsForSummary,
+                (int)($goal->leave_minutes ?? 0),
+                (int)($goal->overtime_minutes ?? 0)
+            );
+            $plannedItems = $itemsForSummary->where('is_unplanned', false);
+            $totalActual = (int)$plannedItems->sum('actual_minutes');
+
+            $weeksData[] = [
+                'week_start' => $goal->week_start,
+                'final_score' => $summary['final_score'] ?? 0,
+                'planned_score' => $summary['planned_score'] ?? 0,
+                'unplanned_bonus' => $summary['unplanned_bonus'] ?? 0,
+                'total_target_minutes' => $summary['total_target_minutes'] ?? 0,
+                'total_actual_minutes' => $totalActual,
+                'unplanned_minutes' => $summary['unplanned_minutes'] ?? 0,
+                'approval_status' => $goal->approval_status ?? 'pending',
+                'items' => $items,
+            ];
+            $scores[] = $summary['final_score'] ?? 0;
+        }
+
+        $avgScore = count($scores) > 0 ? array_sum($scores) / count($scores) : 0;
+        $approvedWeeks = array_values(array_filter($weeksData, fn($w) => ($w['approval_status'] ?? '') === 'approved'));
+        $approvedScores = array_map(fn($w) => $w['final_score'] ?? 0, $approvedWeeks);
+        $avgScoreApproved = count($approvedScores) > 0 ? array_sum($approvedScores) / count($approvedScores) : null;
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'leader_name' => $user->leader_name,
+            ],
+            'summary' => [
+                'avg_final_score' => round($avgScore, 2),
+                'avg_final_score_approved' => $avgScoreApproved !== null ? round($avgScoreApproved, 2) : null,
+                'total_weeks' => count($weeksData),
+                'weeks_approved' => count($approvedWeeks),
+                'grade' => $this->getPerformanceGrade((float)$avgScore),
+                'grade_approved' => $avgScoreApproved !== null ? $this->getPerformanceGrade((float)$avgScoreApproved) : null,
+            ],
+            'weeks' => $weeksData,
+        ]);
+    }
+
     public function save(Request $request)
     {
         // Boş liste gönderildiğinde items.* kurallarını atla

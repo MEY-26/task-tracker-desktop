@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { getDepartments } from '../../api';
 
 function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, users = [] }) {
   const theme = currentTheme || {};
@@ -7,13 +8,19 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
   const inputText = theme.text || '#ffffff';
   const inputBorder = theme.border || 'rgba(255,255,255,0.1)';
   const placeholderColor = theme.textSecondary || theme.text || '#9ca3af';
+  const [departments, setDepartments] = useState([]);
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     role: 'team_member',
     leader_id: null,
+    department: null,
   });
+
+  useEffect(() => {
+    getDepartments().then(setDepartments);
+  }, []);
 
   const leaderOptions = useMemo(
     () => (Array.isArray(users) ? users.filter(u => u.role === 'team_leader' || u.role === 'admin') : []),
@@ -36,10 +43,11 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
       const payload = {
         ...form,
         leader_id: form.role === 'team_member' ? (form.leader_id ?? null) : null,
+        department: form.department || null,
       };
       await onCreateUser?.(payload);
       pushToast?.('Kullanıcı eklendi', 'success');
-      setForm({ name: '', email: '', password: '', password_confirmation: '', role: 'team_member', leader_id: null });
+      setForm({ name: '', email: '', password: '', password_confirmation: '', role: 'team_member', leader_id: null, department: null });
     } catch (error) {
       console.error('User registration error:', error);
       const message = error?.response?.data?.message || 'Kullanıcı eklenemedi';
@@ -149,6 +157,21 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
             ))}
           </select>
 
+          {/* Opsiyonel: Departman seçimi */}
+          {departments.length > 0 && (
+            <select
+              className="w-full"
+              value={form.department ?? ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, department: e.target.value || null }))}
+              style={{ ...inputStyle, minHeight: '48px' }}
+            >
+              <option value="" style={{ backgroundColor: inputBg, color: inputText }}>Departman (opsiyonel)</option>
+              {departments.map((d) => (
+                <option key={d} value={d} style={{ backgroundColor: inputBg, color: inputText }}>{d}</option>
+              ))}
+            </select>
+          )}
+
           <button
             type="submit"
             className="w-full px-4 py-3 !text-[20px]"
@@ -172,6 +195,7 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
               <div>• <b>C2:</b> Rol (admin/team_leader/team_member/observer)</div>
               <div>• <b>D2:</b> Şifre (boşsa varsayılan: 123456)</div>
               <div>• <b>E2:</b> Takım Lideri E-posta (opsiyonel)</div>
+              <div>• <b>F2:</b> Departman (opsiyonel: Ar-Ge, Fikstür, Elektronik Montaj, Giriş Kalite)</div>
             </div>
           </div>
           <div className="!text-[18px]" style={{ color: placeholderColor }}>

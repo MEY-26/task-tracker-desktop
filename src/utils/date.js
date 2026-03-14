@@ -77,6 +77,35 @@ export function formatDate(dateLike) {
   }
 }
 
+/** Dönem preset'leri için başlangıç ve bitiş tarihleri (Pazartesi).
+ * İçinde bulunulan hafta hariç tutulur (henüz tamamlanmamış ve değerlendirilmemiş).
+ */
+export function getPeriodRange(preset) {
+  const today = new Date();
+  const currentWeekMonday = getMonday(today);
+  const endMonday = new Date(currentWeekMonday);
+  endMonday.setDate(endMonday.getDate() - 7);
+  const startMonday = new Date(endMonday);
+
+  switch (preset) {
+    case '1m':
+      startMonday.setMonth(startMonday.getMonth() - 1);
+      break;
+    case '3m':
+      startMonday.setMonth(startMonday.getMonth() - 3);
+      break;
+    case '6m':
+      startMonday.setMonth(startMonday.getMonth() - 6);
+      break;
+    case '1y':
+      startMonday.setFullYear(startMonday.getFullYear() - 1);
+      break;
+    default:
+      return { start_date: fmtYMD(endMonday), end_date: fmtYMD(endMonday) };
+  }
+  return { start_date: fmtYMD(startMonday), end_date: fmtYMD(endMonday) };
+}
+
 export function formatDateOnly(dateLike) {
   if (!dateLike) return '-';
   const d = dateLike instanceof Date ? dateLike : new Date(dateLike);

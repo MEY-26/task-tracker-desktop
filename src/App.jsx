@@ -24,6 +24,7 @@ import { AppFooter } from './components/layout/AppFooter';
 import { TaskSettingsModal } from './components/modals/TaskSettingsModal';
 import { LeaveRequestModal } from './components/modals/LeaveRequestModal';
 import { UpdatesModal } from './components/modals/UpdatesModal';
+import { PerformanceDetailModal } from './components/modals/PerformanceDetailModal';
 import { useAuth } from './contexts/AuthContext';
 import { useNotification } from './contexts/NotificationContext';
 import { useTheme } from './contexts/ThemeContext';
@@ -37,6 +38,7 @@ import { getMonday, fmtYMD, formatDate, formatDateOnly } from './utils/date.js';
 import { getPriorityText, getTaskTypeText, getTaskTypeColor, getStatusText, getStatusColor, resolveUserName, renderHistoryValue, renderFieldLabel, getRoleText } from './utils/performance.js';
 import { buildTasksSignature, buildTaskSignatureOne } from './utils/tasks.js';
 import { applyTeamLeaderAssignments } from './utils/teamAssignments.js';
+import { exportOverviewToExcel, exportUserDetailToExcel } from './utils/excelExport.js';
 
 
 const WEEKLY_BASE_MINUTES = 2700;
@@ -103,7 +105,9 @@ function App() {
   const [taskHistories, setTaskHistories] = useState({});
   const [showWeeklyGoals, setShowWeeklyGoals] = useState(false);
   const weeklyOverviewHook = useWeeklyOverview();
-  const { showWeeklyOverview, setShowWeeklyOverview, weeklyOverview, setWeeklyOverview, weeklyOverviewLoading, setWeeklyOverviewLoading, weeklyOverviewError, setWeeklyOverviewError, weeklyOverviewWeekStart, setWeeklyOverviewWeekStart, loadWeeklyOverview } = weeklyOverviewHook;
+  const { showWeeklyOverview, setShowWeeklyOverview, weeklyOverview, setWeeklyOverview, weeklyOverviewLoading, setWeeklyOverviewLoading, weeklyOverviewError, setWeeklyOverviewError, weeklyOverviewWeekStart, setWeeklyOverviewWeekStart, loadWeeklyOverview, multiWeekOverview, multiWeekOverviewLoading, multiWeekOverviewError, multiWeekFilters, setMultiWeekFilters, loadMultiWeekOverview } = weeklyOverviewHook;
+  const [showPerformanceDetailModal, setShowPerformanceDetailModal] = useState(false);
+  const [performanceDetailParams, setPerformanceDetailParams] = useState({ userId: null, startDate: '', endDate: '' });
   const [showGoalDescription, setShowGoalDescription] = useState(false);
   const [selectedGoalIndex, setSelectedGoalIndex] = useState(null);
   const [showTeamModal, setShowTeamModal] = useState(false);
@@ -1405,14 +1409,39 @@ function App() {
             saveWeeklyGoals={saveWeeklyGoals}
             user={user}
           />
+          <PerformanceDetailModal
+            open={showPerformanceDetailModal}
+            onClose={() => { setShowPerformanceDetailModal(false); setPerformanceDetailParams({ userId: null, startDate: '', endDate: '' }); }}
+            userId={performanceDetailParams.userId}
+            startDate={performanceDetailParams.startDate}
+            endDate={performanceDetailParams.endDate}
+            currentTheme={currentTheme}
+            onExportExcel={async (type, data) => {
+              try {
+                await exportUserDetailToExcel(data);
+                addNotification('Excel dosyası indirildi', 'success');
+              } catch (err) {
+                console.error('Excel export error:', err);
+                addNotification('Excel dosyası oluşturulamadı', 'error');
+              }
+            }}
+          />
           <div style={{ backgroundColor: currentTheme.background }}>
             {showWeeklyOverview ? (
               <WeeklyOverviewView
                 user={user}
+                users={users}
                 weeklyOverview={weeklyOverview}
                 weeklyOverviewLoading={weeklyOverviewLoading}
                 weeklyOverviewError={weeklyOverviewError}
                 effectiveWeeklyOverviewWeekStart={effectiveWeeklyOverviewWeekStart}
+                multiWeekOverview={multiWeekOverview}
+                multiWeekOverviewLoading={multiWeekOverviewLoading}
+                multiWeekOverviewError={multiWeekOverviewError}
+                multiWeekFilters={multiWeekFilters}
+                setMultiWeekFilters={setMultiWeekFilters}
+                loadWeeklyOverview={loadWeeklyOverview}
+                loadMultiWeekOverview={loadMultiWeekOverview}
                 onClose={() => {
                   setShowWeeklyOverview(false);
                   setWeeklyOverviewError(null);
@@ -1421,6 +1450,20 @@ function App() {
                 onOpenWeeklyGoals={(targetWeek, userId) => {
                   setShowWeeklyGoals(true);
                   loadWeeklyGoals(targetWeek, userId);
+                }}
+                onOpenPerformanceDetail={(userId, startDate, endDate) => {
+                  setPerformanceDetailParams({ userId, startDate, endDate });
+                  setShowPerformanceDetailModal(true);
+                }}
+                onExportExcel={async (type, data) => {
+                  try {
+                    if (type === 'overview') await exportOverviewToExcel(data);
+                    else if (type === 'detail') await exportUserDetailToExcel(data);
+                    addNotification('Excel dosyası indirildi', 'success');
+                  } catch (err) {
+                    console.error('Excel export error:', err);
+                    addNotification('Excel dosyası oluşturulamadı', 'error');
+                  }
                 }}
               />
             ) : (

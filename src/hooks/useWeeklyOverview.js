@@ -9,6 +9,15 @@ export function useWeeklyOverview() {
   const [weeklyOverviewError, setWeeklyOverviewError] = useState(null);
   const [weeklyOverviewWeekStart, setWeeklyOverviewWeekStart] = useState('');
 
+  const [multiWeekOverview, setMultiWeekOverview] = useState({ start_date: '', end_date: '', weeks_count: 0, items: [] });
+  const [multiWeekOverviewLoading, setMultiWeekOverviewLoading] = useState(false);
+  const [multiWeekOverviewError, setMultiWeekOverviewError] = useState(null);
+  const [multiWeekFilters, setMultiWeekFilters] = useState({
+    roles: ['admin', 'team_leader', 'team_member'],
+    departments: [],
+    exclude_user_ids: []
+  });
+
   const loadWeeklyOverview = useCallback(async (weekStart = null) => {
     const defaultWeekStart = fmtYMD(getMonday());
     const ws = weekStart || weeklyOverviewWeekStart || defaultWeekStart;
@@ -30,6 +39,27 @@ export function useWeeklyOverview() {
     }
   }, [weeklyOverviewWeekStart]);
 
+  const loadMultiWeekOverview = useCallback(async (params) => {
+    try {
+      setMultiWeekOverviewLoading(true);
+      setMultiWeekOverviewError(null);
+
+      const res = await WeeklyGoals.multiWeekLeaderboard(params);
+      setMultiWeekOverview({
+        start_date: res?.start_date || '',
+        end_date: res?.end_date || '',
+        weeks_count: res?.weeks_count || 0,
+        items: Array.isArray(res?.items) ? res.items : []
+      });
+    } catch (err) {
+      console.error('Multi-week overview load error:', err);
+      setMultiWeekOverviewError(err.response?.data?.message || 'Çok dönemli rapor yüklenemedi');
+      setMultiWeekOverview({ start_date: '', end_date: '', weeks_count: 0, items: [] });
+    } finally {
+      setMultiWeekOverviewLoading(false);
+    }
+  }, []);
+
   const setWeeklyOverviewErrorState = setWeeklyOverviewError;
 
   return {
@@ -43,6 +73,13 @@ export function useWeeklyOverview() {
     setWeeklyOverviewError: setWeeklyOverviewErrorState,
     weeklyOverviewWeekStart,
     setWeeklyOverviewWeekStart,
-    loadWeeklyOverview
+    loadWeeklyOverview,
+    multiWeekOverview,
+    setMultiWeekOverview,
+    multiWeekOverviewLoading,
+    multiWeekOverviewError,
+    multiWeekFilters,
+    setMultiWeekFilters,
+    loadMultiWeekOverview
   };
 }

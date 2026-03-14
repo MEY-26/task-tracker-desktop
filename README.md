@@ -589,7 +589,15 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v3.0.0 - Büyük Mimari Güncelleme, Onay Sistemi ve İzin Yönetimi (Son Güncelleme)
+### v3.0.1 - Departman Filtreleme ve Kullanıcı Paneli İyileştirmeleri (Son Güncelleme)
+- ✅ **Departman Yönetimi**: Kullanıcı oluşturma/güncelleme ve toplu import akışına departman desteği
+- ✅ **Departman Bazlı Rapor Filtreleme**: Çok dönemli liderlik tablosunda departmana göre filtreleme ve görünüm
+- ✅ **Kullanıcı Paneli Toplu İşlem Barı**: İki satırlı bar ile Lider/Departman/Rol toplu uygulama akışı
+- ✅ **Sadeleştirilmiş Kullanıcı Satırları**: Kartlarda yalnızca ad-soyad, e-posta ve şifre sıfırlama butonu
+- ✅ **Admin Seçim Desteği**: Admin kullanıcılar seçilebilir, admin hedefinde lider ataması engellenir
+- ✅ **Tekli Seçimde Otomatik Doldurma**: Seçili kullanıcının lider/departman/rol bilgileri üst combobox'lara otomatik gelir
+
+### v3.0.0 - Büyük Mimari Güncelleme, Onay Sistemi ve İzin Yönetimi
 - ✅ **Haftalık Hedef Onay Sistemi**: Takım üyelerinin hedefleri lider/admin onayı ile kesinleşir
 - ✅ **İzin Bildirimi Sistemi**: Takvim seçimli izin bildirimi modalı, otomatik hedef entegrasyonu
 - ✅ **Kullanıcı Yönetimi Paneli**: Toplu lider atama, toplu silme, özel düzenleme izni

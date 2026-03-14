@@ -14,6 +14,7 @@ use App\Http\Controllers\LeaveRequestController;
 use App\Http\Controllers\WeeklyGoalEditGrantController;
 use App\Http\Controllers\TaskTypeController;
 use App\Http\Controllers\TaskStatusController;
+use App\Http\Controllers\DepartmentController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -62,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
     Route::get('/team-members', [UserController::class, 'teamMembers']);
+    Route::get('/departments', [DepartmentController::class, 'index']);
     
     // Theme preferences
     Route::get('/theme', [UserController::class, 'getTheme']);
@@ -69,6 +71,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Weekly Goals
     Route::get('/weekly-goals/leaderboard', [WeeklyGoalController::class, 'leaderboard']);
+    Route::get('/weekly-goals/multi-week-leaderboard', [WeeklyGoalController::class, 'multiWeekLeaderboard']);
+    Route::get('/weekly-goals/user-detail', [WeeklyGoalController::class, 'userDetail']);
     Route::get('/weekly-goals', [WeeklyGoalController::class, 'get']);
     Route::post('/weekly-goals', [WeeklyGoalController::class, 'save']);
     Route::post('/weekly-goals/approve', [WeeklyGoalController::class, 'approve']);

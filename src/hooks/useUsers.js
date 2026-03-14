@@ -70,6 +70,7 @@ export function useUsers(options = {}) {
             const role = row[2];
             const password = row[3];
             const leaderEmail = row[4];
+            const department = row[5];
             const roleStr = (role ?? '').toString().trim().toLowerCase();
             const validatedRole = validRoles.includes(roleStr) ? roleStr : 'team_member';
             return {
@@ -78,6 +79,7 @@ export function useUsers(options = {}) {
               role: validatedRole,
               password: (password ?? '').toString().trim() || '123456',
               leaderEmail: (leaderEmail ?? '').toString().trim(),
+              department: (department ?? '').toString().trim() || null,
               rowIndex: index + 2,
             };
           }).filter(u => u.name && u.email);
@@ -117,7 +119,8 @@ export function useUsers(options = {}) {
             password: userData.password,
             password_confirmation: userData.password,
             role: userData.role,
-            leader_id: null
+            leader_id: null,
+            department: userData.department || null
           });
           if (result && result.user && result.user.id) {
             processedUsers.set(userData.email.toLowerCase(), result.user.id);
@@ -157,7 +160,8 @@ export function useUsers(options = {}) {
             password: userData.password,
             password_confirmation: userData.password,
             role: userData.role,
-            leader_id: leaderId
+            leader_id: leaderId,
+            department: userData.department || null
           });
           if (result && result.user && result.user.id) {
             processedUsers.set(userData.email.toLowerCase(), result.user.id);

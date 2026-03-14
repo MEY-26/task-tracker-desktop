@@ -94,6 +94,24 @@ Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uyg
 - `weekly_goal_edit_grants` tablosu eklendi
 - `weekly_goals` tablosuna approval_status, approved_by, approved_at, approval_note sütunları eklendi
 
+## [3.0.1] - 2026-03-14
+
+### Added
+- Departman tabanlı kullanıcı yönetimi: kullanıcı oluşturma, güncelleme ve toplu import akışlarına departman desteği
+- `GET /departments` endpoint'i ve departman config yapısı
+- Çok dönemli haftalık rapora departman filtresi ve departman sütunu eklendi
+- Kullanıcı yönetim paneline iki satırlı toplu işlem barı (lider/departman/rol + eylem butonları)
+
+### Changed
+- Filtreleme alanında isim arama + ekle akışı kaldırıldı, departman seçimi combobox olarak sadeleştirildi
+- Kullanıcı satırlarından lider/rol/departman alanları kaldırılarak kart görünümü sadeleştirildi
+- Admin kullanıcılar seçim kapsamına alındı (observer hariç)
+
+### Fixed
+- Kullanıcı yönetim panelinde departman sonrası oluşan hizalama ve taşma problemleri giderildi
+- Tek kullanıcı seçildiğinde üst bardaki lider/departman/rol alanlarının otomatik doldurulması eklendi
+- Sadece admin kullanıcılar seçiliyken lider ataması yapılmaması, diğer toplu değişikliklerin uygulanması sağlandı
+
 ## [1.0.0] - 2024-01-XX
 
 ### Added

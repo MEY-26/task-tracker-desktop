@@ -1,3 +1,34 @@
+## v3.0.1 – 14.03.2026
+
+### Yeni Özellikler
+
+**Departman Tabanlı Filtreleme Sistemi**
+- Kullanıcılara departman atama özelliği eklendi (Ar-Ge, Fikstür, Elektronik Montaj, Giriş Kalite)
+- Çok dönemli haftalık hedef filtrelerine departman filtresi eklendi
+- Multi-week tabloda departman bilgisi gösterimi eklendi
+
+**Kullanıcı Yönetimi Toplu İşlem Barı**
+- Kullanıcı yönetim paneli iki satırlı toplu işlem barı ile yeniden düzenlendi
+- Lider, Departman ve Rol seçimleri tek noktadan toplu uygulanabilir hale getirildi
+- "Tümünü Seç" aksiyonu ile observer hariç toplu seçim desteği eklendi
+
+### Değişiklikler
+
+**Weekly Overview Filtre Akışı Sadeleştirildi**
+- İsim arama + "Ekle" tabanlı dahil etme akışı kaldırıldı
+- Departman seçimi checkbox yerine combobox olarak güncellendi
+
+**Kullanıcı Satır Görünümü Sadeleştirildi**
+- Kullanıcı satırlarından lider/rol/departman dropdown alanları kaldırıldı
+- Satırda sadece seçim kutusu, ad-soyad, e-posta ve şifre sıfırlama butonu bırakıldı
+
+### Düzeltmeler
+- Kullanıcı yönetim panelindeki sütun kaymaları ve taşmalar giderildi
+- Admin kullanıcılar seçilebilir hale getirildi; sadece admin hedefinde lider ataması atlanır, diğer güncellemeler uygulanır
+- Tek kullanıcı seçildiğinde üst bardaki Lider/Departman/Rol combobox’ları otomatik doldurulur
+
+---
+
 ## v3.0.0 – 11.03.2026
 
 ### Yeni Özellikler

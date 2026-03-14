@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { PasswordReset } from '../../api';
+import { PasswordReset, getDepartments } from '../../api';
 import { EditGrantModal } from '../modals/EditGrantModal';
 
 function UserPanel({
@@ -26,7 +26,103 @@ function UserPanel({
   passwordResetRequests = []
 }) {
   const [showEditGrantModal, setShowEditGrantModal] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [bulkDepartment, setBulkDepartment] = useState('');
+  const [bulkRole, setBulkRole] = useState('');
   const CreateUserForm = AdminCreateUser;
+
+  const selectableUsers = Array.isArray(users)
+    ? users.filter((u) => u.role !== 'observer')
+    : [];
+  const selectedTargetUsers = selectedUsers.filter((id) => {
+    const matched = users?.find((x) => x.id === id);
+    return matched && matched.role !== 'observer';
+  });
+  const canApplyBulk = selectedTargetUsers.length > 0 && !!(bulkLeaderId || bulkDepartment || bulkRole);
+
+  useEffect(() => {
+    if (open) {
+      getDepartments().then(setDepartments);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (selectedTargetUsers.length === 1) {
+      const single = users?.find((u) => u.id === selectedTargetUsers[0]);
+      if (single) {
+        setBulkRole(single.role || '');
+        setBulkDepartment(single.department ? single.department : 'remove');
+        if (single.role === 'team_member') {
+          setBulkLeaderId(single.leader_id ? String(single.leader_id) : 'remove');
+        } else {
+          setBulkLeaderId('');
+        }
+      }
+    }
+  }, [open, selectedTargetUsers, users, setBulkLeaderId]);
+
+  const handleApplyBulk = async () => {
+    if (!canApplyBulk) return;
+
+    const toUpdate = selectedTargetUsers;
+    if (toUpdate.length === 0) return;
+
+    try {
+      setLoading(true);
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userId of toUpdate) {
+        const currentUser = users?.find((x) => x.id === userId);
+        if (!currentUser) continue;
+
+        const payload = {};
+        const targetRole = bulkRole || currentUser.role;
+
+        if (bulkRole) payload.role = bulkRole;
+        if (bulkDepartment === 'remove') {
+          payload.department = null;
+        } else if (bulkDepartment) {
+          payload.department = bulkDepartment;
+        }
+
+        if (bulkLeaderId) {
+          if (targetRole === 'team_member') {
+            payload.leader_id = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId, 10);
+          }
+        }
+
+        if (Object.keys(payload).length === 0) continue;
+
+        try {
+          await updateUserAdmin(userId, payload);
+          successCount++;
+        } catch (err) {
+          console.error(`User ${userId} update error:`, err);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        addNotification(`${successCount} kullanıcı güncellendi`, 'success');
+        await loadUsers();
+      }
+      if (errorCount > 0) {
+        addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
+      }
+
+      setSelectedUsers([]);
+      setBulkLeaderId('');
+      setBulkDepartment('');
+      setBulkRole('');
+    } catch (err) {
+      console.error('Bulk update error:', err);
+      addNotification('Toplu güncelleme başarısız', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -120,115 +216,94 @@ function UserPanel({
                 />
               </div>
               <div className="text-[16px] font-semibold mb-4">
-                <div className="flex items-center justify-evenly gap-6 flex-wrap border rounded-[20px] w-full max-w-full" style={{ marginBottom: '10px', paddingTop: '10px', paddingBottom: '10px', paddingLeft: '16px', paddingRight: '16px', backgroundColor: currentTheme.accent + '20', borderColor: currentTheme.border, boxSizing: 'border-box' }}>
-                  <div className="flex items-center gap-3">
-                  <select
-                    value={bulkLeaderId}
-                    onChange={(e) => setBulkLeaderId(e.target.value)}
-                    style={{
-                      paddingLeft: '5px',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
-                      color: currentTheme.text,
-                      borderColor: currentTheme.border,
-                      borderWidth: '1px',
-                      borderStyle: 'solid'
-                    }}
-                    className="rounded !py-2 !text-[16px] focus:outline-none !h-[35px] !max-w-[220px] !w-[220px] truncate"
-                    onFocus={(e) => {
-                      e.target.style.borderColor = currentTheme.accent;
-                      e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = currentTheme.border;
-                      e.target.style.boxShadow = 'none';
-                    }}
-                    title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçin'}
-                  >
-                    <option value="">Lider Seçin</option>
-                    <option value="remove">Lideri Kaldır</option>
-                    {Array.isArray(users) && users
-                      .filter(u => u.role === 'team_leader' || u.role === 'admin')
-                      .map(leader => (
-                        <option key={`bulk-${leader.id}`} value={leader.id} title={`${leader.name} (${getRoleText(leader.role)})`}>
-                          {leader.name} ({getRoleText(leader.role)})
-                        </option>
+                <div className="border rounded-[20px] w-full max-w-full" style={{ marginBottom: '10px', padding: '12px 16px', backgroundColor: currentTheme.accent + '20', borderColor: currentTheme.border, boxSizing: 'border-box' }}>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <select
+                      value={bulkLeaderId}
+                      onChange={(e) => setBulkLeaderId(e.target.value)}
+                      style={{
+                        paddingLeft: '5px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                        color: currentTheme.text,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}
+                      className="rounded !py-2 !text-[16px] focus:outline-none !h-[35px] !max-w-[220px] !w-[220px] truncate"
+                      title={bulkLeaderId && bulkLeaderId !== 'remove' ? users.find(u => u.id == bulkLeaderId)?.name + ' (' + getRoleText(users.find(u => u.id == bulkLeaderId)?.role) + ')' : bulkLeaderId === 'remove' ? 'Lideri Kaldır' : 'Lider Seçimi'}
+                    >
+                      <option value="">Lider Seçimi</option>
+                      <option value="remove">Lideri Kaldır</option>
+                      {Array.isArray(users) && users
+                        .filter(u => u.role === 'team_leader' || u.role === 'admin')
+                        .map(leader => (
+                          <option key={`bulk-${leader.id}`} value={leader.id} title={`${leader.name} (${getRoleText(leader.role)})`}>
+                            {leader.name} ({getRoleText(leader.role)})
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      value={bulkDepartment}
+                      onChange={(e) => setBulkDepartment(e.target.value)}
+                      style={{
+                        paddingLeft: '5px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                        color: currentTheme.text,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}
+                      className="rounded !py-2 !text-[16px] focus:outline-none !h-[35px] !max-w-[220px] !w-[220px] truncate"
+                    >
+                      <option value="">Departman Seçimi</option>
+                      <option value="remove">Departman Yok</option>
+                      {departments.map((dep) => (
+                        <option key={`bulk-dep-${dep}`} value={dep}>{dep}</option>
                       ))}
-                  </select>
-                  <button
-                    onClick={async () => {
-                      if (!bulkLeaderId) return;
-                      const toUpdate = selectedUsers.filter(id => (users?.find(x => x.id === id))?.role === 'team_member');
-                      if (toUpdate.length === 0) return;
-                      const leaderId = bulkLeaderId === 'remove' ? null : parseInt(bulkLeaderId);
-                      const leaderName = bulkLeaderId === 'remove' ? 'Lideri Kaldır' :
-                        users.find(u => u.id === leaderId)?.name || 'Bilinmeyen';
-                      if (!confirm(`${toUpdate.length} takım üyesine "${leaderName}" lider olarak atanacak. Devam etmek istiyor musunuz?`)) {
-                        return;
-                      }
-                      try {
-                        setLoading(true);
-                        let successCount = 0;
-                        let errorCount = 0;
-
-                        for (const userId of toUpdate) {
-                          try {
-                            await updateUserAdmin(userId, { leader_id: leaderId });
-                            successCount++;
-                          } catch (err) {
-                            console.error(`User ${userId} update error:`, err);
-                            errorCount++;
-                          }
-                        }
-
-                        if (successCount > 0) {
-                          addNotification(`${successCount} kullanıcı güncellendi`, 'success');
-                          await loadUsers();
-                        }
-                        if (errorCount > 0) {
-                          addNotification(`${errorCount} kullanıcı güncellenemedi`, 'error');
-                        }
-
-                        setSelectedUsers([]);
-                        setBulkLeaderId('');
-                      } catch (err) {
-                        console.error('Bulk update error:', err);
-                        addNotification('Toplu güncelleme başarısız', 'error');
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={!bulkLeaderId || selectedUsers.filter(id => (users?.find(x => x.id === id))?.role === 'team_member').length === 0}
-                    className="px-3 py-2 rounded text-sm transition-colors"
-                    style={{
-                      backgroundColor: (!bulkLeaderId || selectedUsers.filter(id => (users?.find(x => x.id === id))?.role === 'team_member').length === 0) ? currentTheme.border : currentTheme.accent,
-                      color: '#ffffff',
-                      cursor: (!bulkLeaderId || selectedUsers.filter(id => (users?.find(x => x.id === id))?.role === 'team_member').length === 0) ? 'not-allowed' : 'pointer',
-                      opacity: (!bulkLeaderId || selectedUsers.filter(id => (users?.find(x => x.id === id))?.role === 'team_member').length === 0) ? '0.6' : '1'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (bulkLeaderId && selectedUsers.filter(id => (users?.find(x => x.id === id))?.role === 'team_member').length > 0) {
-                        const hex = currentTheme.accent.replace('#', '');
-                        const r = parseInt(hex.substr(0, 2), 16);
-                        const g = parseInt(hex.substr(2, 2), 16);
-                        const b = parseInt(hex.substr(4, 2), 16);
-                        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-                        e.target.style.backgroundColor = brightness > 128
-                          ? `rgba(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)}, 1)`
-                          : `rgba(${Math.min(255, r + 20)}, ${Math.min(255, g + 20)}, ${Math.min(255, b + 20)}, 1)`;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = (!bulkLeaderId || selectedUsers.filter(id => (users?.find(x => x.id === id))?.role === 'team_member').length === 0) ? currentTheme.border : currentTheme.accent;
-                    }}
-                  >
-                    Uygula
-                  </button>
+                    </select>
+                    <select
+                      value={bulkRole}
+                      onChange={(e) => setBulkRole(e.target.value)}
+                      style={{
+                        paddingLeft: '5px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                        color: currentTheme.text,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid'
+                      }}
+                      className="rounded !py-2 !text-[16px] focus:outline-none !h-[35px] !max-w-[180px] !w-[180px] truncate"
+                    >
+                      <option value="">Rol Seçimi</option>
+                      <option value="admin">Yönetici</option>
+                      <option value="team_leader">Takım Lideri</option>
+                      <option value="team_member">Takım Üyesi</option>
+                      <option value="observer">Gözlemci</option>
+                    </select>
+                    <button
+                      onClick={handleApplyBulk}
+                      disabled={!canApplyBulk}
+                      className="px-3 py-2 rounded text-sm transition-colors"
+                      style={{
+                        backgroundColor: canApplyBulk ? currentTheme.accent : currentTheme.border,
+                        color: '#ffffff',
+                        cursor: canApplyBulk ? 'pointer' : 'not-allowed',
+                        opacity: canApplyBulk ? '1' : '0.6'
+                      }}
+                    >
+                      Uygula
+                    </button>
                   </div>
-                  <div style={{ width: '1px', height: '28px', backgroundColor: currentTheme.border, flexShrink: 0 }} aria-hidden="true" />
-                  <div className="flex items-center gap-6 flex-wrap">
+                  <div className="flex items-center gap-6 flex-wrap mt-3">
                   {user?.role === 'admin' && (
                     <button
                       onClick={async () => {
@@ -276,7 +351,7 @@ function UserPanel({
                       }}
                       title="Seçili kullanıcıları sil (admin silinemez)"
                     >
-                      Kullanıcıları Sil
+                      Seçili Kullanıcıları Sil
                     </button>
                   )}
                   {user?.role === 'admin' && (
@@ -298,11 +373,28 @@ function UserPanel({
                       }}
                       title={selectedUsers.length > 0 ? 'Seçili kullanıcılara haftalık hedef düzenleme izni ver' : 'Önce kullanıcı seçin'}
                     >
-                      Özel Düzenleme İzni Ver
+                      Seçili Kullanıcılara Özel İzin Ver
                     </button>
                   )}
                   <button
-                    onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); }}
+                    onClick={() => {
+                      const allSelectableIds = selectableUsers.map((u) => u.id);
+                      const isAllSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedUsers.includes(id));
+                      setSelectedUsers(isAllSelected ? [] : allSelectableIds);
+                    }}
+                    className="px-3 py-2 rounded text-sm transition-colors"
+                    style={{
+                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                      color: currentTheme.text,
+                      borderColor: currentTheme.border,
+                      borderWidth: '1px',
+                      borderStyle: 'solid'
+                    }}
+                  >
+                    Tümünü Seç
+                  </button>
+                  <button
+                    onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); setBulkDepartment(''); setBulkRole(''); }}
                     className="px-3 py-2 rounded text-sm transition-colors"
                     style={{
                       backgroundColor: currentTheme.border,
@@ -333,8 +425,7 @@ function UserPanel({
                         const searchTerm = userSearchTerm.toLowerCase();
                         const matchesSearch = (
                           u.name?.toLowerCase().includes(searchTerm) ||
-                          u.email?.toLowerCase().includes(searchTerm) ||
-                          getRoleText(u.role)?.toLowerCase().includes(searchTerm)
+                          u.email?.toLowerCase().includes(searchTerm)
                         );
                         if (!matchesSearch) return false;
                       }
@@ -364,7 +455,7 @@ function UserPanel({
                               <input
                                 type="checkbox"
                                 checked={selectedUsers.includes(u.id)}
-                                disabled={u.role === 'admin' || u.role === 'observer'}
+                                disabled={u.role === 'observer'}
                                 onChange={(e) => {
                                   if (e.target.checked) {
                                     setSelectedUsers(prev => [...prev, u.id]);
@@ -372,7 +463,7 @@ function UserPanel({
                                     setSelectedUsers(prev => prev.filter(id => id !== u.id));
                                   }
                                 }}
-                                className={`w-4 h-4 rounded focus:ring-blue-500 ${u.role === 'admin' || u.role === 'observer'
+                                className={`w-4 h-4 rounded focus:ring-blue-500 ${u.role === 'observer'
                                   ? 'opacity-50 cursor-not-allowed'
                                   : 'cursor-pointer'
                                   }`}
@@ -391,54 +482,6 @@ function UserPanel({
                               </div>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
-                              {(u.role === 'team_member') && (
-                                <select
-                                  className="!text-[16px] rounded px-3 py-2 focus:outline-none !max-w-[200px] !w-[200px] truncate transition-colors"
-                                  value={u.leader_id || ''}
-                                  onChange={async (e) => {
-                                    const val = e.target.value ? parseInt(e.target.value) : null;
-                                    try {
-                                      await updateUserAdmin(u.id, { leader_id: val });
-                                      addNotification('Lider ataması güncellendi', 'success');
-                                      await loadUsers();
-                                    } catch (err) {
-                                      console.error('Leader assign error:', err);
-                                      addNotification(err?.response?.data?.message || 'Lider atanamadı', 'error');
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '5px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
-                                    color: currentTheme.text,
-                                    borderColor: currentTheme.border,
-                                    borderWidth: '1px',
-                                    borderStyle: 'solid'
-                                  }}
-                                  onFocus={(e) => {
-                                    e.target.style.borderColor = currentTheme.accent;
-                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
-                                  }}
-                                  onBlur={(e) => {
-                                    e.target.style.borderColor = currentTheme.border;
-                                    e.target.style.boxShadow = 'none';
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.backgroundColor = currentTheme.accent + '20';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.backgroundColor = currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background;
-                                  }}
-                                  title={u.leader_id ? users.find(x => x.id === u.leader_id)?.name + ' (' + getRoleText(users.find(x => x.id === u.leader_id)?.role) + ')' : 'Lider Yok'}
-                                >
-                                  <option value="">Lider Yok</option>
-                                  {Array.isArray(users) && users.filter(x => x.role === 'team_leader' || x.role === 'admin').map(l => (
-                                    <option key={`ldr-${l.id}`} value={l.id} title={`${l.name} (${getRoleText(l.role)})`}>{l.name} ({getRoleText(l.role)})</option>
-                                  ))}
-                                </select>
-                              )}
                               <button
                                 onClick={async () => {
                                   if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
@@ -480,45 +523,6 @@ function UserPanel({
                               >
                                 ↺
                               </button>
-                              <div className="flex items-center gap-2">
-                                <select
-                                  className="text-[16px] rounded px-3 py-2 focus:outline-none !max-w-[120px] !w-[120px] transition-colors"
-                                  value={u.role}
-                                  onChange={async (e) => { try { await updateUserAdmin(u.id, { role: e.target.value }); addNotification('Rol güncellendi', 'success'); await loadUsers(); } catch { addNotification('Güncellenemedi', 'error'); } }}
-                                  style={{
-                                    padding: '5px',
-                                    marginLeft: '10px',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
-                                    color: currentTheme.text,
-                                    borderColor: currentTheme.border,
-                                    borderWidth: '1px',
-                                    borderStyle: 'solid'
-                                  }}
-                                  onFocus={(e) => {
-                                    e.target.style.borderColor = currentTheme.accent;
-                                    e.target.style.boxShadow = `0 0 0 2px ${currentTheme.accent}40`;
-                                  }}
-                                  onBlur={(e) => {
-                                    e.target.style.borderColor = currentTheme.border;
-                                    e.target.style.boxShadow = 'none';
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.target.style.backgroundColor = currentTheme.accent + '20';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.target.style.backgroundColor = currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background;
-                                  }}
-                                  title={getRoleText(u.role)}
-                                >
-                                  <option value="admin">Yönetici</option>
-                                  <option value="team_leader">Takım Lideri</option>
-                                  <option value="team_member">Takım Üyesi</option>
-                                  <option value="observer">Gözlemci</option>
-                                </select>
-                              </div>
                             </div>
                           </div>
                         </div>
@@ -531,8 +535,7 @@ function UserPanel({
                       const searchTerm = userSearchTerm.toLowerCase();
                       const matchesSearch = (
                         u.name?.toLowerCase().includes(searchTerm) ||
-                        u.email?.toLowerCase().includes(searchTerm) ||
-                        getRoleText(u.role)?.toLowerCase().includes(searchTerm)
+                        u.email?.toLowerCase().includes(searchTerm)
                       );
                       if (!matchesSearch) return false;
                     }

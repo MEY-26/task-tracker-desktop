@@ -12,12 +12,16 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        $departments = config('departments', []);
+        $departmentRule = empty($departments) ? 'nullable|string|max:100' : 'nullable|string|max:100|in:' . implode(',', $departments);
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:4|confirmed',
             'role' => 'required|in:admin,team_leader,team_member,observer',
             'leader_id' => 'nullable|exists:users,id',
+            'department' => $departmentRule,
         ]);
 
         $userData = [
@@ -30,6 +34,11 @@ class AuthController extends Controller
         // leader_id varsa ekle
         if ($request->has('leader_id') && $request->leader_id !== null) {
             $userData['leader_id'] = $request->leader_id;
+        }
+
+        // department varsa ekle
+        if ($request->has('department') && $request->department !== null && $request->department !== '') {
+            $userData['department'] = $request->department;
         }
 
         $user = User::create($userData);

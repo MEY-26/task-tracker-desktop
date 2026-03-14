@@ -192,7 +192,7 @@ export async function changePassword(currentPassword, newPassword) {
 
 // Email-based password reset flow removed. Use PasswordReset.requestReset + admin action.
 
-export async function registerUser({ name, email, password, password_confirmation, role, leader_id }) {
+export async function registerUser({ name, email, password, password_confirmation, role, leader_id, department }) {
   try {
     const requestData = {
       name,
@@ -201,17 +201,32 @@ export async function registerUser({ name, email, password, password_confirmatio
       password_confirmation,
       role,
     };
-    
+
     // leader_id varsa ekle
     if (leader_id !== null && leader_id !== undefined) {
       requestData.leader_id = leader_id;
     }
-    
+
+    // department varsa ekle
+    if (department !== null && department !== undefined && department !== '') {
+      requestData.department = department;
+    }
+
     const response = await api.post('/register', requestData);
     return response.data;
   } catch (error) {
     console.error('Register user error:', error.response?.data || error.message);
     throw error;
+  }
+}
+
+export async function getDepartments() {
+  try {
+    const response = await api.get('/departments');
+    return response.data?.departments ?? [];
+  } catch (error) {
+    console.error('Get departments error:', error.response?.data || error.message);
+    return [];
   }
 }
 
@@ -615,6 +630,24 @@ export const WeeklyGoals = {
       return response.data;
     } catch (error) {
       console.error('Weekly goals leaderboard error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  multiWeekLeaderboard: async (params = {}) => {
+    try {
+      const response = await api.get('/weekly-goals/multi-week-leaderboard', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Weekly goals multi-week leaderboard error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  userDetail: async (params = {}) => {
+    try {
+      const response = await api.get('/weekly-goals/user-detail', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Weekly goals user detail error:', error.response?.data || error.message);
       throw error;
     }
   },
