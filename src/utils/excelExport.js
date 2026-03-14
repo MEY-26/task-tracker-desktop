@@ -123,7 +123,7 @@ export async function exportUserDetailToExcel(userData) {
 
   weeks.forEach((week, weekIdx) => {
     if (!Array.isArray(week.items) || week.items.length === 0) return;
-    const safeName = (week.week_start || `Hafta${weekIdx + 1}`).replace(/[\/\\?*:]/g, '-');
+    const safeName = (week.week_start || `Hafta${weekIdx + 1}`).replace(/[/\\?*:]/g, '-');
     const sheet = workbook.addWorksheet(safeName.substring(0, 31), { headerFooter: { firstHeader: week.week_start } });
     sheet.addRow(['Görev', 'Hedef (dk)', 'Gerçekleşme (dk)', 'Tamamlandı', 'Plandışı']);
     sheet.getRow(1).font = { bold: true };
@@ -143,6 +143,6 @@ export async function exportUserDetailToExcel(userData) {
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const safeName = (user?.name || 'kullanici').replace(/[\/\\?*:]/g, '-');
+  const safeName = (user?.name || 'kullanici').replace(/[/\\?*:]/g, '-');
   downloadBlob(blob, `performans-detay-${safeName}.xlsx`);
 }

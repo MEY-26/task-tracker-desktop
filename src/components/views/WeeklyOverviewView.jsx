@@ -139,11 +139,11 @@ export function WeeklyOverviewView({
   };
 
   const isMultiWeekMode = periodMode !== 'single';
-  const displayItems = isMultiWeekMode ? (multiWeekOverview?.items || []) : (weeklyOverview?.items || []);
   const isLoading = isMultiWeekMode ? multiWeekOverviewLoading : weeklyOverviewLoading;
   const error = isMultiWeekMode ? multiWeekOverviewError : weeklyOverviewError;
 
   const sortedItems = useMemo(() => {
+    const displayItems = isMultiWeekMode ? (multiWeekOverview?.items || []) : (weeklyOverview?.items || []);
     const items = Array.isArray(displayItems) ? [...displayItems] : [];
     const { key, dir } = weeklyOverviewSort;
     if (!key) return items;
@@ -164,7 +164,7 @@ export function WeeklyOverviewView({
       if (av === bv) return 0;
       return av > bv ? direction : -direction;
     });
-  }, [displayItems, weeklyOverviewSort, isMultiWeekMode]);
+  }, [isMultiWeekMode, multiWeekOverview?.items, weeklyOverview?.items, weeklyOverviewSort]);
 
   const handleRowClick = (item) => {
     if (isMultiWeekMode) {
