@@ -1004,7 +1004,7 @@ export function WeeklyGoalsModal({
                 </button>
               )}
             </div>
-            {weeklyUserId && (user?.role === 'admin' || (user?.role === 'team_leader' && !combinedLocks.targets_locked)) && (
+            {weeklyUserId && (user?.role === 'admin' || user?.role === 'team_leader') && (
               <div className="flex items-center gap-3 w-[98%]" style={{ marginLeft: '16px', marginRight: '16px', marginBottom: '12px' }}>
                 <button
                   onClick={() => approveWeeklyGoals?.('approved')}

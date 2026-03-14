@@ -1199,9 +1199,9 @@ class WeeklyGoalController extends Controller
         $locks = $this->locksForWeek($weekStart, $auth, $userId);
 
         // Takım lideri için: 13:30'dan sonra onay yapılamaz (admin hariç)
-        if ($auth->role === 'team_leader' && $locks['targets_locked']) {
+        /*if ($auth->role === 'team_leader' && $locks['targets_locked']) {
             return response()->json(['message' => 'Onay süresi doldu. Pazartesi 13:30\'dan sonra onay yapılamaz.'], 422);
-        }
+        }*/
 
         $goal = DB::table('weekly_goals')->where('user_id', $userId)->where('week_start', $weekStart)->first();
         if (!$goal) {
