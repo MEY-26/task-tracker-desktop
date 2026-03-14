@@ -1,6 +1,5 @@
 import * as ExcelJS from 'exceljs';
 import { getPerformanceGrade } from './performance.js';
-import { formatDateOnly } from './date.js';
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -13,7 +12,7 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-export async function exportOverviewToExcel(data, filters = {}) {
+export async function exportOverviewToExcel(data) {
   const workbook = new ExcelJS.Workbook();
   const isMulti = data.periodMode && data.periodMode !== 'single';
   const items = Array.isArray(data.items) ? data.items : [];
@@ -37,7 +36,7 @@ export async function exportOverviewToExcel(data, filters = {}) {
   worksheet.getRow(headerRowIdx).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
   worksheet.getRow(headerRowIdx).font = { color: { argb: 'FFFFFFFF' } };
 
-  items.forEach((item, idx) => {
+  items.forEach((item) => {
     const grade = getPerformanceGrade(Number(isMulti ? item.avg_final_score : item.final_score) || 0);
     const gradeApproved = isMulti && item.avg_final_score_approved != null ? getPerformanceGrade(Number(item.avg_final_score_approved)) : grade;
     const row = isMulti
@@ -111,7 +110,7 @@ export async function exportUserDetailToExcel(userData) {
   detailSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
   detailSheet.getRow(1).font = { color: { argb: 'FFFFFFFF' } };
 
-  weeks.forEach((week, idx) => {
+  weeks.forEach((week) => {
     detailSheet.addRow([
       week.week_start || '',
       Number(week.total_target_minutes || 0),
@@ -124,7 +123,7 @@ export async function exportUserDetailToExcel(userData) {
 
   weeks.forEach((week, weekIdx) => {
     if (!Array.isArray(week.items) || week.items.length === 0) return;
-    const safeName = (week.week_start || `Hafta${weekIdx + 1}`).replace(/[/\\?*\[\]:]/g, '-');
+    const safeName = (week.week_start || `Hafta${weekIdx + 1}`).replace(/[\/\\?*:]/g, '-');
     const sheet = workbook.addWorksheet(safeName.substring(0, 31), { headerFooter: { firstHeader: week.week_start } });
     sheet.addRow(['Görev', 'Hedef (dk)', 'Gerçekleşme (dk)', 'Tamamlandı', 'Plandışı']);
     sheet.getRow(1).font = { bold: true };
@@ -144,6 +143,6 @@ export async function exportUserDetailToExcel(userData) {
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const safeName = (user?.name || 'kullanici').replace(/[/\\?*\[\]:]/g, '-');
+  const safeName = (user?.name || 'kullanici').replace(/[\/\\?*:]/g, '-');
   downloadBlob(blob, `performans-detay-${safeName}.xlsx`);
 }

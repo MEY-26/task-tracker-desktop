@@ -18,6 +18,9 @@ const ROLE_OPTIONS = [
   { value: 'team_member', label: 'Üye' },
 ];
 
+const NUMERIC_KEYS_SINGLE = new Set(['total_target_minutes', 'total_actual_minutes', 'unplanned_minutes', 'planned_score', 'unplanned_bonus', 'final_score']);
+const NUMERIC_KEYS_MULTI = new Set(['avg_target_minutes', 'avg_actual_minutes', 'avg_final_score', 'avg_final_score_approved', 'avg_planned_score', 'avg_unplanned_bonus', 'total_weeks_with_data', 'weeks_approved']);
+
 export function WeeklyOverviewView({
   user,
   weeklyOverview,
@@ -47,6 +50,9 @@ export function WeeklyOverviewView({
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [departmentOptions, setDepartmentOptions] = useState([]);
+  const rolesParam = multiWeekFilters.roles.join(',');
+  const departmentsParam = multiWeekFilters.departments?.join(',') || '';
+  const excludeIdsParam = multiWeekFilters.exclude_user_ids.join(',');
 
   useEffect(() => {
     if (user?.role === 'admin') {
@@ -62,12 +68,12 @@ export function WeeklyOverviewView({
       loadMultiWeekOverview({
         start_date,
         end_date,
-        roles: multiWeekFilters.roles.join(','),
-        departments: multiWeekFilters.departments?.join(',') || '',
-        exclude_user_ids: multiWeekFilters.exclude_user_ids.join(',')
+        roles: rolesParam,
+        departments: departmentsParam,
+        exclude_user_ids: excludeIdsParam
       });
     }
-  }, [periodMode]);
+  }, [periodMode, loadMultiWeekOverview, loadWeeklyOverview, rolesParam, departmentsParam, excludeIdsParam]);
 
   const handlePeriodChange = (value) => {
     setPeriodMode(value);
@@ -78,18 +84,18 @@ export function WeeklyOverviewView({
       loadMultiWeekOverview({
         start_date,
         end_date,
-        roles: multiWeekFilters.roles.join(','),
-        departments: multiWeekFilters.departments?.join(',') || '',
-        exclude_user_ids: multiWeekFilters.exclude_user_ids.join(',')
+        roles: rolesParam,
+        departments: departmentsParam,
+        exclude_user_ids: excludeIdsParam
       });
     }
   };
 
   const handleApplyMultiWeekFilters = () => {
     const filterParams = {
-      roles: multiWeekFilters.roles.join(','),
-      departments: multiWeekFilters.departments?.join(',') || '',
-      exclude_user_ids: multiWeekFilters.exclude_user_ids.join(',')
+      roles: rolesParam,
+      departments: departmentsParam,
+      exclude_user_ids: excludeIdsParam
     };
     if (periodMode === 'custom' && customStartDate && customEndDate) {
       loadMultiWeekOverview({
@@ -137,16 +143,13 @@ export function WeeklyOverviewView({
   const isLoading = isMultiWeekMode ? multiWeekOverviewLoading : weeklyOverviewLoading;
   const error = isMultiWeekMode ? multiWeekOverviewError : weeklyOverviewError;
 
-  const numericKeysSingle = new Set(['total_target_minutes', 'total_actual_minutes', 'unplanned_minutes', 'planned_score', 'unplanned_bonus', 'final_score']);
-  const numericKeysMulti = new Set(['avg_target_minutes', 'avg_actual_minutes', 'avg_final_score', 'avg_final_score_approved', 'avg_planned_score', 'avg_unplanned_bonus', 'total_weeks_with_data', 'weeks_approved']);
-
   const sortedItems = useMemo(() => {
     const items = Array.isArray(displayItems) ? [...displayItems] : [];
     const { key, dir } = weeklyOverviewSort;
     if (!key) return items;
 
     const direction = dir === 'desc' ? -1 : 1;
-    const numericKeys = isMultiWeekMode ? numericKeysMulti : numericKeysSingle;
+    const numericKeys = isMultiWeekMode ? NUMERIC_KEYS_MULTI : NUMERIC_KEYS_SINGLE;
     return items.sort((a, b) => {
       let av = a?.[key];
       let bv = b?.[key];
