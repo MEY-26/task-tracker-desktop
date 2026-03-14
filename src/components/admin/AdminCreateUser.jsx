@@ -1,14 +1,12 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { getDepartments } from '../../api';
 
-function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, users = [] }) {
+function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, users = [], departments = [] }) {
   const theme = currentTheme || {};
   const inputBg = theme.tableRowAlt || theme.tableBackground || theme.background || '#1f2937';
   const inputText = theme.text || '#ffffff';
   const inputBorder = theme.border || 'rgba(255,255,255,0.1)';
   const placeholderColor = theme.textSecondary || theme.text || '#9ca3af';
-  const [departments, setDepartments] = useState([]);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -17,10 +15,6 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
     leader_id: null,
     department: null,
   });
-
-  useEffect(() => {
-    getDepartments().then(setDepartments);
-  }, []);
 
   const leaderOptions = useMemo(
     () => (Array.isArray(users) ? users.filter(u => u.role === 'team_leader' || u.role === 'admin') : []),
@@ -219,6 +213,8 @@ AdminCreateUser.propTypes = {
   onCreateUser: PropTypes.func,
   onBulkImport: PropTypes.func,
   pushToast: PropTypes.func,
+  users: PropTypes.array,
+  departments: PropTypes.array,
 };
 
 export default AdminCreateUser;

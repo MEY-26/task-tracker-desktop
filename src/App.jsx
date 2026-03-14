@@ -1584,7 +1584,14 @@ function App() {
             onClose={() => setShowUserPanel(false)}
             currentTheme={currentTheme}
             user={user}
-            AdminCreateUser={() => <AdminCreateUser currentTheme={currentTheme} onCreateUser={async (payload) => { await registerUser(payload); await loadUsers(); }} onBulkImport={handleBulkUserImport} pushToast={addNotification} users={users} />}
+            AdminCreateUserComponent={AdminCreateUser}
+            adminCreateUserProps={{
+              currentTheme,
+              onCreateUser: async (payload) => { await registerUser(payload); await loadUsers(); },
+              onBulkImport: handleBulkUserImport,
+              pushToast: addNotification,
+              users
+            }}
             userSearchTerm={userSearchTerm}
             setUserSearchTerm={setUserSearchTerm}
             users={users}

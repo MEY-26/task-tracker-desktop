@@ -82,9 +82,10 @@ export function UserProfileModal({
                         e.target.style.backgroundColor = currentTheme.accent;
                       }}
                       onClick={async () => {
-                        setWeeklyUserId(null);
+                        const ownUserId = user?.id || null;
+                        setWeeklyUserId(ownUserId);
                         setShowWeeklyGoals(true);
-                        await loadWeeklyGoals(null, null);
+                        await loadWeeklyGoals(null, ownUserId);
                       }}
                     >
                       <span className="!text-[40px]">🎯</span>
