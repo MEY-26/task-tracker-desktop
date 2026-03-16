@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PasswordReset, getDepartments } from '../../api';
-import { EditGrantModal } from '../modals/EditGrantModal';
+import { PermissionManagementModal } from '../modals/PermissionManagementModal';
 
 function UserPanel({
   open,
@@ -24,12 +24,15 @@ function UserPanel({
   setLoading,
   loadPasswordResetRequests,
   deleteUserAdmin,
-  passwordResetRequests = []
+  passwordResetRequests = [],
+  loadWeeklyGoals
 }) {
-  const [showEditGrantModal, setShowEditGrantModal] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [bulkDepartment, setBulkDepartment] = useState('');
   const [bulkRole, setBulkRole] = useState('');
+  const [activeTab, setActiveTab] = useState('users');
+  const selectAllCheckboxRef = useRef(null);
   const CreateUserForm = AdminCreateUserComponent;
 
   const selectableUsers = Array.isArray(users)
@@ -49,6 +52,12 @@ function UserPanel({
 
   useEffect(() => {
     if (!open) return;
+    if (selectedTargetUsers.length === 0) {
+      setBulkLeaderId('');
+      setBulkDepartment('');
+      setBulkRole('');
+      return;
+    }
     if (selectedTargetUsers.length === 1) {
       const single = users?.find((u) => u.id === selectedTargetUsers[0]);
       if (single) {
@@ -62,6 +71,14 @@ function UserPanel({
       }
     }
   }, [open, selectedTargetUsers, users, setBulkLeaderId]);
+
+  useEffect(() => {
+    const el = selectAllCheckboxRef.current;
+    if (!el) return;
+    const hasSome = selectableUsers.length > 0 && selectedUsers.length > 0;
+    const allSelected = selectableUsers.length > 0 && selectableUsers.every((u) => selectedUsers.includes(u.id));
+    el.indeterminate = hasSome && !allSelected;
+  }, [selectableUsers, selectedUsers]);
 
   const handleApplyBulk = async () => {
     if (!canApplyBulk) return;
@@ -161,22 +178,40 @@ function UserPanel({
                 >✕</button>
               </div>
             </div>
+            {user?.role === 'admin' && (
+              <div className="flex gap-0" style={{ padding: '0 16px' }}>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className="transition-colors"
+                  style={{
+                    padding: '8px 20px',
+                    borderBottom: activeTab === 'users' ? `4px solid ${currentTheme.accent}` : '2px solid transparent',
+                    color: activeTab === 'users' ? currentTheme.accent : currentTheme.textSecondary,
+                    fontWeight: activeTab === 'users' ? 600 : 400,
+                    backgroundColor: 'transparent',
+                  }}
+                >
+                  Kullanıcı Listesi
+                </button>
+                <button
+                  onClick={() => setActiveTab('addUser')}
+                  className="transition-colors"
+                  style={{
+                    padding: '8px 20px',
+                    borderBottom: activeTab === 'addUser' ? `4px solid ${currentTheme.accent}` : '2px solid transparent',
+                    color: activeTab === 'addUser' ? currentTheme.accent : currentTheme.textSecondary,
+                    fontWeight: activeTab === 'addUser' ? 600 : 400,
+                    backgroundColor: 'transparent',
+                  }}
+                >
+                  Yeni Kullanıcı Ekle
+                </button>
+              </div>
+            )}
           </div>
-          <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden" style={{ borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}` }}>
-            <div className="w-2/5 min-w-0 overflow-y-auto overflow-x-hidden" style={{ paddingRight: '20px', paddingLeft: '20px', borderRight: `1px solid ${currentTheme.border}` }}>
-              {user?.role === 'admin' && (
-                <div className="pt-4" style={{ paddingTop: '5px' }}>
-                  <div className="font-medium mb-2 !text-[32px]" style={{ paddingBottom: '10px' }}>Yeni Kullanıcı Ekle</div>
-                  {CreateUserForm ? (
-                    <CreateUserForm
-                      {...adminCreateUserProps}
-                      departments={departments}
-                    />
-                  ) : null}
-                </div>
-              )}
-            </div>
-            <div className="w-3/5 shrink-0 flex flex-col min-h-0 min-w-0 overflow-hidden" style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+          <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden flex-col" style={{ borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}`, backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
+            {(activeTab === 'users' || user?.role !== 'admin') && (
+              <div className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden w-full">
               <div className="flex flex-col flex-none min-w-0 overflow-x-hidden" style={{ padding: '0 30px 10px 20px' }}>
               <div className="flex items-center gap-3 text-[24px] font-semibold mb-4" style={{ marginBottom: '10px', marginTop: '10px'}}>
                 <input
@@ -308,12 +343,10 @@ function UserPanel({
                     >
                       Uygula
                     </button>
-                  </div>
-                  <div className="flex items-center gap-6 flex-wrap mt-3">
                   {user?.role === 'admin' && (
                     <button
                       onClick={async () => {
-                        const toDelete = selectedUsers.filter(id => (users?.find(x => x.id === id))?.role !== 'admin');
+                        const toDelete = selectedUsers.filter(id => users?.find(x => x.id === id));
                         if (toDelete.length === 0) return;
                         if (!confirm(`${toDelete.length} kullanıcı silinecek. Bu işlem geri alınamaz. Emin misiniz?`)) return;
                         try {
@@ -340,29 +373,28 @@ function UserPanel({
                           setLoading(false);
                         }
                       }}
-                      disabled={selectedUsers.filter(id => (users?.find(x => x.id === id))?.role !== 'admin').length === 0}
+                      disabled={selectedUsers.length === 0}
                       className="px-3 py-2 rounded text-sm transition-colors"
                       style={{
-                        backgroundColor: selectedUsers.filter(id => (users?.find(x => x.id === id))?.role !== 'admin').length > 0 ? '#ef4444' : currentTheme.border,
+                        backgroundColor: selectedUsers.length > 0 ? '#ef4444' : currentTheme.border,
                         color: '#ffffff',
-                        cursor: selectedUsers.filter(id => (users?.find(x => x.id === id))?.role !== 'admin').length > 0 ? 'pointer' : 'not-allowed',
-                        opacity: selectedUsers.filter(id => (users?.find(x => x.id === id))?.role !== 'admin').length > 0 ? 1 : 0.6
+                        cursor: selectedUsers.length > 0 ? 'pointer' : 'not-allowed',
+                        opacity: selectedUsers.length > 0 ? 1 : 0.6
                       }}
                       onMouseEnter={(e) => {
-                        if (selectedUsers.filter(id => (users?.find(x => x.id === id))?.role !== 'admin').length > 0)
-                          e.target.style.backgroundColor = '#dc2626';
+                        if (selectedUsers.length > 0) e.target.style.backgroundColor = '#dc2626';
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = selectedUsers.filter(id => (users?.find(x => x.id === id))?.role !== 'admin').length > 0 ? '#ef4444' : currentTheme.border;
+                        e.target.style.backgroundColor = selectedUsers.length > 0 ? '#ef4444' : currentTheme.border;
                       }}
-                      title="Seçili kullanıcıları sil (admin silinemez)"
+                      title="Seçili kullanıcıları sil"
                     >
                       Seçili Kullanıcıları Sil
                     </button>
                   )}
                   {user?.role === 'admin' && (
                     <button
-                      onClick={() => selectedUsers.length > 0 && setShowEditGrantModal(true)}
+                      onClick={() => selectedUsers.length > 0 && setShowPermissionModal(true)}
                       disabled={selectedUsers.length === 0}
                       className="px-3 py-2 rounded text-sm transition-colors"
                       style={{
@@ -377,50 +409,44 @@ function UserPanel({
                       onMouseLeave={(e) => {
                         e.target.style.backgroundColor = selectedUsers.length > 0 ? '#10b981' : currentTheme.border;
                       }}
-                      title={selectedUsers.length > 0 ? 'Seçili kullanıcılara haftalık hedef düzenleme izni ver' : 'Önce kullanıcı seçin'}
+                      title={selectedUsers.length > 0 ? 'Seçili kullanıcılara izin ver (tatil veya özel düzenleme)' : 'Önce kullanıcı seçin'}
                     >
-                      Seçili Kullanıcılara Özel İzin Ver
+                      İzin Yönetimi
                     </button>
                   )}
-                  <button
-                    onClick={() => {
-                      const allSelectableIds = selectableUsers.map((u) => u.id);
-                      const isAllSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedUsers.includes(id));
-                      setSelectedUsers(isAllSelected ? [] : allSelectableIds);
-                    }}
-                    className="px-3 py-2 rounded text-sm transition-colors"
-                    style={{
-                      backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
-                      color: currentTheme.text,
-                      borderColor: currentTheme.border,
-                      borderWidth: '1px',
-                      borderStyle: 'solid'
-                    }}
-                  >
-                    Tümünü Seç
-                  </button>
-                  <button
-                    onClick={() => { setSelectedUsers([]); setBulkLeaderId(''); setBulkDepartment(''); setBulkRole(''); }}
-                    className="px-3 py-2 rounded text-sm transition-colors"
-                    style={{
-                      backgroundColor: currentTheme.border,
-                      color: currentTheme.text
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = currentTheme.accent;
-                      e.target.style.color = '#ffffff';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = currentTheme.border;
-                      e.target.style.color = currentTheme.text;
-                    }}
-                  >
-                    İptal
-                  </button>
                   </div>
                 </div>
               </div>
               </div>
+              {user?.role === 'admin' && (
+              <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-4 items-center px-4 py-3 border-b shrink-0" style={{ borderColor: currentTheme.border, color: currentTheme.textSecondary, fontSize: '14px', fontWeight: 600, margin: '0px 20px 0px 21px' }}>
+                <div className="flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    ref={selectAllCheckboxRef}
+                    checked={selectableUsers.length > 0 && selectableUsers.every((u) => selectedUsers.includes(u.id))}
+                    onChange={() => {
+                      const allSelectableIds = selectableUsers.map((u) => u.id);
+                      const isAllSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selectedUsers.includes(id));
+                      if (isAllSelected) {
+                        setSelectedUsers([]);
+                        setBulkLeaderId('');
+                        setBulkDepartment('');
+                        setBulkRole('');
+                        setUserSearchTerm?.('');
+                      } else {
+                        setSelectedUsers(allSelectableIds);
+                      }
+                    }}
+                    className="w-4 h-4 rounded cursor-pointer"
+                    style={{ accentColor: currentTheme.accent }}
+                  />
+                </div>
+                <div>Ad Soyad</div>
+                <div style={{ marginLeft: '10px' }}>Mail Adresi</div>
+                <div className="text-center">Şifre Sıfırla</div>
+              </div>
+              )}
               <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden" style={{ padding: '0 20px 20px 20px', scrollbarGutter: 'stable' }}>
               {user?.role === 'admin' ? (
                 <div className="space-y-3">
@@ -442,7 +468,7 @@ function UserPanel({
                       return (
                         <div
                           key={u.id}
-                          className="rounded-lg px-4 py-4 gap-4 transition-colors"
+                          className="grid grid-cols-[auto_1fr_1fr_auto] gap-4 items-center rounded-lg px-4 py-3 transition-colors"
                           style={{
                             backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                             borderColor: hasResetRequest ? '#ef4444' : currentTheme.border,
@@ -456,38 +482,32 @@ function UserPanel({
                             e.currentTarget.style.backgroundColor = currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background;
                           }}
                         >
-                          <div className="flex items-center justify-between" style={{ paddingRight: '5px' }}>
-                            <div className="min-w-0 flex text-[16px] items-center gap-3">
-                              <input
-                                type="checkbox"
-                                checked={selectedUsers.includes(u.id)}
-                                disabled={u.role === 'observer'}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedUsers(prev => [...prev, u.id]);
-                                  } else {
-                                    setSelectedUsers(prev => prev.filter(id => id !== u.id));
-                                  }
-                                }}
-                                className={`w-4 h-4 rounded focus:ring-blue-500 ${u.role === 'observer'
-                                  ? 'opacity-50 cursor-not-allowed'
-                                  : 'cursor-pointer'
-                                  }`}
-                                style={{
-                                  scale: '3',
-                                  marginLeft: '15px',
-                                  marginRight: '20px',
-                                  backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
-                                  borderColor: currentTheme.border,
-                                  accentColor: currentTheme.accent
-                                }}
-                              />
-                              <div className="flex-1 min-w-0 max-w-[300px]">
-                                <div className="text-base font-medium truncate" style={{ color: currentTheme.text }} title={u.name}>{u.name}</div>
-                                <div className="text-xs truncate mt-1" style={{ color: currentTheme.textSecondary || currentTheme.text }} title={u.email}>{u.email}</div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
+                          <div className="flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedUsers.includes(u.id)}
+                              disabled={u.role === 'observer'}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedUsers(prev => [...prev, u.id]);
+                                } else {
+                                  setSelectedUsers(prev => prev.filter(id => id !== u.id));
+                                }
+                              }}
+                              className={`w-4 h-4 rounded focus:ring-blue-500 ${u.role === 'observer'
+                                ? 'opacity-50 cursor-not-allowed'
+                                : 'cursor-pointer'
+                                }`}
+                              style={{
+                                backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
+                                borderColor: currentTheme.border,
+                                accentColor: currentTheme.accent
+                              }}
+                            />
+                          </div>
+                          <div className="text-base font-medium truncate min-w-0" style={{ color: currentTheme.text }} title={u.name}>{u.name}</div>
+                          <div className="text-sm truncate min-w-0" style={{ color: currentTheme.textSecondary || currentTheme.text }} title={u.email}>{u.email}</div>
+                          <div className="flex items-center justify-center">
                               <button
                                 onClick={async () => {
                                   if (!confirm(`${u.name} kullanıcısının şifresini "123456" olarak sıfırlamak istediğinizden emin misiniz?`)) return;
@@ -529,7 +549,6 @@ function UserPanel({
                               >
                                 ↺
                               </button>
-                            </div>
                           </div>
                         </div>
                       );
@@ -557,19 +576,30 @@ function UserPanel({
                 <div className="text-xs" style={{ color: currentTheme.textSecondary || currentTheme.text }}>Yalnızca admin kullanıcı listesi görüntüler.</div>
               )}
               </div>
-            </div>
+              </div>
+            )}
+            {activeTab === 'addUser' && user?.role === 'admin' && (
+              <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden w-full" style={{ padding: '20px 30px' }}>
+                {CreateUserForm ? (
+                  <CreateUserForm
+                    {...adminCreateUserProps}
+                    departments={departments}
+                  />
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
       </div>
-      {showEditGrantModal && (
-        <EditGrantModal
-          open={showEditGrantModal}
-          onClose={() => setShowEditGrantModal(false)}
+      {showPermissionModal && (
+        <PermissionManagementModal
+          open={showPermissionModal}
+          onClose={() => setShowPermissionModal(false)}
           selectedUserIds={selectedUsers}
           users={users}
           addNotification={addNotification}
+          loadWeeklyGoals={loadWeeklyGoals}
           onSuccess={() => {
-            addNotification('Özel düzenleme izni verildi', 'success');
             setSelectedUsers([]);
           }}
         />

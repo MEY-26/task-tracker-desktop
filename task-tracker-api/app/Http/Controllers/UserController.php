@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -143,5 +144,82 @@ class UserController extends Controller
             'message' => 'Tema kaydedildi.',
             'theme_preferences' => $user->theme_preferences
         ]);
+    }
+
+    /**
+     * Download database backup (admin only). SQLite only.
+     */
+    public function databaseBackup(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Bu işlem için yetkiniz yok.'], 403);
+        }
+
+        $connection = config('database.default');
+        if ($connection !== 'sqlite') {
+            return response()->json(['message' => 'Yedekleme sadece SQLite veritabanı için desteklenir.'], 400);
+        }
+
+        $path = config('database.connections.sqlite.database');
+        if (!is_file($path)) {
+            return response()->json(['message' => 'Veritabanı dosyası bulunamadı.'], 404);
+        }
+
+        $filename = 'task-tracker-backup-' . now()->format('Y-m-d-His') . '.sqlite';
+        return response()->download($path, $filename, [
+            'Content-Type' => 'application/x-sqlite3',
+        ]);
+    }
+
+    /**
+     * Restore database from uploaded file (admin only). SQLite only.
+     * Requires admin password for confirmation.
+     */
+    public function databaseRestore(Request $request)
+    {
+        $user = $request->user();
+        if (!$user || $user->role !== 'admin') {
+            return response()->json(['message' => 'Bu işlem için yetkiniz yok.'], 403);
+        }
+
+        $request->validate([
+            'password' => 'required|string',
+            'database' => 'required|file|max:51200',
+        ]);
+
+        if (!Hash::check($request->input('password'), $user->password)) {
+            return response()->json(['message' => 'Şifre hatalı.'], 422);
+        }
+
+        $connection = config('database.default');
+        if ($connection !== 'sqlite') {
+            return response()->json(['message' => 'Yükleme sadece SQLite veritabanı için desteklenir.'], 400);
+        }
+
+        $path = config('database.connections.sqlite.database');
+        $path = $path ?: database_path('database.sqlite');
+
+        $uploadedFile = $request->file('database');
+        $content = file_get_contents($uploadedFile->getRealPath());
+
+        // SQLite header: "SQLite format 3\000"
+        if (strlen($content) < 16 || substr($content, 0, 16) !== "SQLite format 3\x00") {
+            return response()->json(['message' => 'Geçersiz SQLite dosyası.'], 422);
+        }
+
+        try {
+            $backupPath = $path . '.backup-' . now()->format('Y-m-d-His');
+            if (is_file($path)) {
+                copy($path, $backupPath);
+            }
+            file_put_contents($path, $content);
+            return response()->json(['message' => 'Veritabanı başarıyla yüklendi. Uygulama yeniden başlatılabilir.']);
+        } catch (\Throwable $e) {
+            if (isset($backupPath) && is_file($backupPath)) {
+                copy($backupPath, $path);
+            }
+            return response()->json(['message' => 'Yükleme sırasında hata: ' . $e->getMessage()], 500);
+        }
     }
 }

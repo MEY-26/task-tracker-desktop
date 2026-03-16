@@ -20,7 +20,7 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - 🔍 Gelişmiş kullanıcı arama sistemi
 - 🔐 Şifre sıfırlama sistemi
 - 👥 **Toplu Lider Atama**: Seçili takım üyelerine toplu lider atama
-- 🗑️ **Toplu Kullanıcı Silme**: Seçili kullanıcıları toplu silme (admin hariç)
+- 🗑️ **Toplu Kullanıcı Silme**: Seçili kullanıcıları toplu silme (admin dahil)
 - 🔑 **Özel Düzenleme İzni**: Admin'ler kullanıcılara geçici haftalık hedef düzenleme izni verebilir
 
 ### 📎 Dosya Yönetimi
@@ -58,6 +58,11 @@ Modern bir masaüstü görev takip uygulaması. Electron ve React kullanılarak 
 - ⚠️ **Anlık Uyarı Sistemi**: Hedef ve gerçekleşme alanlarında anlık kontrol ve görsel geri bildirim
 - 🛡️ **Kaydet Butonu Kontrolü**: Uyarı durumlarında kaydet butonu devre dışı bırakılır
 - 📊 **Rol Bazlı Puanlama**: Admin tam skor, Takım Lideri harf notu, diğer roller puanlama gizli
+
+### ⚙️ Sistem Yönetimi
+- 💾 **Veritabanı Yedekleme**: SQLite veritabanını indirme
+- 📤 **Veritabanı Yükleme**: Yedekten geri yükleme (admin şifre doğrulamalı)
+- 📅 Çalışma günleri, mesai saatleri ve mola tanımları
 
 ### ⚡ Performans ve Optimizasyon
 - 🚀 Memoized görev filtreleme sistemi

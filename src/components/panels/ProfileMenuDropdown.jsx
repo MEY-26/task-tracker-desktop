@@ -35,6 +35,7 @@ export function ProfileMenuDropdown({
   onOpenTeam,
   onOpenUserPanel,
   onOpenLeaveRequest,
+  onOpenSystemSettings,
   onLogout
 }) {
   const { currentTheme } = useTheme();
@@ -69,6 +70,11 @@ export function ProfileMenuDropdown({
     onOpenLeaveRequest?.();
   };
 
+  const handleSystemSettings = () => {
+    onClose();
+    onOpenSystemSettings?.();
+  };
+
   const handleLogout = () => {
     onClose();
     onLogout();
@@ -97,6 +103,9 @@ export function ProfileMenuDropdown({
       )}
       {user?.role === 'admin' && (
         <MenuItem icon="⚙️" label="Kullanıcı Yönetimi" onClick={handleUserPanel} theme={currentTheme} />
+      )}
+      {user?.role === 'admin' && (
+        <MenuItem icon="🔧" label="Sistem Yönetimi" onClick={handleSystemSettings} theme={currentTheme} />
       )}
       <MenuItem icon="🚪" label="Çıkış Yap" onClick={handleLogout} theme={currentTheme} />
     </div>

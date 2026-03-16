@@ -16,6 +16,7 @@ import { TaskDetailModal } from './components/modals/TaskDetailModal';
 import { UserProfileModal } from './components/modals/UserProfileModal';
 import { TeamModal } from './components/modals/TeamModal';
 import UserPanel from './components/panels/UserPanel';
+import { SystemSettingsPanel } from './components/panels/SystemSettingsPanel';
 import { NotificationsPanel } from './components/panels/NotificationsPanel';
 import { ProfileMenuDropdown } from './components/panels/ProfileMenuDropdown';
 import { WeeklyOverviewView } from './components/views/WeeklyOverviewView';
@@ -123,6 +124,7 @@ function App() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showLeaveRequestModal, setShowLeaveRequestModal] = useState(false);
+  const [showSystemSettings, setShowSystemSettings] = useState(false);
   const [showUpdatesModal, setShowUpdatesModal] = useState(false);
   const [updatesContent, setUpdatesContent] = useState('');
   const [activeTab, setActiveTab] = useState('active');
@@ -235,7 +237,7 @@ function App() {
 
   const isModalOpen = showAddForm || showDetailModal || showWeeklyGoals ||
     showGoalDescription || showUserProfile || showTeamModal ||
-    showUserPanel || showNotifications || showTaskSettings || showThemePanel || showLeaveRequestModal;
+    showUserPanel || showNotifications || showTaskSettings || showThemePanel || showLeaveRequestModal || showSystemSettings;
   useBodyScrollLock(isModalOpen);
 
   useEffect(() => {
@@ -1243,6 +1245,7 @@ function App() {
                       }}
                       onOpenUserPanel={() => setShowUserPanel(true)}
                       onOpenLeaveRequest={() => setShowLeaveRequestModal(true)}
+                      onOpenSystemSettings={() => setShowSystemSettings(true)}
                       onLogout={handleLogout}
                     />
                   )}
@@ -1328,6 +1331,13 @@ function App() {
 
                 {/* Tema Ayarları Modal */}
                 {showThemePanel && <ThemePanel />}
+                {showSystemSettings && user?.role === 'admin' && (
+                  <SystemSettingsPanel
+                    open={showSystemSettings}
+                    onClose={() => setShowSystemSettings(false)}
+                    addNotification={addNotification}
+                  />
+                )}
                 {showLeaveRequestModal && (
                   <LeaveRequestModal
                     open={showLeaveRequestModal}
@@ -1607,6 +1617,7 @@ function App() {
             loadPasswordResetRequests={loadPasswordResetRequests}
             deleteUserAdmin={deleteUserAdmin}
             passwordResetRequests={passwordResetRequests}
+            loadWeeklyGoals={loadWeeklyGoals}
           />
 
           <TaskSettingsModal

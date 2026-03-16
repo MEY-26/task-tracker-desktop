@@ -699,6 +699,66 @@ export const LeaveRequests = {
       throw error;
     }
   },
+  bulkCreate: async (payload) => {
+    try {
+      const body = Array.isArray(payload) ? { dates: payload } : payload;
+      const response = await api.post('/bulk-leave', body);
+      return response.data;
+    } catch (error) {
+      console.error('Bulk leave create error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+};
+
+export const DatabaseBackup = {
+  download: async () => {
+    try {
+      const response = await api.get('/database-backup', { responseType: 'blob' });
+      const disposition = response.headers['content-disposition'];
+      const filenameMatch = disposition?.match(/filename="?([^";\n]+)"?/);
+      const filename = filenameMatch ? filenameMatch[1].trim() : `task-tracker-backup-${new Date().toISOString().slice(0, 10)}.sqlite`;
+      const url = window.URL.createObjectURL(response.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Database backup download error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  upload: async (file, password) => {
+    const formData = new FormData();
+    formData.append('database', file);
+    formData.append('password', password);
+    const response = await api.post('/database-restore', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+};
+
+export const SystemSettings = {
+  get: async () => {
+    try {
+      const response = await api.get('/system-settings');
+      return response.data;
+    } catch (error) {
+      console.error('System settings fetch error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  update: async (settings) => {
+    try {
+      const response = await api.put('/system-settings', settings);
+      return response.data;
+    } catch (error) {
+      console.error('System settings update error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
 };
 
 export const EditGrants = {

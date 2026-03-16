@@ -15,6 +15,7 @@ use App\Http\Controllers\WeeklyGoalEditGrantController;
 use App\Http\Controllers\TaskTypeController;
 use App\Http\Controllers\TaskStatusController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\SystemSettingsController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -69,6 +70,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/theme', [UserController::class, 'getTheme']);
     Route::post('/theme', [UserController::class, 'saveTheme']);
 
+    // Database backup (admin only)
+    Route::get('/database-backup', [UserController::class, 'databaseBackup']);
+    Route::post('/database-restore', [UserController::class, 'databaseRestore']);
+
+    // System settings (admin only for update)
+    Route::get('/system-settings', [SystemSettingsController::class, 'index']);
+    Route::put('/system-settings', [SystemSettingsController::class, 'update']);
+
     // Weekly Goals
     Route::get('/weekly-goals/leaderboard', [WeeklyGoalController::class, 'leaderboard']);
     Route::get('/weekly-goals/multi-week-leaderboard', [WeeklyGoalController::class, 'multiWeekLeaderboard']);
@@ -80,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Leave Requests
     Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
+    Route::post('/bulk-leave', [LeaveRequestController::class, 'bulkStore']);
     Route::delete('/leave-requests/{id}', [LeaveRequestController::class, 'destroy']);
 
     // Weekly Goal Edit Grants (admin only)

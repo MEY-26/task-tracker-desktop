@@ -73,7 +73,7 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
   };
 
   return (
-    <div className="space-y-6 min-w-0 max-w-full overflow-hidden" data-admin-create-user>
+    <div className="min-w-0 w-full max-w-full overflow-hidden" data-admin-create-user>
       <style>{`
         [data-admin-create-user] input::placeholder,
         [data-admin-create-user] input::-webkit-input-placeholder {
@@ -88,7 +88,9 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
           opacity: 0.9;
         }
       `}</style>
-      <div className="pb-4" style={{ borderBottom: `1px solid ${inputBorder}` }}>
+      <div className="grid grid-cols-2 gap-8 w-full min-w-0">
+        <div className="pb-4 min-w-0">
+        <h3 className="mb-4 font-medium" style={{ color: inputText, fontSize: '32px' }}>Yeni Kullanıcı Ekle</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             className="w-full"
@@ -174,12 +176,12 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
             Kullanıcı Ekle
           </button>
         </form>
-      </div>
+        </div>
 
-      <div className="pb-4">
-        <h3 className="mb-4" style={{ color: inputText }}>Excel'den Toplu Kullanıcı Ekle</h3>
-        <div className="space-y-4" style={{ fontSize: '16px' }}>
-          <div className="rounded-lg p-4 max-w-full" style={{ backgroundColor: theme.accent ? theme.accent + '20' : 'rgba(59,130,246,0.2)', borderColor: theme.accent || '#3b82f6', borderWidth: '1px', borderStyle: 'solid', boxSizing: 'border-box' }}>
+        <div className="pb-4 min-w-0 pl-8 border-l" style={{ borderColor: inputBorder }}>
+        <h3 className="mb-4 font-medium" style={{ color: inputText, fontSize: '32px' }}>Excel'den Toplu Kullanıcı Ekle</h3>
+        <div className="space-y-4" style={{ fontSize: '24px' }}>
+          <div className="rounded-lg p-4 max-w-[92%]" style={{ backgroundColor: theme.accent ? theme.accent + '20' : 'rgba(59,130,246,0.2)', borderColor: theme.accent || '#3b82f6', borderWidth: '1px', borderStyle: 'solid', boxSizing: 'border-box', marginLeft: '5px' }}>
             <div className="space-y-1" style={{ color: theme.accent ? theme.text : '#bfdbfe' }}>
               <div className="mt-3 text-blue-300">
               <b style={{ paddingLeft: '10px' }}><i>İlk satır başlık olarak kabul edilir, veriler 2. satırdan başlar.</i></b>
@@ -189,19 +191,20 @@ function AdminCreateUser({ currentTheme, onCreateUser, onBulkImport, pushToast, 
               <div>• <b>C2:</b> Rol (admin/team_leader/team_member/observer)</div>
               <div>• <b>D2:</b> Şifre (boşsa varsayılan: 123456)</div>
               <div>• <b>E2:</b> Takım Lideri E-posta (opsiyonel)</div>
-              <div>• <b>F2:</b> Departman (opsiyonel: Ar-Ge, Fikstür, Elektronik Montaj, Giriş Kalite)</div>
+              <div>• <b>F2:</b> Departman (opsiyonel: Ar-Ge, Fikstür)</div>
             </div>
           </div>
-          <div className="!text-[18px]" style={{ color: placeholderColor }}>
+          <div className="!text-[32px]" style={{ color: placeholderColor }}>
             Excel dosyası seçin (.xlsx önerilir)
           </div>
           <input
             type="file"
             accept=".xlsx,.xls"
             onChange={handleFileChange}
-            className="!text-[18px] file:w-[30%] file:h-[30px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:cursor-pointer file:transition-colors"
-            style={{ color: placeholderColor }}
+            className="!text-[32px] file:w-[50%] file:h-[50px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-medium file:cursor-pointer file:transition-colors"
+            style={{ color: placeholderColor, marginLeft: '15px' }}
           />
+        </div>
         </div>
       </div>
     </div>

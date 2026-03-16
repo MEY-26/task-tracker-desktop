@@ -94,6 +94,25 @@ Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uyg
 - `weekly_goal_edit_grants` tablosu eklendi
 - `weekly_goals` tablosuna approval_status, approved_by, approved_at, approval_note sütunları eklendi
 
+## [3.0.2] - 2026-03-16
+
+### Added
+- Sistem Yönetimi: Veritabanı Yükle özelliği (admin şifre doğrulamalı)
+- POST /database-restore endpoint'i (UserController::databaseRestore)
+- DatabaseBackup.upload() API fonksiyonu
+
+### Changed
+- Kullanıcı Listesi: Tablo başlığı eklendi (Tümünü Seç, Ad Soyad, Mail Adresi, Şifre Sıfırla)
+- Kullanıcı satırları: Ad Soyad ve Mail Adresi yan yana ayrı kolonlarda
+- Eylem alanı: Tümünü Seç ve İptal butonları kaldırıldı (tablo başlığı checkbox'a taşındı)
+- Yeni Kullanıcı Ekle: Manuel form ve Excel toplu import yan yana (sol/sağ) grid layout
+- Veritabanı Yedekleme: İndir ve Yükle butonları yan yana, farklı renklerle
+- Admin kullanıcılar artık silinebilir (panel sadece adminlere açık)
+
+### Fixed
+- Kullanıcı seçimi kaldırıldığında bulk alanların (lider, departman, rol) sıfırlanması
+- Veritabanı yükleme şifre hatasında bildirim gösterilmemesi (alert + notify)
+
 ## [3.0.1] - 2026-03-14
 
 ### Added
