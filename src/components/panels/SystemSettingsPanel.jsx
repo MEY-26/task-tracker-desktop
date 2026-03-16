@@ -163,7 +163,6 @@ export function SystemSettingsPanel({ open, onClose, addNotification }) {
   if (!open) return null;
 
   const theme = currentTheme;
-  const inputBg = theme.tableRowAlt || theme.tableBackground || theme.background;
   const restoreBtnColor = theme.accent && /^#[0-9A-Fa-f]{6}$/.test(theme.accent)
     ? (() => {
         const hex = theme.accent.replace('#', '');

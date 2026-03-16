@@ -200,7 +200,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     setDayTimes((prev) => ({
       ...prev,
       [dateStr]: {
-        ...(prev[dateStr] || { start: WORK_START, end: WORK_END }),
+        ...(prev[dateStr] || { start: DEFAULT_SETTINGS.work_start, end: DEFAULT_SETTINGS.work_end }),
         [field]: value,
       },
     }));

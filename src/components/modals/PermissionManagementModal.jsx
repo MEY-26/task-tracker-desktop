@@ -72,7 +72,6 @@ export function PermissionManagementModal({
   open,
   onClose,
   selectedUserIds = [],
-  users = [],
   onSuccess,
   addNotification,
   loadWeeklyGoals,

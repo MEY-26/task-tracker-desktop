@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { PasswordReset, getDepartments } from '../../api';
 import { PermissionManagementModal } from '../modals/PermissionManagementModal';
@@ -35,9 +35,10 @@ function UserPanel({
   const selectAllCheckboxRef = useRef(null);
   const CreateUserForm = AdminCreateUserComponent;
 
-  const selectableUsers = Array.isArray(users)
-    ? users.filter((u) => u.role !== 'observer')
-    : [];
+  const selectableUsers = useMemo(
+    () => (Array.isArray(users) ? users.filter((u) => u.role !== 'observer') : []),
+    [users]
+  );
   const selectedTargetUsers = selectedUsers.filter((id) => {
     const matched = users?.find((x) => x.id === id);
     return matched && matched.role !== 'observer';
