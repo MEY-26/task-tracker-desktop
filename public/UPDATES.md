@@ -1,3 +1,39 @@
+## v3.0.2 – 16.03.2026
+
+### Yeni Özellikler
+
+**Veritabanı Yükleme**
+- Sistem Yönetimi panelinde "Veritabanını Yükle" özelliği eklendi
+- Yedekten geri yükleme için admin şifre doğrulaması zorunlu
+- POST /database-restore endpoint'i (SQLite header kontrolü, mevcut DB yedeği)
+
+**Kullanıcı Listesi Tablo Düzeni**
+- Tablo başlığı eklendi: Tümünü Seç (checkbox), Ad Soyad, Mail Adresi, Şifre Sıfırla
+- Ad Soyad ve Mail Adresi ayrı kolonlarda yan yana gösteriliyor
+- Tümünü Seç checkbox'ı: tıklanınca tüm seçilebilir kullanıcıları seçer; hepsi seçiliyken tekrar tıklanınca seçimleri kaldırır ve bulk alanları sıfırlar
+
+**Yeni Kullanıcı Ekle Layout**
+- Manuel form (sol) ve Excel toplu import (sağ) yan yana grid düzeni
+
+### Değişiklikler
+
+**Eylem Alanı Sadeleştirildi**
+- Tümünü Seç ve İptal butonları kaldırıldı (işlev tablo başlığı checkbox'ına taşındı)
+- Lider, Departman, Rol, Uygula, Seçili Kullanıcıları Sil ve İzin Yönetimi tek satırda
+
+**Veritabanı Yedekleme Alanı**
+- İndir ve Yükle butonları yan yana, farklı renklerle
+- Şifre hatasında bildirim gösterimi (alert + notify)
+
+**Admin Silme**
+- Admin rolündeki kullanıcılar artık silinebilir (panel sadece adminlere açık)
+
+### Düzeltmeler
+- Kullanıcı seçimi kaldırıldığında bulk alanların (lider, departman, rol) sıfırlanması
+- Veritabanı yükleme şifre hatasında bildirim gösterilmemesi
+
+---
+
 ## v3.0.1 – 14.03.2026
 
 ### Yeni Özellikler
