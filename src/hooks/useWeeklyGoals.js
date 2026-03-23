@@ -12,7 +12,7 @@ export function useWeeklyGoals() {
   const { user } = useAuth();
   const { addNotification } = useNotification();
 
-  const [weeklyGoals, setWeeklyGoals] = useState({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
+  const [weeklyGoals, setWeeklyGoals] = useState({ goal: null, items: [], locks: null, summary: null });
   const [weeklyWeekStart, setWeeklyWeekStart] = useState('');
   const [weeklyUserId, setWeeklyUserId] = useState(null);
   const [weeklyLeaveMinutesInput, setWeeklyLeaveMinutesInput] = useState('0');
@@ -120,11 +120,25 @@ export function useWeeklyGoals() {
   }, [weeklyWeekStart, user?.role]);
 
   const combinedLocks = useMemo(() => {
-    const backendTargetsLocked = !!(weeklyGoals?.locks?.targets_locked);
-    const backendActualsLocked = !!(weeklyGoals?.locks?.actuals_locked);
+    const locks = weeklyGoals?.locks;
+    if (locks == null) {
+      return {
+        targets_locked: uiLocks.targets_locked,
+        actuals_locked: uiLocks.actuals_locked,
+      };
+    }
+    const backendTargetsLocked = locks.targets_locked;
+    const backendActualsLocked = locks.actuals_locked;
+    // Backend explicitly false (e.g. admin edit grant active) overrides client UI locks
     return {
-      targets_locked: backendTargetsLocked || uiLocks.targets_locked,
-      actuals_locked: backendActualsLocked || uiLocks.actuals_locked,
+      targets_locked:
+        backendTargetsLocked === false
+          ? false
+          : !!backendTargetsLocked || uiLocks.targets_locked,
+      actuals_locked:
+        backendActualsLocked === false
+          ? false
+          : !!backendActualsLocked || uiLocks.actuals_locked,
     };
   }, [weeklyGoals?.locks, uiLocks]);
 
@@ -303,7 +317,7 @@ export function useWeeklyGoals() {
       }
     } catch (err) {
       console.error('Weekly goals load error:', err);
-      setWeeklyGoals({ goal: null, items: [], locks: { targets_locked: false, actuals_locked: false }, summary: null });
+      setWeeklyGoals({ goal: null, items: [], locks: null, summary: null });
       setWeeklyLeaveMinutesInput('0');
       setWeeklyOvertimeMinutesInput('0');
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
@@ -91,8 +91,30 @@ export function PermissionManagementModal({
   const [weekStart, setWeekStart] = useState(fmtYMD(getMonday()));
   const [durationHours, setDurationHours] = useState(4);
   const [grantSaving, setGrantSaving] = useState(false);
+  const [editGrantItems, setEditGrantItems] = useState([]);
+  const [editGrantListLoading, setEditGrantListLoading] = useState(false);
+  const [editGrantDeletingId, setEditGrantDeletingId] = useState(null);
 
   const selectedCount = selectedUserIds?.length || 0;
+
+  const fetchEditGrants = useCallback(async () => {
+    setEditGrantListLoading(true);
+    try {
+      const data = await EditGrants.list();
+      setEditGrantItems(Array.isArray(data?.items) ? data.items : []);
+    } catch (err) {
+      console.error('Edit grants list error:', err);
+      notifyFn?.(err?.response?.data?.message || 'Aktif izinler yüklenemedi.', 'error');
+    } finally {
+      setEditGrantListLoading(false);
+    }
+  }, [notifyFn]);
+
+  useEffect(() => {
+    if (open && activeTab === 'grant') {
+      fetchEditGrants();
+    }
+  }, [open, activeTab, fetchEditGrants]);
 
   useEffect(() => {
     if (open) {
@@ -190,6 +212,8 @@ export function PermissionManagementModal({
         duration_hours: durationHours,
       });
       notifyFn?.('Özel düzenleme izni verildi.', 'success');
+      await fetchEditGrants();
+      loadWeeklyGoals?.();
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -197,6 +221,39 @@ export function PermissionManagementModal({
       notifyFn?.(err?.response?.data?.message || 'İzin verilemedi', 'error');
     } finally {
       setGrantSaving(false);
+    }
+  };
+
+  const handleRemoveEditGrant = async (id) => {
+    setEditGrantDeletingId(id);
+    try {
+      await EditGrants.delete(id);
+      notifyFn?.('İzin kaldırıldı.', 'success');
+      await fetchEditGrants();
+      loadWeeklyGoals?.();
+    } catch (err) {
+      console.error('Edit grant delete error:', err);
+      notifyFn?.(err?.response?.data?.message || 'İzin kaldırılamadı.', 'error');
+    } finally {
+      setEditGrantDeletingId(null);
+    }
+  };
+
+  const formatGrantWeek = (weekStartStr) => {
+    if (!weekStartStr) return '—';
+    const [y, m, d] = weekStartStr.split('-');
+    return d && m && y ? `${d}.${m}.${y}` : weekStartStr;
+  };
+
+  const formatGrantExpires = (iso) => {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString('tr-TR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      });
+    } catch {
+      return String(iso);
     }
   };
 
@@ -505,6 +562,82 @@ export function PermissionManagementModal({
                     >
                       İptal
                     </button>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t" style={{ borderColor: currentTheme.border }}>
+                    <h4 className="text-sm font-semibold mb-3" style={{ color: currentTheme.text }}>
+                      Aktif izinler
+                    </h4>
+                    {editGrantListLoading ? (
+                      <p className="text-sm" style={{ color: currentTheme.textSecondary }}>
+                        Yükleniyor...
+                      </p>
+                    ) : editGrantItems.length === 0 ? (
+                      <p className="text-sm" style={{ color: currentTheme.textSecondary }}>
+                        Kayıtlı aktif izin yok.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-lg border" style={{ borderColor: currentTheme.border }}>
+                        <table className="w-full text-sm text-left">
+                          <thead>
+                            <tr style={{ backgroundColor: currentTheme.tableHeader || currentTheme.border }}>
+                              <th className="px-3 py-2 font-medium" style={{ color: currentTheme.text }}>
+                                Kullanıcı
+                              </th>
+                              <th className="px-3 py-2 font-medium" style={{ color: currentTheme.text }}>
+                                Hafta
+                              </th>
+                              <th className="px-3 py-2 font-medium" style={{ color: currentTheme.text }}>
+                                Bitiş
+                              </th>
+                              <th className="px-3 py-2 font-medium w-[1%] whitespace-nowrap" style={{ color: currentTheme.text }}>
+                                {' '}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {editGrantItems.map((row) => {
+                              const displayName =
+                                row.user_name ||
+                                row.user_email ||
+                                (row.user_id != null ? `Kullanıcı #${row.user_id}` : '—');
+                              return (
+                                <tr
+                                  key={row.id}
+                                  style={{ borderTop: `1px solid ${currentTheme.border}`, backgroundColor: currentTheme.tableRowAlt || 'transparent' }}
+                                >
+                                  <td className="px-3 py-2 align-middle" style={{ color: currentTheme.text }}>
+                                    {displayName}
+                                  </td>
+                                  <td className="px-3 py-2 align-middle" style={{ color: currentTheme.text }}>
+                                    {formatGrantWeek(row.week_start)}
+                                  </td>
+                                  <td className="px-3 py-2 align-middle" style={{ color: currentTheme.text }}>
+                                    {formatGrantExpires(row.expires_at)}
+                                  </td>
+                                  <td className="px-3 py-2 align-middle">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveEditGrant(row.id)}
+                                      disabled={editGrantDeletingId === row.id}
+                                      className="rounded px-2 py-1 text-xs font-medium border transition-opacity"
+                                      style={{
+                                        borderColor: currentTheme.border,
+                                        color: currentTheme.text,
+                                        opacity: editGrantDeletingId === row.id ? 0.6 : 1,
+                                        backgroundColor: currentTheme.accent || currentTheme.background,
+                                      }}
+                                    >
+                                      {editGrantDeletingId === row.id ? '…' : 'Kaldır'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
