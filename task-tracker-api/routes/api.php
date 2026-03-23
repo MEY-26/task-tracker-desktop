@@ -89,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Leave Requests
     Route::get('/leave-requests', [LeaveRequestController::class, 'index']);
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
+    Route::patch('/leave-requests/{id}/weekday', [LeaveRequestController::class, 'clearWeekday']);
     Route::post('/bulk-leave', [LeaveRequestController::class, 'bulkStore']);
     Route::delete('/leave-requests/{id}', [LeaveRequestController::class, 'destroy']);
 

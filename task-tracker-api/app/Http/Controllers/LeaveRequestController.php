@@ -66,23 +66,42 @@ class LeaveRequestController extends Controller
     }
 
     /**
-     * List leave requests for the authenticated user
+     * List leave requests for the authenticated user.
+     * Admin: optional user_ids (comma-separated or array) to list selected users' records (İzin Yönetimi).
      */
     public function index(Request $request)
     {
         $request->validate([
             'week_start' => 'nullable|date',
+            'user_ids' => 'nullable',
         ]);
 
         $auth = $request->user();
-        $query = DB::table('leave_requests')->where('user_id', $auth->id);
+
+        $query = DB::table('leave_requests as lr')
+            ->join('users as u', 'u.id', '=', 'lr.user_id')
+            ->select('lr.*', 'u.name as user_name', 'u.email as user_email');
+
+        if ($auth->role === 'admin' && $request->filled('user_ids')) {
+            $raw = $request->input('user_ids');
+            $ids = is_array($raw)
+                ? array_values(array_filter(array_map('intval', $raw)))
+                : array_values(array_filter(array_map('intval', explode(',', (string) $raw))));
+            if (!empty($ids)) {
+                $query->whereIn('lr.user_id', $ids);
+            } else {
+                $query->where('lr.user_id', $auth->id);
+            }
+        } else {
+            $query->where('lr.user_id', $auth->id);
+        }
 
         if ($request->filled('week_start')) {
             $weekStart = $this->mondayOfWeek($request->input('week_start'));
-            $query->where('week_start', $weekStart);
+            $query->where('lr.week_start', $weekStart);
         }
 
-        $items = $query->orderBy('week_start', 'desc')->get();
+        $items = $query->orderBy('lr.week_start', 'desc')->orderBy('u.name')->get();
 
         return response()->json(['items' => $items]);
     }
@@ -154,22 +173,81 @@ class LeaveRequestController extends Controller
     }
 
     /**
-     * Delete a leave request
+     * Delete a leave request (whole week row). Admin may delete any user's row.
      */
     public function destroy(Request $request, $id)
     {
         $auth = $request->user();
-        $item = DB::table('leave_requests')->where('id', $id)->where('user_id', $auth->id)->first();
+        $item = DB::table('leave_requests')->where('id', $id)->first();
 
         if (!$item) {
             return response()->json(['message' => 'İzin kaydı bulunamadı.'], 404);
         }
 
+        $isOwner = (int) $item->user_id === (int) $auth->id;
+        if (!$isOwner && $auth->role !== 'admin') {
+            return response()->json(['message' => 'İzin kaydı bulunamadı.'], 404);
+        }
+
+        $userId = (int) $item->user_id;
         $weekStart = $item->week_start;
         DB::table('leave_requests')->where('id', $id)->delete();
-        $this->syncWeeklyGoalLeaveMinutes($auth->id, $weekStart, null);
+        $this->syncWeeklyGoalLeaveMinutes($userId, $weekStart, null);
 
         return response()->json(['message' => 'Silindi']);
+    }
+
+    /**
+     * Clear a single weekday from a leave row (admin or row owner). Recalculates weekly goal leave minutes.
+     */
+    public function clearWeekday(Request $request, $id)
+    {
+        $request->validate([
+            'weekday' => 'required|string|in:monday,tuesday,wednesday,thursday,friday',
+        ]);
+
+        $auth = $request->user();
+        $item = DB::table('leave_requests')->where('id', $id)->first();
+
+        if (!$item) {
+            return response()->json(['message' => 'İzin kaydı bulunamadı.'], 404);
+        }
+
+        $isOwner = (int) $item->user_id === (int) $auth->id;
+        if (!$isOwner && $auth->role !== 'admin') {
+            return response()->json(['message' => 'Yetkiniz yok.'], 403);
+        }
+
+        $key = $request->input('weekday');
+        $update = [
+            $key => false,
+            $key.'_start' => null,
+            $key.'_end' => null,
+            'updated_at' => now(),
+        ];
+
+        DB::table('leave_requests')->where('id', $id)->update($update);
+        $fresh = DB::table('leave_requests')->where('id', $id)->first();
+
+        $hasAny = false;
+        foreach (self::WEEKDAY_KEYS as $k) {
+            if ($fresh && ($fresh->{$k} ?? false)) {
+                $hasAny = true;
+                break;
+            }
+        }
+
+        $userId = (int) $item->user_id;
+        $weekStart = $item->week_start;
+
+        if (!$hasAny) {
+            DB::table('leave_requests')->where('id', $id)->delete();
+            $this->syncWeeklyGoalLeaveMinutes($userId, $weekStart, null);
+        } else {
+            $this->syncWeeklyGoalLeaveMinutes($userId, $weekStart, $fresh);
+        }
+
+        return response()->json(['message' => 'Gün kaldırıldı.']);
     }
 
     private function syncWeeklyGoalLeaveMinutes(int $userId, string $weekStart, $leaveRequest): void

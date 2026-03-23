@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { LeaveRequests, EditGrants, SystemSettings } from '../../api';
-import { getMonday, fmtYMD, isWeekday } from '../../utils/date';
+import { getMonday, fmtYMD, isWeekday, addDays } from '../../utils/date';
+
+const LEAVE_WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
 const MONTH_NAMES = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -95,7 +97,53 @@ export function PermissionManagementModal({
   const [editGrantListLoading, setEditGrantListLoading] = useState(false);
   const [editGrantDeletingId, setEditGrantDeletingId] = useState(null);
 
+  const [existingLeaveRaw, setExistingLeaveRaw] = useState([]);
+  const [leaveListLoading, setLeaveListLoading] = useState(false);
+  const [leaveClearingKey, setLeaveClearingKey] = useState(null);
+
   const selectedCount = selectedUserIds?.length || 0;
+
+  const flattenLeaveForTable = useCallback(
+    (items) => {
+      const ws = systemSettings.work_start || '08:00';
+      const we = systemSettings.work_end || '18:15';
+      const rows = [];
+      if (!Array.isArray(items)) return rows;
+      for (const item of items) {
+        if (!item?.week_start) continue;
+        const mon = new Date(`${item.week_start}T12:00:00`);
+        LEAVE_WEEKDAY_KEYS.forEach((key, i) => {
+          if (!item[key]) return;
+          const dateStr = fmtYMD(addDays(mon, i));
+          const dayOfWeek = getDayOfWeekFromDateStr(dateStr);
+          const start = item[`${key}_start`] || null;
+          const end = item[`${key}_end`] || null;
+          const minutes = calculateLeaveMinutesForDay(dayOfWeek, start || ws, end || we, systemSettings);
+          const [y, m, d] = dateStr.split('-');
+          const dateLabel = d && m && y ? `${d}.${m}.${y}` : dateStr;
+          rows.push({
+            rowKey: `${item.id}-${key}`,
+            leaveRequestId: item.id,
+            weekdayKey: key,
+            userId: item.user_id,
+            userName: item.user_name || item.user_email || (item.user_id != null ? `Kullanıcı #${item.user_id}` : '—'),
+            dateStr,
+            dateLabel,
+            minutes,
+            timeLabel:
+              !start && !end
+                ? 'Tam gün'
+                : `${(start || ws).slice(0, 5)} – ${(end || we).slice(0, 5)}`,
+          });
+        });
+      }
+      rows.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+      return rows;
+    },
+    [systemSettings]
+  );
+
+  const existingLeaveRows = flattenLeaveForTable(existingLeaveRaw);
 
   const fetchEditGrants = useCallback(async () => {
     setEditGrantListLoading(true);
@@ -110,11 +158,38 @@ export function PermissionManagementModal({
     }
   }, [notifyFn]);
 
+  const fetchExistingLeaves = useCallback(async () => {
+    if (!selectedUserIds?.length) {
+      setExistingLeaveRaw([]);
+      return;
+    }
+    setLeaveListLoading(true);
+    try {
+      const data = await LeaveRequests.listForUsers(selectedUserIds);
+      setExistingLeaveRaw(Array.isArray(data?.items) ? data.items : []);
+    } catch (err) {
+      console.error('Existing leaves list error:', err);
+      notifyFn?.(err?.response?.data?.message || 'Kayıtlı izinler yüklenemedi.', 'error');
+      setExistingLeaveRaw([]);
+    } finally {
+      setLeaveListLoading(false);
+    }
+  }, [selectedUserIds, notifyFn]);
+
   useEffect(() => {
     if (open && activeTab === 'grant') {
       fetchEditGrants();
     }
   }, [open, activeTab, fetchEditGrants]);
+
+  useEffect(() => {
+    if (open && activeTab === 'leave' && selectedCount > 0) {
+      fetchExistingLeaves();
+    }
+    if (!open) {
+      setExistingLeaveRaw([]);
+    }
+  }, [open, activeTab, selectedCount, fetchExistingLeaves]);
 
   useEffect(() => {
     if (open) {
@@ -191,6 +266,7 @@ export function PermissionManagementModal({
       });
 
       notifyFn?.('Toplu izin kaydedildi.', 'success');
+      await fetchExistingLeaves();
       loadWeeklyGoals?.();
       onSuccess?.();
       onClose();
@@ -221,6 +297,21 @@ export function PermissionManagementModal({
       notifyFn?.(err?.response?.data?.message || 'İzin verilemedi', 'error');
     } finally {
       setGrantSaving(false);
+    }
+  };
+
+  const handleClearLeaveDay = async (leaveRequestId, weekdayKey, rowKey) => {
+    setLeaveClearingKey(rowKey);
+    try {
+      await LeaveRequests.clearWeekday(leaveRequestId, weekdayKey);
+      notifyFn?.('İzin günü kaldırıldı.', 'success');
+      await fetchExistingLeaves();
+      loadWeeklyGoals?.();
+    } catch (err) {
+      console.error('Clear leave day error:', err);
+      notifyFn?.(err?.response?.data?.message || 'Gün kaldırılamadı.', 'error');
+    } finally {
+      setLeaveClearingKey(null);
     }
   };
 
@@ -279,7 +370,7 @@ export function PermissionManagementModal({
       <div className="absolute inset-0 bg-black/60" onClick={onClose} style={{ pointerEvents: 'auto' }} />
       <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
         <div
-          className="fixed z-[100300] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[560px] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
+          className="fixed z-[100300] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[640px] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
           style={{
             pointerEvents: 'auto',
             backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -462,6 +553,100 @@ export function PermissionManagementModal({
                     </div>
                   </div>
                 )}
+
+                <div className="mt-6 pt-4 border-t" style={{ borderColor: currentTheme.border }}>
+                  <h4 className="text-sm font-semibold mb-3" style={{ color: currentTheme.text }}>
+                    Kayıtlı izinler
+                  </h4>
+                  {leaveListLoading ? (
+                    <p className="text-sm mb-4" style={{ color: currentTheme.textSecondary }}>
+                      Yükleniyor...
+                    </p>
+                  ) : existingLeaveRows.length === 0 ? (
+                    <p className="text-sm mb-4" style={{ color: currentTheme.textSecondary }}>
+                      Seçili kullanıcılar için kayıtlı izin günü yok.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border mb-4" style={{ borderColor: currentTheme.border }}>
+                      <table className="w-full text-sm text-left">
+                        <thead>
+                          <tr style={{ backgroundColor: currentTheme.tableHeader || currentTheme.border }}>
+                            {selectedCount > 1 ? (
+                              <th className="px-3 py-2 font-medium" style={{ color: currentTheme.text }}>
+                                Kullanıcı
+                              </th>
+                            ) : null}
+                            <th className="px-3 py-2 font-medium" style={{ color: currentTheme.text }}>
+                              Tarih
+                            </th>
+                            <th className="px-3 py-2 font-medium" style={{ color: currentTheme.text }}>
+                              İzin süresi
+                            </th>
+                            <th className="px-3 py-2 font-medium" style={{ color: currentTheme.text }}>
+                              Zaman aralığı
+                            </th>
+                            <th className="px-3 py-2 font-medium w-[1%] whitespace-nowrap" style={{ color: currentTheme.text }}>
+                              {' '}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {existingLeaveRows.map((row) => {
+                            const hoursStr =
+                              row.minutes >= 60
+                                ? `${(row.minutes / 60).toFixed(row.minutes % 60 === 0 ? 0 : 1)} saat`
+                                : `${row.minutes} dk`;
+                            return (
+                              <tr
+                                key={row.rowKey}
+                                style={{
+                                  borderTop: `1px solid ${currentTheme.border}`,
+                                  backgroundColor: currentTheme.tableRowAlt || 'transparent',
+                                }}
+                              >
+                                {selectedCount > 1 ? (
+                                  <td className="px-3 py-2 align-middle" style={{ color: currentTheme.text }}>
+                                    {row.userName}
+                                  </td>
+                                ) : null}
+                                <td className="px-3 py-2 align-middle" style={{ color: currentTheme.text }}>
+                                  {row.dateLabel}
+                                </td>
+                                <td className="px-3 py-2 align-middle" style={{ color: currentTheme.text }}>
+                                  <span className="font-semibold" style={{ color: currentTheme.accent }}>
+                                    {row.minutes} dk
+                                  </span>
+                                  <span className="block text-xs mt-0.5" style={{ color: currentTheme.textSecondary }}>
+                                    ({hoursStr})
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 align-middle" style={{ color: currentTheme.textSecondary }}>
+                                  {row.timeLabel}
+                                </td>
+                                <td className="px-3 py-2 align-middle">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleClearLeaveDay(row.leaveRequestId, row.weekdayKey, row.rowKey)}
+                                    disabled={leaveClearingKey === row.rowKey}
+                                    className="rounded px-2 py-1 text-xs font-medium border transition-opacity"
+                                    style={{
+                                      borderColor: currentTheme.border,
+                                      color: currentTheme.text,
+                                      opacity: leaveClearingKey === row.rowKey ? 0.6 : 1,
+                                      backgroundColor: currentTheme.accent || currentTheme.background,
+                                    }}
+                                  >
+                                    {leaveClearingKey === row.rowKey ? '…' : 'Kaldır'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex justify-center gap-3 pt-2">
                   <button

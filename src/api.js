@@ -681,6 +681,20 @@ export const LeaveRequests = {
       throw error;
     }
   },
+  /** Admin: seçili kullanıcıların izin kayıtları (user_ids: "1,2" veya dizi) */
+  listForUsers: async (userIds) => {
+    const ids = Array.isArray(userIds) ? userIds.join(',') : String(userIds || '');
+    return LeaveRequests.list({ user_ids: ids });
+  },
+  clearWeekday: async (id, weekday) => {
+    try {
+      const response = await api.patch(`/leave-requests/${id}/weekday`, { weekday });
+      return response.data;
+    } catch (error) {
+      console.error('Leave weekday clear error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
   create: async (payload) => {
     try {
       const response = await api.post('/leave-requests', payload);
