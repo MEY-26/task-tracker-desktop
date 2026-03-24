@@ -923,9 +923,7 @@ class TaskController extends Controller
 
     public function downloadAttachment(TaskAttachment $attachment, $token)
     {
-        // Kalıcı token kontrolü - dosya ve görev silinmediği sürece geçerli
-        $expectedToken = md5($attachment->id . $attachment->created_at . config('app.key'));
-        if ($token !== $expectedToken) {
+        if (!$attachment->matchesDownloadToken($token)) {
             abort(403, 'Geçersiz veya süresi dolmuş dosya linki');
         }
 
@@ -957,15 +955,11 @@ class TaskController extends Controller
             $asciiFallback = 'dosya';
         }
 
-        return response()->file($filePath, [
+        // download() + inline: Symfony başlıkları daha güvenli işler
+        return response()->download($filePath, $asciiFallback, [
             'Content-Type' => $mimeType,
-            'Content-Disposition' => sprintf(
-                'inline; filename="%s"; filename*=UTF-8\'\'%s',
-                addcslashes($asciiFallback, '"\\'),
-                rawurlencode($originalName)
-            ),
             'Cache-Control' => 'private, must-revalidate',
-        ]);
+        ], 'inline');
     }
 
     // DEBUG: Test attachment URLs

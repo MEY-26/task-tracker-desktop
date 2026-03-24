@@ -89,11 +89,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], $statusCode);
             }
 
-            // For web requests, return a user-friendly error page
+            // Web istekleri: abort(403/404) vb. gerçek durum koduyla dön (hep 500 göstermeyi kes)
+            $webStatus = 500;
+            if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                $webStatus = $e->getStatusCode();
+            }
+
             return response()->view('errors.generic', [
-                'message' => 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.',
+                'message' => $webStatus >= 500
+                    ? 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.'
+                    : ($e->getMessage() ?: 'İstek reddedildi.'),
                 'error' => config('app.debug') ? $e->getMessage() : 'Sunucu hatası',
-            ], 500);
+            ], $webStatus);
         });
 
 

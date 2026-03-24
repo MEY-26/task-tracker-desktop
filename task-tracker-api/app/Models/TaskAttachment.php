@@ -20,11 +20,44 @@ class TaskAttachment extends Model
         return asset('storage/' . ltrim($this->path, '/'));
     }
 
+    /**
+     * İndirme jetonu: sadece id + APP_KEY (created_at kullanılmaz).
+     * Eski md5(id.created_at.key) linkleri kayıt anı ile DB okuması arasında
+     * tarih formatı/mikrosaniye farkı yüzünden 403/yanlış 500 üretebiliyordu.
+     */
+    public static function computeDownloadToken(TaskAttachment $attachment): string
+    {
+        return hash_hmac('sha256', (string) $attachment->id, (string) config('app.key'));
+    }
+
+    public function matchesDownloadToken(string $token): bool
+    {
+        if (hash_equals(self::computeDownloadToken($this), $token)) {
+            return true;
+        }
+
+        // Geriye dönük: eski md5(id . created_at . key) — olası created_at string varyantları
+        $id = (string) $this->id;
+        $key = (string) config('app.key');
+        $candidates = array_unique(array_filter([
+            $this->getRawOriginal('created_at'),
+            $this->created_at ? $this->created_at->format('Y-m-d H:i:s') : null,
+            $this->created_at ? (string) $this->created_at : null,
+        ], fn ($v) => $v !== null && $v !== ''));
+
+        foreach ($candidates as $c) {
+            if (hash_equals(md5($id . $c . $key), $token)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function getDownloadUrlAttribute()
     {
-        // Kalıcı token tabanlı indirme URL'si - ZAMAN SINIRI YOK!
-        // Dosya silinmediği sürece süresiz erişim
-        $token = md5($this->id . $this->created_at . config('app.key'));
+        $token = self::computeDownloadToken($this);
+
         return route('attachments.download', ['attachment' => $this->id, 'token' => $token]);
     }
 
