@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\TaskAttachment;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\TaskNotificationMail;
@@ -934,15 +935,36 @@ class TaskController extends Controller
         }
 
         $filePath = Storage::disk('public')->path($attachment->path);
-        $originalName = $attachment->original_name;
+        if (!is_readable($filePath)) {
+            abort(404, 'Dosya okunamıyor');
+        }
 
-        // Dosyayı güvenli şekilde indir
+        $originalName = $attachment->original_name ?: basename($attachment->path);
+
+        // MIME: varsayılan disk (local/private) değil — public diskteki gerçek dosyadan oku
+        try {
+            $mimeType = File::mimeType($filePath);
+        } catch (\Throwable $e) {
+            $mimeType = null;
+        }
+        if (!$mimeType) {
+            $mimeType = 'application/octet-stream';
+        }
+
+        // Türkçe / özel karakterli adlar için RFC 5987 filename* (yanlış header 500 üretebilirdi)
+        $asciiFallback = preg_replace('/[^\x20-\x7E]/u', '_', $originalName);
+        if ($asciiFallback === '' || $asciiFallback === null) {
+            $asciiFallback = 'dosya';
+        }
+
         return response()->file($filePath, [
-            'Content-Disposition' => 'attachment; filename="' . addslashes($originalName) . '"',
-            'Content-Type' => Storage::mimeType($attachment->path) ?: 'application/octet-stream',
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'Pragma' => 'no-cache',
-            'Expires' => '0'
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => sprintf(
+                'inline; filename="%s"; filename*=UTF-8\'\'%s',
+                addcslashes($asciiFallback, '"\\'),
+                rawurlencode($originalName)
+            ),
+            'Cache-Control' => 'private, must-revalidate',
         ]);
     }
 

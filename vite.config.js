@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 
+const hmrHost = process.env.VITE_HMR_HOST
+const hmrClientPort = process.env.VITE_HMR_CLIENT_PORT
+
 export default defineConfig({
   plugins: [react()],
   base: './',
@@ -14,9 +17,16 @@ export default defineConfig({
       '127.0.0.1',
       '.yildiz.local'
     ],
-    hmr: {
-      clientPort: 5173,
-      host: 'localhost'//172.17.0.22
-    }
-  }
+    // Özel host (ör. gorevtakip.yildiz.local) ile açarken localhost’a sabit HMR WebSocket hatası vermesin.
+    // Ortam değişkeni yoksa Vite, isteğin Host’una göre HMR adresini kendisi seçer.
+    ...(hmrHost
+      ? {
+          hmr: {
+            protocol: 'ws',
+            host: hmrHost,
+            ...(hmrClientPort ? { clientPort: Number(hmrClientPort) } : {}),
+          },
+        }
+      : {}),
+  },
 })
