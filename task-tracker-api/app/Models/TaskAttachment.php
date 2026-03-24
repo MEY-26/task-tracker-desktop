@@ -32,19 +32,31 @@ class TaskAttachment extends Model
 
     public function matchesDownloadToken(string $token): bool
     {
-        if (hash_equals(self::computeDownloadToken($this), $token)) {
-            return true;
+        try {
+            if (hash_equals(self::computeDownloadToken($this), $token)) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            return false;
         }
 
-        // Geriye dönük: eski md5(id . created_at . key) — olası created_at string varyantları
+        // Geriye dönük: eski md5(id . created_at . key)
         $id = (string) $this->id;
         $key = (string) config('app.key');
-        $candidates = array_unique(array_filter([
-            $this->getRawOriginal('created_at'),
-            $this->created_at ? $this->created_at->format('Y-m-d H:i:s') : null,
-            $this->created_at ? (string) $this->created_at : null,
-        ], fn ($v) => $v !== null && $v !== ''));
+        $candidates = [];
+        $raw = $this->getRawOriginal('created_at');
+        if ($raw !== null && $raw !== '') {
+            $candidates[] = (string) $raw;
+        }
+        $ca = $this->created_at;
+        if ($ca instanceof \DateTimeInterface) {
+            $candidates[] = $ca->format('Y-m-d H:i:s');
+        }
+        if ($ca !== null && ! ($ca instanceof \DateTimeInterface)) {
+            $candidates[] = (string) $ca;
+        }
 
+        $candidates = array_unique(array_filter($candidates, fn ($v) => $v !== ''));
         foreach ($candidates as $c) {
             if (hash_equals(md5($id . $c . $key), $token)) {
                 return true;

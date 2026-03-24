@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\TaskAttachment;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\TaskNotificationMail;
@@ -927,39 +928,56 @@ class TaskController extends Controller
             abort(403, 'Geçersiz veya süresi dolmuş dosya linki');
         }
 
-        // Dosyanın fiziksel varlığını kontrol et
-        if (!Storage::disk('public')->exists($attachment->path)) {
+        $disk = Storage::disk('public');
+        if (!$disk->exists($attachment->path)) {
             abort(404, 'Dosya sunucuda bulunamadı');
         }
 
-        $filePath = Storage::disk('public')->path($attachment->path);
-        if (!is_readable($filePath)) {
+        $filePath = $disk->path($attachment->path);
+        if (!is_file($filePath) || !is_readable($filePath)) {
             abort(404, 'Dosya okunamıyor');
         }
 
+        $probe = @fopen($filePath, 'rb');
+        if ($probe === false) {
+            abort(503, 'Dosya sunucu tarafından açılamıyor (izin veya kilit).');
+        }
+        fclose($probe);
+
         $originalName = $attachment->original_name ?: basename($attachment->path);
+        $asciiFallback = preg_replace('/[^\x20-\x7E]/u', '_', $originalName) ?: 'dosya';
 
-        // MIME: varsayılan disk (local/private) değil — public diskteki gerçek dosyadan oku
+        $mimeType = 'application/octet-stream';
         try {
-            $mimeType = File::mimeType($filePath);
+            $mimeType = File::mimeType($filePath) ?: $mimeType;
         } catch (\Throwable $e) {
-            $mimeType = null;
-        }
-        if (!$mimeType) {
-            $mimeType = 'application/octet-stream';
-        }
-
-        // Türkçe / özel karakterli adlar için RFC 5987 filename* (yanlış header 500 üretebilirdi)
-        $asciiFallback = preg_replace('/[^\x20-\x7E]/u', '_', $originalName);
-        if ($asciiFallback === '' || $asciiFallback === null) {
-            $asciiFallback = 'dosya';
+            if (function_exists('mime_content_type')) {
+                $detected = @mime_content_type($filePath);
+                if ($detected) {
+                    $mimeType = $detected;
+                }
+            }
         }
 
-        // download() + inline: Symfony başlıkları daha güvenli işler
-        return response()->download($filePath, $asciiFallback, [
+        // BinaryFileResponse bazı Linux/php-fpm kurulumlarında FileException verebiliyor; stream ile gönder
+        $safeName = str_replace(['"', "\r", "\n"], '', $asciiFallback);
+
+        return new StreamedResponse(function () use ($filePath) {
+            $handle = @fopen($filePath, 'rb');
+            if ($handle === false) {
+                return;
+            }
+            try {
+                fpassthru($handle);
+            } finally {
+                fclose($handle);
+            }
+        }, 200, [
             'Content-Type' => $mimeType,
-            'Cache-Control' => 'private, must-revalidate',
-        ], 'inline');
+            'Content-Disposition' => 'inline; filename="'.$safeName.'"',
+            'Cache-Control' => 'private, no-cache, must-revalidate',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     // DEBUG: Test attachment URLs
