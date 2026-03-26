@@ -33,6 +33,8 @@ function UserPanel({
   const [bulkRole, setBulkRole] = useState('');
   const [activeTab, setActiveTab] = useState('users');
   const selectAllCheckboxRef = useRef(null);
+  /** Tek seçimde toplu alanları yalnızca o kullanıcı ilk seçildiğinde DB'den doldur; users yenilenince düzenlemeyi ezme. */
+  const lastBulkSyncedSingleUserIdRef = useRef(null);
   const CreateUserForm = AdminCreateUserComponent;
 
   const selectableUsers = useMemo(
@@ -52,26 +54,36 @@ function UserPanel({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      lastBulkSyncedSingleUserIdRef.current = null;
+      return;
+    }
     if (selectedTargetUsers.length === 0) {
+      lastBulkSyncedSingleUserIdRef.current = null;
       setBulkLeaderId('');
       setBulkDepartment('');
       setBulkRole('');
       return;
     }
-    if (selectedTargetUsers.length === 1) {
-      const single = users?.find((u) => u.id === selectedTargetUsers[0]);
-      if (single) {
-        setBulkRole(single.role || '');
-        setBulkDepartment(single.department ? single.department : 'remove');
-        if (single.role === 'team_member') {
-          setBulkLeaderId(single.leader_id ? String(single.leader_id) : 'remove');
-        } else {
-          setBulkLeaderId('');
-        }
-      }
+    if (selectedTargetUsers.length > 1) {
+      lastBulkSyncedSingleUserIdRef.current = null;
+      return;
     }
-  }, [open, selectedTargetUsers, users, setBulkLeaderId]);
+    const singleId = selectedTargetUsers[0];
+    if (lastBulkSyncedSingleUserIdRef.current === singleId) {
+      return;
+    }
+    const single = users?.find((u) => u.id === singleId);
+    if (!single) return;
+    lastBulkSyncedSingleUserIdRef.current = singleId;
+    setBulkRole(single.role || '');
+    setBulkDepartment(single.department ? single.department : 'remove');
+    if (single.role === 'team_member') {
+      setBulkLeaderId(single.leader_id ? String(single.leader_id) : 'remove');
+    } else {
+      setBulkLeaderId('');
+    }
+  }, [open, selectedTargetUsers, users, setBulkLeaderId, setBulkDepartment, setBulkRole]);
 
   useEffect(() => {
     const el = selectAllCheckboxRef.current;
