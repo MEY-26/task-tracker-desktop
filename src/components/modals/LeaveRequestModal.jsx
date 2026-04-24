@@ -65,23 +65,6 @@ function itemToDates(item) {
   return set;
 }
 
-/** Build dayTimes from item for populating state */
-function itemToDayTimes(item, workStart = '08:00', workEnd = '18:15') {
-  const out = {};
-  if (!item?.week_start) return out;
-  const mon = new Date(item.week_start + 'T12:00:00');
-  WEEKDAY_KEYS.forEach((key, i) => {
-    if (item[key]) {
-      const dateStr = fmtYMD(addDays(mon, i));
-      out[dateStr] = {
-        start: item[`${key}_start`] || workStart,
-        end: item[`${key}_end`] || workEnd,
-      };
-    }
-  });
-  return out;
-}
-
 /** Build monday..friday from selectedDates for a given week_start */
 function weekFlagsFromDates(weekStart, selectedDates) {
   const mon = new Date(weekStart + 'T12:00:00');
