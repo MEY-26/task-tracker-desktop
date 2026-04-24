@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import darkLogo from '../../assets/Dark_VadenLogo.svg';
 import lightLogo from '../../assets/Light_VadenLogo.svg';
@@ -6,6 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 
 export function ThemePanel() {
+  const modalRef = useRef(null);
   const {
     currentTheme,
     currentThemeName,
@@ -24,6 +25,16 @@ export function ThemePanel() {
     setShowThemePanel(false);
     setTimeout(() => window.location.reload(), 300);
   };
+
+  useEffect(() => {
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) handleClose();
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+  }, []);
 
   const colorInputStyle = {
     width: '48px',
@@ -88,8 +99,12 @@ export function ThemePanel() {
   return createPortal(
     <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0" onClick={handleClose} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-        <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[85vh] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) handleClose?.(); }}
+      >
+        <div ref={modalRef} className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[85vh] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
           pointerEvents: 'auto',
           backgroundColor: currentTheme.tableBackground || currentTheme.background,
           borderColor: currentTheme.border,

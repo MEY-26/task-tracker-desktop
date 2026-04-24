@@ -368,7 +368,11 @@ export function PermissionManagementModal({
   return createPortal(
     <div className="fixed inset-0 z-[999999]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} style={{ pointerEvents: 'auto' }} />
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
         <div
           className="fixed z-[100300] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[640px] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
           style={{

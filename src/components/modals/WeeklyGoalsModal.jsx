@@ -41,12 +41,16 @@ export function WeeklyGoalsModal({
 
   if (!open) return null;
   const canShowGradeOnly = user?.role === 'team_leader';
-  const canShowScoreSection = canShowFullScore || canShowGradeOnly;
+  const canShowScoreSection = canShowFullScore;
 
   const jsx = (
     <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} style={{ pointerEvents: 'auto' }} />
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
         <div className="fixed z-[100260] weekly-goals-modal left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[90vh] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
           style={{
             paddingBottom: '10px',
@@ -826,8 +830,13 @@ export function WeeklyGoalsModal({
 
                 const tip = `Kesinti/Bonus Detayı\n\n🔴 CEZALAR:\nGecikme + Tamamlanmama Cezası: ${incompleteEffect < 0 ? '' : '+'}${incompleteEffect.toFixed(2)}%\nAçık Cezası (P1): -${p1.toFixed(2)}%\nKullanılmayan Süre Cezası (EASA): -${peasa.toFixed(2)}%\n\n🟢 BONUSLAR:\nHız/Tasarruf Bonusu: ${speedBonus > 0 ? '+' : ''}${speedBonus.toFixed(2)}%\nMesai Bonusu: ${overtimeBonus > 0 ? '+' : ''}${overtimeBonus.toFixed(2)}% (${overtimeUsed} dk mesai, 1.5x çarpan)\n\n📊 TOPLAM:\nNet: ${net >= 0 ? '+' : ''}${net.toFixed(2)}%\n\nPerformans Sonucu: ${weeklyLive.finalScore}%`;
 
+                const isLeaderOnlyView = canShowGradeOnly && !canShowFullScore;
+                const detailGridCols = canShowFullScore
+                  ? 'grid-cols-[5%_13%_20%_13%_20%_13%_15%_5%]'
+                  : 'grid-cols-[2%_16%_24%_1fr_16%_24%_2%]';
+
                 return (
-                  <div className={`grid gap-x-8 gap-y-3 text-[20px] items-center ${canShowScoreSection ? 'grid-cols-[5%_13%_20%_13%_20%_13%_15%_5%]' : 'grid-cols-[5%_13%_20%_13%_20%_5%]'}`}>
+                  <div className={`grid gap-x-8 gap-y-3 text-[20px] items-center ${detailGridCols}`}>
                     <div className="flex flex-col gap-3"></div>
                     <div className="flex flex-col gap-3">
                       <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>İzin Süresi:</div>
@@ -849,12 +858,17 @@ export function WeeklyGoalsModal({
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.unplannedMinutes} dk</div>
                     </div>
 
-                    <div className="flex flex-col gap-3 ml-4">
+                    {!canShowFullScore && <div />}
+
+                    <div className={`flex flex-col gap-3 ${canShowFullScore ? 'ml-4' : 'ml-1'}`}>
                       <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılan Süre:</div>
                       <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Kullanılabilir Süre:</div>
                       <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı İş:</div>
                       <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Plandışı İş:</div>
                       <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Toplam İş:</div>
+                      {isLeaderOnlyView && (
+                        <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Değerlendirme:</div>
+                      )}
                     </div>
 
                     <div className="flex flex-col gap-3">
@@ -871,11 +885,16 @@ export function WeeklyGoalsModal({
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{plannedCount} Adet</div>
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{unplannedCount} Adet</div>
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{totalCount} Adet</div>
+                      {isLeaderOnlyView && (
+                        <div className="font-bold whitespace-nowrap text-left" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
+                          {getPerformanceGrade(weeklyLive.finalScore).grade}
+                        </div>
+                      )}
                     </div>
 
                     {canShowScoreSection && (
                       <>
-                        <div className="flex flex-col gap-3 ml-4">
+                        <div className={`flex flex-col gap-3 ${canShowFullScore ? 'ml-4' : 'h-full justify-end'}`}>
                           {canShowFullScore && (
                             <>
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Planlı Skor:</div>
@@ -884,10 +903,12 @@ export function WeeklyGoalsModal({
                               <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Performans Skoru:</div>
                             </>
                           )}
-                          <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Değerlendirme:</div>
+                          {canShowFullScore && (
+                            <div className="whitespace-nowrap" style={{ color: currentTheme.textSecondary }}>Değerlendirme:</div>
+                          )}
                         </div>
 
-                        <div className="flex flex-col gap-3">
+                        <div className={`flex flex-col gap-3 ${canShowFullScore ? '' : 'h-full justify-end'}`}>
                           {canShowFullScore && (
                             <>
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.plannedScore}%</div>
@@ -898,9 +919,11 @@ export function WeeklyGoalsModal({
                               <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.finalScore}%</div>
                             </>
                           )}
-                          <div className="font-bold whitespace-nowrap text-left" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
-                            {canShowFullScore ? getPerformanceGrade(weeklyLive.finalScore).description : getPerformanceGrade(weeklyLive.finalScore).grade}
-                          </div>
+                          {canShowFullScore && (
+                            <div className="font-bold whitespace-nowrap text-left" style={{ color: getPerformanceGrade(weeklyLive.finalScore).color }}>
+                              {getPerformanceGrade(weeklyLive.finalScore).description}
+                            </div>
+                          )}
                         </div>
                       </>
                     )}

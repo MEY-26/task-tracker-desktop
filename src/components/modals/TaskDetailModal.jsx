@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Tasks, apiOrigin } from '../../api';
 import { formatDate, formatDateOnly } from '../../utils/date';
@@ -58,19 +58,35 @@ export function TaskDetailModal({
   comments,
   apiOrigin: apiOriginProp
 }) {
+  const modalRef = useRef(null);
   const fmtDateOnly = formatDateOnlyProp || formatDateOnly;
   const fmtDate = formatDateProp || formatDate;
   const renderHistoryVal = renderHistoryValueProp || renderHistoryValue;
   const renderFieldLbl = renderFieldLabelProp || renderFieldLabel;
   const apiOriginVal = apiOriginProp || apiOrigin;
 
+  useEffect(() => {
+    if (!open || !task) return;
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) onClose?.();
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+  }, [open, task, onClose]);
+
   if (!open || !task) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[999996]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0" onClick={onClose} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
-      <div className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ pointerEvents: 'auto' }}>
-        <div className="fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px]
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-2 sm:p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
+        <div ref={modalRef} className="fixed z-[100100] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px]
           h-[80vh] rounded-2xl box-border
         shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden
       "

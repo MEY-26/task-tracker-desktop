@@ -53,7 +53,8 @@ export function GoalDescriptionModal({
       pointerEvents: 'auto'
     }}>
       <div className="absolute inset-0" onClick={onClose} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
-      <div className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
+      <div
+        className="relative z-10 w-[30vw] max-w-4xl rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
         style={{
           maxHeight: '80vh',
           transform: 'translate(0, 0)',
@@ -65,7 +66,10 @@ export function GoalDescriptionModal({
           borderWidth: '1px',
           borderStyle: 'solid',
           color: currentTheme.text
-        }} onClick={(e) => e.stopPropagation()}>
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center px-6 py-4 border-b" style={{ paddingRight: '10px', paddingLeft: '10px', backgroundColor: currentTheme.background, borderColor: currentTheme.border }}>
           <div className="flex-1"></div>
           <div className="flex-1 text-center">

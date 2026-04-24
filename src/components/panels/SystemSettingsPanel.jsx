@@ -45,6 +45,7 @@ export function SystemSettingsPanel({ open, onClose, addNotification }) {
   const [backupLoading, setBackupLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
   const restoreInputRef = useRef(null);
+  const modalRef = useRef(null);
 
   useEffect(() => {
     if (open) {
@@ -65,6 +66,17 @@ export function SystemSettingsPanel({ open, onClose, addNotification }) {
         .finally(() => setLoading(false));
     }
   }, [open, notify]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) onClose?.();
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+  }, [open, onClose]);
 
   const toggleWorkingDay = (dayId) => {
     setSettings((prev) => {
@@ -178,8 +190,13 @@ export function SystemSettingsPanel({ open, onClose, addNotification }) {
   return createPortal(
     <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0" onClick={onClose} style={{ pointerEvents: 'auto', backgroundColor: `${theme.background}CC` }} />
-      <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+      <div
+        className="relative flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
         <div
+          ref={modalRef}
           className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[560px] max-h-[90vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden"
           style={{
             pointerEvents: 'auto',

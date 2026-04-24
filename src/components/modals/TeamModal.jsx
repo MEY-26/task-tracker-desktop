@@ -22,7 +22,11 @@ export function TeamModal({
   return createPortal(
     <div className="fixed inset-0 z-[999994]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0" onClick={onClose} style={{ pointerEvents: 'auto', backgroundColor: `${themeToUse.background}CC` }} />
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
         <div className="fixed z-[100230] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[900px] max-h-[80vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
           pointerEvents: 'auto',
           backgroundColor: themeToUse.tableBackground || themeToUse.background,

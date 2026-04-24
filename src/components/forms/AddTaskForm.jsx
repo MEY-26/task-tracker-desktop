@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { PriorityLabelWithTooltip } from '../shared/PriorityLabelWithTooltip';
 
 export function AddTaskForm({
@@ -23,6 +23,19 @@ export function AddTaskForm({
   loadUsers,
   user
 }) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) onClose?.();
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
@@ -32,8 +45,12 @@ export function AddTaskForm({
         style={{ backgroundColor: `${currentTheme.background}CC`, pointerEvents: 'auto' }}
         onClick={onClose}
       />
-      <div className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full" style={{ pointerEvents: 'auto' }}>
-        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+      <div
+        className="relative z-10 flex items-center justify-center p-2 sm:p-4 min-h-full"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
+        <div ref={modalRef} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
           pointerEvents: 'auto',
           paddingRight: '5px',
           backgroundColor: currentTheme.tableBackground || currentTheme.background,

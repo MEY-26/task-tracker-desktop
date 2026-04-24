@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -154,6 +155,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const [selectedHistoryYear, setSelectedHistoryYear] = useState(String(new Date().getFullYear()));
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef(null);
 
   const canSelectPast = ['admin', 'team_leader'].includes(user?.role);
 
@@ -189,6 +191,21 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
       setViewMonth(new Date());
     }
   }, [open, loadItems]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) {
+        onClose?.();
+      }
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+    };
+  }, [open, onClose]);
 
   const savedDates = useMemo(() => {
     const dates = new Set();
@@ -340,12 +357,19 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const prevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1));
   const nextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1));
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[999998]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} style={{ pointerEvents: 'auto' }} />
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose?.();
+        }}
+      >
         <div
-          className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[520px] max-h-[90vh] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden flex flex-col"
+          ref={modalRef}
+          className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[620px] max-h-[90vh] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden flex flex-col"
           style={{
             pointerEvents: 'auto',
             backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -370,7 +394,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
               ✕
             </button>
           </div>
-          <div className="space-y-4 overflow-y-auto" style={{ padding: '24px 32px' }}>
+          <div className="space-y-4 overflow-y-auto no-scrollbar" style={{ padding: '24px 32px' }}>
             <p className="text-sm" style={{ color: currentTheme.textSecondary }}>
               Takvimden izinli olduğunuz günleri seçin. Tam gün yerine saatlik izin için başlangıç ve bitiş saatlerini girin. Mola süreleri otomatik düşülür.
             </p>
@@ -444,7 +468,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                 <h4 className="text-sm font-medium" style={{ color: currentTheme.text }}>
                   Seçili günler – saat aralığı
                 </h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
+                <div className="w-full space-y-2 max-h-40 overflow-y-auto no-scrollbar">
                   {sortedSelectedDates.map((dateStr) => {
                     const ws = systemSettings.work_start || '08:00';
                     const we = systemSettings.work_end || '18:15';
@@ -456,13 +480,13 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                     return (
                       <div
                         key={dateStr}
-                        className="flex flex-wrap items-center gap-2 py-2 px-3 rounded"
+                        className="flex items-center justify-between gap-4 py-2 px-3 rounded"
                         style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background, height: '40px' }}
                       >
-                        <span className="text-[16px] font-medium shrink-0" style={{ color: currentTheme.text, minWidth: '80px' }}>
+                        <span className="text-[16px] font-medium shrink-0" style={{ color: currentTheme.text, minWidth: '110px' }}>
                           {label}
                         </span>
-                        <label className="flex items-center gap-1 text-xs" style={{ color: currentTheme.textSecondary, paddingLeft: '10px' }}>
+                        <label className="flex items-center gap-1 text-xs shrink-0" style={{ color: currentTheme.textSecondary }}>
                           Başlangıç:
                           <input
                             type="time"
@@ -479,7 +503,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                             }}
                           />
                         </label>
-                        <label className="flex items-center gap-1 text-xs" style={{ color: currentTheme.textSecondary, paddingLeft: '10px'   }}>
+                        <label className="flex items-center gap-1 text-xs shrink-0" style={{ color: currentTheme.textSecondary }}>
                           Bitiş:
                           <input
                             type="time"
@@ -496,7 +520,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                             }}
                           />
                         </label>
-                        <span className="text-xs font-semibold shrink-0" style={{ color: currentTheme.accent, paddingLeft: '20px' }}>
+                        <span className="text-xs font-semibold shrink-0" style={{ color: currentTheme.accent }}>
                           {minutes} dk
                         </span>
                       </div>
@@ -506,11 +530,11 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
               </div>
             )}
 
-            <div className="flex justify-center gap-3 pt-2">
+            <div className="pt-2">
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex-1 min-w-[120px] max-w-[180px] px-4 py-2 rounded font-medium"
+                className="w-full px-4 py-2 rounded font-medium"
                 style={{
                   backgroundColor: currentTheme.accent,
                   color: '#fff',
@@ -518,17 +542,6 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                 }}
               >
                 {saving ? 'Kaydediliyor...' : 'Kaydet'}
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 min-w-[120px] max-w-[180px] px-4 py-2 rounded border"
-                style={{
-                  backgroundColor: currentTheme.tableBackground || currentTheme.background,
-                  color: currentTheme.text,
-                  borderColor: currentTheme.border,
-                }}
-              >
-                Kapat
               </button>
             </div>
 
@@ -591,6 +604,9 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                       borderColor: currentTheme.border,
                       borderWidth: '1px',
                       borderStyle: 'solid',
+                      height: '44px',
+                      fontSize: '16px',
+                      padding: '10px',
                     }}
                   >
                     <option value="1m">Son 1 Ay</option>
@@ -599,7 +615,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                     <option value="1y">Son 1 Yıl</option>
                   </select>
                 </div>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
+                <div className="space-y-2 max-h-32 overflow-y-auto no-scrollbar">
                   {filteredItems.map((item) => {
                     const dateLabels = formatCompactDateGroups([...itemToDates(item)]);
                     return (
@@ -647,6 +663,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getRoleText } from '../../utils/performance.js';
@@ -13,15 +13,31 @@ export function UserProfileModal({
   loadWeeklyGoals,
   onSubmitPasswordChange
 }) {
+  const modalRef = useRef(null);
   const { currentTheme } = useTheme();
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) onClose?.();
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[999980]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0" onClick={onClose} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-        <div className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
+        <div ref={modalRef} className="fixed z-[100210] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[800px] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
           pointerEvents: 'auto',
           backgroundColor: currentTheme.tableBackground || currentTheme.background,
           borderColor: currentTheme.border,

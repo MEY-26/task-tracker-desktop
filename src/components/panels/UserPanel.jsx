@@ -33,6 +33,7 @@ function UserPanel({
   const [bulkRole, setBulkRole] = useState('');
   const [activeTab, setActiveTab] = useState('users');
   const selectAllCheckboxRef = useRef(null);
+  const modalRef = useRef(null);
   /** Tek seçimde toplu alanları yalnızca o kullanıcı ilk seçildiğinde DB'den doldur; users yenilenince düzenlemeyi ezme. */
   const lastBulkSyncedSingleUserIdRef = useRef(null);
   const CreateUserForm = AdminCreateUserComponent;
@@ -92,6 +93,17 @@ function UserPanel({
     const allSelected = selectableUsers.length > 0 && selectableUsers.every((u) => selectedUsers.includes(u.id));
     el.indeterminate = hasSome && !allSelected;
   }, [selectableUsers, selectedUsers]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) onClose?.();
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+  }, [open, onClose]);
 
   const handleApplyBulk = async () => {
     if (!canApplyBulk) return;
@@ -160,8 +172,12 @@ function UserPanel({
   return createPortal(
     <div className="fixed inset-0 z-[999993]" style={{ pointerEvents: 'auto' }}>
       <div className="absolute inset-0" onClick={onClose} style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }} />
-      <div className="relative flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
-        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] h-[85vh] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden"
+      <div
+        className="relative flex min-h-full items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+      >
+        <div ref={modalRef} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1445px] h-[85vh] max-h-[85vh] rounded-2xl shadow-[0_25px_80px_rgba(0,0,0,.6)] flex flex-col overflow-hidden"
           style={{
             pointerEvents: 'auto',
             backgroundColor: currentTheme.tableBackground || currentTheme.background,

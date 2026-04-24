@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,6 +7,18 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 export function UpdatesModal({ open, onClose, updatesContent }) {
   const { currentTheme } = useTheme();
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleDocumentMouseDown = (event) => {
+      const modalEl = modalRef.current;
+      if (!modalEl) return;
+      if (!modalEl.contains(event.target)) onClose?.();
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -17,7 +29,7 @@ export function UpdatesModal({ open, onClose, updatesContent }) {
         onClick={onClose}
         style={{ pointerEvents: 'auto', backgroundColor: `${currentTheme.background}CC` }}
       />
-      <div className="fixed z-[99999] p-3 update-screen shadow-[0_25px_80px_rgba(0,0,0,.6)]">
+      <div ref={modalRef} className="fixed z-[99999] p-3 update-screen shadow-[0_25px_80px_rgba(0,0,0,.6)]">
         <div
           className="max-h-[85vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col"
           style={{
