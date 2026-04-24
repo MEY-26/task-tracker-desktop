@@ -788,7 +788,12 @@ export function WeeklyGoalsModal({
                 const totalCount = items.length;
 
                 const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
-                const maxActualLimit = getMaxActualLimitForToday(weeklyWeekStart || fmtYMD(getMonday()), overtimeMinutes);
+                const leaveMinutes = Number(weeklyLive?.leaveMinutes || 0);
+                const maxActualLimit = getMaxActualLimitForToday(
+                  weeklyWeekStart || fmtYMD(getMonday()),
+                  overtimeMinutes,
+                  leaveMinutes
+                );
 
                 const dailyAvailableMinutes = maxActualLimit;
                 const remainingTime = Math.max(0, dailyAvailableMinutes - weeklyLive.totalActual);

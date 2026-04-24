@@ -617,7 +617,8 @@ export function useWeeklyGoals() {
     if (weeklyWeekStart === currentWeekStart) {
       const totalActual = Number(weeklyLive?.totalActual || 0);
       const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
-      const maxActualLimit = getMaxActualLimitForToday(weeklyWeekStart, overtimeMinutes);
+      const leaveMinutes = Number(weeklyLive?.leaveMinutes || 0);
+      const maxActualLimit = getMaxActualLimitForToday(weeklyWeekStart, overtimeMinutes, leaveMinutes);
       if (totalActual > maxActualLimit) {
         setWeeklyValidationErrors(prev => ({
           ...prev,
@@ -641,7 +642,7 @@ export function useWeeklyGoals() {
         overDailyLimitMax: 0
       }));
     }
-  }, [weeklyLive.totalActual, weeklyLive.overtimeMinutes, weeklyWeekStart]);
+  }, [weeklyLive.totalActual, weeklyLive.overtimeMinutes, weeklyLive.leaveMinutes, weeklyWeekStart]);
 
   return {
     weeklyGoals,

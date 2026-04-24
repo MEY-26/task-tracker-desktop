@@ -27,9 +27,9 @@ export function getDailyOvertimeLimits() {
 }
 
 /**
- * Bugünün tarihine göre maksimum gerçekleşme limitini döndürür (mesai dahil)
+ * Bugünün tarihine göre maksimum gerçekleşme limitini döndürür (mesai dahil, izin düşülmüş)
  */
-export function getMaxActualLimitForToday(weekStart, overtimeMinutes = 0) {
+export function getMaxActualLimitForToday(weekStart, overtimeMinutes = 0, leaveMinutes = 0) {
   const monday = new Date(weekStart);
   monday.setHours(0, 0, 0, 0);
   const today = new Date();
@@ -57,8 +57,9 @@ export function getMaxActualLimitForToday(weekStart, overtimeMinutes = 0) {
   // Mesai süresini ekle (günlük mesai limitine göre)
   const maxOvertimeLimit = getMaxOvertimeLimitForToday(weekStart);
   const allowedOvertime = Math.min(overtimeMinutes, maxOvertimeLimit);
+  const allowedLeave = Math.max(0, Math.round(Number(leaveMinutes || 0)));
 
-  return baseLimit + allowedOvertime;
+  return Math.max(0, baseLimit + allowedOvertime - allowedLeave);
 }
 
 /**

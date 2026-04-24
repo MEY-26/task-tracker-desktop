@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -7,6 +7,7 @@ import { getMonday, fmtYMD, addDays, isWeekday, isPast } from '../../utils/date'
 
 const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 const MONTH_NAMES = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+const WEEKDAY_SHORT_TR = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 const DEFAULT_SETTINGS = {
   work_start: '08:00',
@@ -112,6 +113,51 @@ function getDayOfWeekFromDateStr(dateStr) {
   return day === 0 ? 7 : day;
 }
 
+function formatDateWithWeekday(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const wd = WEEKDAY_SHORT_TR[d.getDay()] || '';
+  return `${dd}.${mm}.${yyyy} - ${wd}`;
+}
+
+function formatCompactDateGroups(dateStrings) {
+  const sorted = [...dateStrings]
+    .map((s) => ({ raw: s, date: new Date(s + 'T12:00:00') }))
+    .filter((x) => !Number.isNaN(x.date.getTime()))
+    .sort((a, b) => a.date - b.date);
+
+  const groups = [];
+  for (const item of sorted) {
+    const current = item.date;
+    const lastGroup = groups[groups.length - 1];
+    if (!lastGroup) {
+      groups.push([item]);
+      continue;
+    }
+    const last = lastGroup[lastGroup.length - 1].date;
+    const diffDays = Math.round((current - last) / (24 * 60 * 60 * 1000));
+    if (diffDays === 1) {
+      lastGroup.push(item);
+    } else {
+      groups.push([item]);
+    }
+  }
+
+  return groups.map((group) => {
+    const first = group[0].raw;
+    const firstLabel = formatDateWithWeekday(first);
+    if (group.length === 1) return firstLabel;
+    const weekdays = group
+      .slice(1)
+      .map((g) => WEEKDAY_SHORT_TR[g.date.getDay()] || '')
+      .filter(Boolean);
+    return `${firstLabel}, ${weekdays.join(', ')}`;
+  });
+}
+
 export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const { user } = useAuth();
   const { currentTheme } = useTheme();
@@ -121,6 +167,8 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const [dayTimes, setDayTimes] = useState({});
   const [viewMonth, setViewMonth] = useState(() => new Date());
   const [items, setItems] = useState([]);
+  const [historyRange, setHistoryRange] = useState('1y');
+  const [selectedHistoryYear, setSelectedHistoryYear] = useState(String(new Date().getFullYear()));
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -159,19 +207,11 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     }
   }, [open, loadItems]);
 
-  useEffect(() => {
-    if (!open) return;
-    const nextDates = new Set();
-    const nextTimes = {};
-    const ws = systemSettings.work_start || '08:00';
-    const we = systemSettings.work_end || '18:15';
-    items.forEach((item) => {
-      itemToDates(item).forEach((d) => nextDates.add(d));
-      Object.assign(nextTimes, itemToDayTimes(item, ws, we));
-    });
-    setSelectedDates(nextDates);
-    setDayTimes(nextTimes);
-  }, [open, items, systemSettings.work_start, systemSettings.work_end]);
+  const savedDates = useMemo(() => {
+    const dates = new Set();
+    items.forEach((item) => itemToDates(item).forEach((d) => dates.add(d)));
+    return dates;
+  }, [items]);
 
   const toggleDate = (dateStr) => {
     const d = new Date(dateStr + 'T12:00:00');
@@ -207,6 +247,10 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   };
 
   const handleSave = async () => {
+    if (selectedDates.size === 0) {
+      addNotification('Kaydetmek için en az bir gün seçin.', 'error');
+      return;
+    }
     setSaving(true);
     try {
       const weeksToWrite = new Set();
@@ -225,15 +269,10 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
         });
       }
 
-      for (const item of items) {
-        const flags = weekFlagsFromDates(item.week_start, selectedDates);
-        if (!Object.values(flags).some(Boolean)) {
-          await LeaveRequests.delete(item.id);
-        }
-      }
-
       addNotification('İzin kaydedildi.', 'success');
-      loadItems();
+      setSelectedDates(new Set());
+      setDayTimes({});
+      await loadItems();
       onLeaveSaved?.();
     } catch (err) {
       addNotification(err.response?.data?.message || 'Kaydedilemedi.', 'error');
@@ -269,6 +308,39 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   };
 
   const sortedSelectedDates = [...selectedDates].sort();
+  const filteredItems = useMemo(() => {
+    const monthsByRange = {
+      '1m': 1,
+      '3m': 3,
+      '6m': 6,
+      '1y': 12,
+    };
+    const months = monthsByRange[historyRange] ?? 12;
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    const cutoff = new Date(now);
+    cutoff.setMonth(cutoff.getMonth() - months);
+    cutoff.setHours(0, 0, 0, 0);
+
+    const rangeFiltered = items.filter((item) => {
+      const dates = [...itemToDates(item)];
+      if (dates.length === 0) return false;
+      return dates.some((dateStr) => {
+        const d = new Date(dateStr + 'T12:00:00');
+        if (Number.isNaN(d.getTime())) return false;
+        return d >= cutoff && d <= now;
+      });
+    });
+
+    return rangeFiltered.filter((item) => {
+      const dates = [...itemToDates(item)];
+      return dates.some((dateStr) => {
+        const d = new Date(dateStr + 'T12:00:00');
+        if (Number.isNaN(d.getTime())) return false;
+        return String(d.getFullYear()) === selectedHistoryYear;
+      });
+    });
+  }, [items, historyRange, selectedHistoryYear]);
 
   if (!open) return null;
 
@@ -290,7 +362,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
       <div className="absolute inset-0 bg-black/60" onClick={onClose} style={{ pointerEvents: 'auto' }} />
       <div className="relative z-10 flex min-h-full items-center justify-center p-4" style={{ pointerEvents: 'auto' }}>
         <div
-          className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[520px] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
+          className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[520px] max-h-[90vh] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden flex flex-col"
           style={{
             pointerEvents: 'auto',
             backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -315,7 +387,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
               ✕
             </button>
           </div>
-          <div className="space-y-4" style={{ padding: '24px 32px' }}>
+          <div className="space-y-4 overflow-y-auto" style={{ padding: '24px 32px' }}>
             <p className="text-sm" style={{ color: currentTheme.textSecondary }}>
               Takvimden izinli olduğunuz günleri seçin. Tam gün yerine saatlik izin için başlangıç ve bitiş saatlerini girin. Mola süreleri otomatik düşülür.
             </p>
@@ -359,7 +431,8 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                 const dateStr = fmtYMD(date);
                 const weekday = date.getDay();
                 const isSatSun = weekday === 0 || weekday === 6;
-                const disabled = isSatSun || (!canSelectPast && isPast(date));
+                const isSaved = savedDates.has(dateStr);
+                const disabled = isSatSun || (!canSelectPast && isPast(date)) || isSaved;
                 const selected = selectedDates.has(dateStr);
                 return (
                   <button
@@ -373,7 +446,9 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                       color: selected ? '#fff' : disabled ? (currentTheme.textSecondary || currentTheme.text) : currentTheme.text,
                       opacity: disabled ? 0.5 : 1,
                       cursor: disabled ? 'not-allowed' : 'pointer',
+                      border: isSaved ? `1px solid ${currentTheme.accent || '#3b82f6'}` : '1px solid transparent',
                     }}
+                    title={isSaved ? 'Bu gün zaten kayıtlı izinlerde. Değiştirmek için kaydı silip yeniden ekleyin.' : ''}
                   >
                     {d}
                   </button>
@@ -476,17 +551,74 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
 
             {items.length > 0 && (
               <div className="mt-4 pt-4 border-t" style={{ borderColor: currentTheme.border }}>
-                <h4 className="text-sm font-medium mb-2" style={{ color: currentTheme.text }}>
-                  Kayıtlı İzinler
-                </h4>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <h4 className="text-sm font-medium" style={{ color: currentTheme.text }}>
+                    Kayıtlı İzinler
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const numericYear = parseInt(selectedHistoryYear, 10);
+                        const nextYear = Number.isFinite(numericYear) ? numericYear - 1 : new Date().getFullYear();
+                        setSelectedHistoryYear(String(nextYear));
+                      }}
+                      className="rounded px-2 py-1 text-xs"
+                      style={{
+                        backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                        color: currentTheme.text,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid',
+                      }}
+                      title="Önceki yıl"
+                    >
+                      {'<'}
+                    </button>
+                    <span className="text-sm font-semibold min-w-[52px] text-center" style={{ color: currentTheme.text }}>
+                      {selectedHistoryYear}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const numericYear = parseInt(selectedHistoryYear, 10);
+                        const nextYear = Number.isFinite(numericYear) ? numericYear + 1 : new Date().getFullYear();
+                        setSelectedHistoryYear(String(nextYear));
+                      }}
+                      className="rounded px-2 py-1 text-xs"
+                      style={{
+                        backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                        color: currentTheme.text,
+                        borderColor: currentTheme.border,
+                        borderWidth: '1px',
+                        borderStyle: 'solid',
+                      }}
+                      title="Sonraki yıl"
+                    >
+                      {'>'}
+                    </button>
+                  </div>
+                  <select
+                    value={historyRange}
+                    onChange={(e) => setHistoryRange(e.target.value)}
+                    className="rounded px-2 py-1 text-xs"
+                    style={{
+                      backgroundColor: currentTheme.tableBackground || currentTheme.background,
+                      color: currentTheme.text,
+                      borderColor: currentTheme.border,
+                      borderWidth: '1px',
+                      borderStyle: 'solid',
+                    }}
+                  >
+                    <option value="1m">Son 1 Ay</option>
+                    <option value="3m">Son 3 Ay</option>
+                    <option value="6m">Son 6 Ay</option>
+                    <option value="1y">Son 1 Yıl</option>
+                  </select>
+                </div>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {items.map((item) => {
-                    const dayLabels = [];
-                    if (item.monday) dayLabels.push('Pzt');
-                    if (item.tuesday) dayLabels.push('Sal');
-                    if (item.wednesday) dayLabels.push('Çar');
-                    if (item.thursday) dayLabels.push('Per');
-                    if (item.friday) dayLabels.push('Cum');
+                  {filteredItems.map((item) => {
+                    const dateLabels = formatCompactDateGroups([...itemToDates(item)]);
                     return (
                       <div
                         key={item.id}
@@ -494,7 +626,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                         style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background }}
                       >
                         <span className="min-w-0 truncate" style={{ color: currentTheme.text }}>
-                          {item.week_start} — {dayLabels.length ? dayLabels.join(', ') : '-'}
+                          {dateLabels.length ? dateLabels.join(', ') : '-'}
                         </span>
                         <button
                           onClick={() => handleDelete(item.id)}
@@ -521,6 +653,11 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                       </div>
                     );
                   })}
+                  {filteredItems.length === 0 && (
+                    <div className="text-xs py-2 px-1" style={{ color: currentTheme.textSecondary }}>
+                      Seçilen dönemde kayıtlı izin bulunamadı.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
