@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\LeaveMinutesHelper;
 use App\Helpers\SystemSettingsHelper;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -10,7 +11,6 @@ use Carbon\Carbon;
 
 class LeaveRequestController extends Controller
 {
-    private const WEEKLY_BASE_MINUTES = 2700;
     private const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
     private function mondayOfWeek(?string $date = null): string
@@ -18,51 +18,6 @@ class LeaveRequestController extends Controller
         $tz = 'Europe/Istanbul';
         $c = $date ? Carbon::parse($date, $tz) : Carbon::now($tz);
         return $c->startOfWeek(Carbon::MONDAY)->toDateString();
-    }
-
-    /**
-     * Calculate leave minutes for a single day, subtracting break overlaps.
-     * $dayOfWeek: 1=Monday, 2=Tuesday, ..., 5=Friday
-     */
-    private function calculateLeaveMinutesForDay(int $dayOfWeek, ?string $start, ?string $end): int
-    {
-        $workStart = SystemSettingsHelper::workStart();
-        $workEnd = SystemSettingsHelper::workEnd();
-        $fullDayMinutes = SystemSettingsHelper::fullDayMinutes();
-        $isFriday = ($dayOfWeek === 5);
-        $breaks = $isFriday ? SystemSettingsHelper::breaksFriday() : SystemSettingsHelper::breaksDefault();
-
-        $startTime = $start ?? $workStart;
-        $endTime = $end ?? $workEnd;
-
-        if ($startTime === $workStart && $endTime === $workEnd) {
-            return $fullDayMinutes;
-        }
-
-        $leaveStartMinutes = $this->timeToMinutes($startTime);
-        $leaveEndMinutes = $this->timeToMinutes($endTime);
-        $rawMinutes = max(0, $leaveEndMinutes - $leaveStartMinutes);
-
-        $breakOverlapMinutes = 0;
-        foreach ($breaks as [$bStart, $bEnd]) {
-            $bStartM = $this->timeToMinutes($bStart);
-            $bEndM = $this->timeToMinutes($bEnd);
-            $overlapStart = max($leaveStartMinutes, $bStartM);
-            $overlapEnd = min($leaveEndMinutes, $bEndM);
-            if ($overlapStart < $overlapEnd) {
-                $breakOverlapMinutes += ($overlapEnd - $overlapStart);
-            }
-        }
-
-        return max(0, $rawMinutes - $breakOverlapMinutes);
-    }
-
-    private function timeToMinutes(string $time): int
-    {
-        $parts = explode(':', $time);
-        $h = (int)($parts[0] ?? 0);
-        $m = (int)($parts[1] ?? 0);
-        return $h * 60 + $m;
     }
 
     /**
@@ -275,16 +230,7 @@ class LeaveRequestController extends Controller
     {
         $leaveMinutes = 0;
         if ($leaveRequest) {
-            $dayIndex = 1;
-            foreach (self::WEEKDAY_KEYS as $key) {
-                if ($leaveRequest->{$key}) {
-                    $start = $leaveRequest->{$key . '_start'} ?? null;
-                    $end = $leaveRequest->{$key . '_end'} ?? null;
-                    $leaveMinutes += $this->calculateLeaveMinutesForDay($dayIndex, $start, $end);
-                }
-                $dayIndex++;
-            }
-            $leaveMinutes = min(self::WEEKLY_BASE_MINUTES, $leaveMinutes);
+            $leaveMinutes = LeaveMinutesHelper::totalForRow($leaveRequest);
         }
 
         $goal = DB::table('weekly_goals')->where('user_id', $userId)->where('week_start', $weekStart)->first();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\LeaveMinutesHelper;
 use App\Helpers\SystemSettingsHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -89,7 +90,8 @@ class WeeklyGoalController extends Controller
     }
 
     /**
-     * leave_requests tablosundan haftalık izin dakikasını hesaplar (her gün = 540 dk)
+     * leave_requests satırından haftalık izin dakikası (tam gün + saatlik, mola düşümlü).
+     * LeaveMinutesHelper, LeaveRequestController ile aynı toplamı üretir.
      */
     private function getLeaveMinutesFromLeaveRequests(int $userId, string $weekStart): int
     {
@@ -100,14 +102,8 @@ class WeeklyGoalController extends Controller
         if (!$leave) {
             return 0;
         }
-        $minutesPerDay = (int)($this->weeklyBaseMinutes() / 5);
-        $days = 0;
-        if ($leave->monday) $days++;
-        if ($leave->tuesday) $days++;
-        if ($leave->wednesday) $days++;
-        if ($leave->thursday) $days++;
-        if ($leave->friday) $days++;
-        return min($this->weeklyBaseMinutes(), $days * $minutesPerDay);
+
+        return LeaveMinutesHelper::totalForRow($leave);
     }
 
     /**
