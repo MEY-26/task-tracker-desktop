@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { getMonday, fmtYMD, isoWeekNumber } from '../../utils/date';
 import { getPerformanceGrade } from '../../utils/performance';
-import { getMaxActualLimitForToday, getDailyActualLimits, getDailyOvertimeLimits } from '../../utils/weeklyLimits';
+import { getDailyActualLimits, getDailyOvertimeLimits } from '../../utils/weeklyLimits';
 
 const WEEKLY_BASE_MINUTES = 2700;
 
@@ -791,16 +791,9 @@ export function WeeklyGoalsModal({
                 const unplannedCount = unplannedItems.length;
                 const totalCount = items.length;
 
-                const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
-                const leaveMinutes = Number(weeklyLive?.leaveMinutes || 0);
-                const maxActualLimit = getMaxActualLimitForToday(
-                  weeklyWeekStart || fmtYMD(getMonday()),
-                  overtimeMinutes,
-                  leaveMinutes
-                );
-
-                const dailyAvailableMinutes = maxActualLimit;
-                const remainingTime = Math.max(0, dailyAvailableMinutes - weeklyLive.totalActual);
+                const weeklyCapacity = Number(weeklyLive.availableMinutes || 0);
+                const totalUsed = Number(weeklyLive.totalActual || 0);
+                const remainingWeeklyCapacity = Math.max(0, weeklyCapacity - totalUsed);
 
                 const dailyLimits = getDailyActualLimits();
                 const overtimeLimits = getDailyOvertimeLimits();
@@ -813,6 +806,14 @@ export function WeeklyGoalsModal({
                   `Çarşamba: ${dailyLimits[3] ?? 1620} dk + ${overtimeLimits[3] ?? 450} dk mesai = ${(dailyLimits[3] ?? 1620) + (overtimeLimits[3] ?? 450)} dk`,
                   `Perşembe: ${dailyLimits[4] ?? 2160} dk + ${overtimeLimits[4] ?? 600} dk mesai = ${(dailyLimits[4] ?? 2160) + (overtimeLimits[4] ?? 600)} dk`,
                   `Cuma: ${dailyLimits[5] ?? 2700} dk + ${overtimeLimits[5] ?? 750} dk mesai = ${(dailyLimits[5] ?? 2700) + (overtimeLimits[5] ?? 750)} dk`,
+                ].join('\n');
+
+                const availableTimeTooltip = [
+                  `Kalan kullanılabilir süre (haftalık): ${remainingWeeklyCapacity} dk`,
+                  `Haftalık gerçekleşme kotanız ${weeklyCapacity} dk; izin ve mesai bu kotada hesaba katıldı. Bu hafta girilen toplam gerçekleşme: ${totalUsed} dk.`,
+                  ``,
+                  `Günlük üst sınırlar (bugün, ayrı kural; haftalık kalan farklı olabilir):`,
+                  dailyLimitTooltip,
                 ].join('\n');
 
                 const bd = weeklyLive.breakdown || {};
@@ -878,9 +879,9 @@ export function WeeklyGoalsModal({
                       <div
                         className="font-semibold whitespace-nowrap text-left cursor-help"
                         style={{ color: currentTheme.text }}
-                        title={dailyLimitTooltip}
+                        title={availableTimeTooltip}
                       >
-                        {remainingTime} dk
+                        {remainingWeeklyCapacity} dk
                       </div>
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{plannedCount} Adet</div>
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{unplannedCount} Adet</div>
