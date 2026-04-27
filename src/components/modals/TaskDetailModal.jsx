@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { createPortal } from 'react-dom';
 import { Tasks, apiOrigin } from '../../api';
 import { formatDate, formatDateOnly } from '../../utils/date';
@@ -65,16 +66,7 @@ export function TaskDetailModal({
   const renderFieldLbl = renderFieldLabelProp || renderFieldLabel;
   const apiOriginVal = apiOriginProp || apiOrigin;
 
-  useEffect(() => {
-    if (!open || !task) return;
-    const handleDocumentMouseDown = (event) => {
-      const modalEl = modalRef.current;
-      if (!modalEl) return;
-      if (!modalEl.contains(event.target)) onClose?.();
-    };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-  }, [open, task, onClose]);
+  useOutsideClickClose(open && !!task, modalRef, onClose);
 
   if (!open || !task) return null;
 

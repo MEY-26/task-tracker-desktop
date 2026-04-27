@@ -1,3 +1,34 @@
+## v3.0.3 – 27.04.2026
+
+### Yeni Özellikler
+
+**İzin Yönetimi – Aktif Özel Düzenleme İzinleri**
+- "Özel Düzenleme İzni" sekmesinde verilmiş aktif izinlerin listesi (kullanıcı, hafta, bitiş zamanı, kaldırma)
+- İzin verildikten veya kaldırıktan sonra listenin ve haftalık hedeflerin güncellenmesi
+
+**İç İçe Pencereler (Modal Yığını)**
+- `useOutsideClickClose` ile yalnızca en üstteki pencerenin dışa tıklanınca kapanması
+- Kullanıcı Yönetimi açıkken İzin Yönetimi’ne tıklanınca her iki pencerenin birden kapanma sorununun giderilmesi
+
+### Değişiklikler
+
+**Haftalık Hedefler ve Özel Düzenleme İzni**
+- Yöneticinin verdiği özel düzenleme izni varken, uygulama içi saat kilidinin bu izni geçersiz kılması düzeltildi
+- Haftalık hedef verisi yüklenmeden önce kilit durumunun yanlış yorumlanmaması için ilk yüklemede kilit bilgisi `null` ile ayrıştırıldı
+
+**İzin Bildirimi (Kayıtlı İzinler)**
+- Tam gün izinler özet gruplu; saatlik izinler ayrı satırda gösteriliyor (tarih, saat aralığı, dakika)
+- Tam gün ve saatlik satırlardaki silme eylemleri aynı görünümde: yuvarlak çöp kutusu butonu, temaya uygun
+
+**Diğer Paneller**
+- Aynı dışa tıkla kapanma davranışı LeaveRequestModal, görev/ayar modalları, tema paneli, sistem ayarları, yeni görev formu gibi bileşenlerde tutarlı hale getirildi
+
+### Düzeltmeler
+- Aynı haftaya sadece yeni bir izin günü eklerken, o haftadaki mevcut izin günlerinin silinmesi (API: `POST /leave-requests` birleştirme / merge mantığı)
+- İzin sürelerinin haftalık hedeflere yanlış yansıması (üstteki veri kaybı düzeltmesiyle)
+
+---
+
 ## v3.0.2 – 16.03.2026
 
 ### Yeni Özellikler

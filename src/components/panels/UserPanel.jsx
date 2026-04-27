@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { PasswordReset, getDepartments } from '../../api';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { PermissionManagementModal } from '../modals/PermissionManagementModal';
 
 function UserPanel({
@@ -94,16 +95,7 @@ function UserPanel({
     el.indeterminate = hasSome && !allSelected;
   }, [selectableUsers, selectedUsers]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleDocumentMouseDown = (event) => {
-      const modalEl = modalRef.current;
-      if (!modalEl) return;
-      if (!modalEl.contains(event.target)) onClose?.();
-    };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-  }, [open, onClose]);
+  useOutsideClickClose(open, modalRef, onClose);
 
   const handleApplyBulk = async () => {
     if (!canApplyBulk) return;

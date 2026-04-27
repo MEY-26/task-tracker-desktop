@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { createPortal } from 'react-dom';
 import darkLogo from '../../assets/Dark_VadenLogo.svg';
 import lightLogo from '../../assets/Light_VadenLogo.svg';
@@ -26,15 +27,7 @@ export function ThemePanel() {
     setTimeout(() => window.location.reload(), 300);
   };
 
-  useEffect(() => {
-    const handleDocumentMouseDown = (event) => {
-      const modalEl = modalRef.current;
-      if (!modalEl) return;
-      if (!modalEl.contains(event.target)) handleClose();
-    };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-  }, []);
+  useOutsideClickClose(true, modalRef, handleClose);
 
   const colorInputStyle = {
     width: '48px',

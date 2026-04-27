@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -9,16 +10,7 @@ export function UpdatesModal({ open, onClose, updatesContent }) {
   const { currentTheme } = useTheme();
   const modalRef = useRef(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleDocumentMouseDown = (event) => {
-      const modalEl = modalRef.current;
-      if (!modalEl) return;
-      if (!modalEl.contains(event.target)) onClose?.();
-    };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-  }, [open, onClose]);
+  useOutsideClickClose(open, modalRef, onClose);
 
   if (!open) return null;
 

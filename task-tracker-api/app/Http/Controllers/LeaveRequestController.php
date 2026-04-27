@@ -135,26 +135,47 @@ class LeaveRequestController extends Controller
             }
         }
 
-        $data = [
-            'user_id' => $auth->id,
-            'week_start' => $weekStart,
-            'monday' => (bool)($request->input('monday') ?? false),
-            'tuesday' => (bool)($request->input('tuesday') ?? false),
-            'wednesday' => (bool)($request->input('wednesday') ?? false),
-            'thursday' => (bool)($request->input('thursday') ?? false),
-            'friday' => (bool)($request->input('friday') ?? false),
-            'updated_at' => now(),
-        ];
-
-        foreach (self::WEEKDAY_KEYS as $key) {
-            $data[$key . '_start'] = $request->input($key . '_start');
-            $data[$key . '_end'] = $request->input($key . '_end');
-        }
-
         $existing = DB::table('leave_requests')
             ->where('user_id', $auth->id)
             ->where('week_start', $weekStart)
             ->first();
+
+        $mergeFlags = [];
+        $mergeStarts = [];
+        $mergeEnds = [];
+        foreach (self::WEEKDAY_KEYS as $key) {
+            $existingActive = $existing ? (bool)($existing->{$key} ?? false) : false;
+            $newActive = (bool) $request->input($key, false);
+            $mergeFlags[$key] = $existingActive || $newActive;
+            if ($newActive) {
+                $mergeStarts[$key] = $request->input($key . '_start');
+                $mergeEnds[$key] = $request->input($key . '_end');
+            } else {
+                $mergeStarts[$key] = $existing ? ($existing->{$key . '_start'} ?? null) : null;
+                $mergeEnds[$key] = $existing ? ($existing->{$key . '_end'} ?? null) : null;
+            }
+        }
+
+        $data = [
+            'user_id' => $auth->id,
+            'week_start' => $weekStart,
+            'monday' => $mergeFlags['monday'],
+            'tuesday' => $mergeFlags['tuesday'],
+            'wednesday' => $mergeFlags['wednesday'],
+            'thursday' => $mergeFlags['thursday'],
+            'friday' => $mergeFlags['friday'],
+            'monday_start' => $mergeStarts['monday'],
+            'monday_end' => $mergeEnds['monday'],
+            'tuesday_start' => $mergeStarts['tuesday'],
+            'tuesday_end' => $mergeEnds['tuesday'],
+            'wednesday_start' => $mergeStarts['wednesday'],
+            'wednesday_end' => $mergeEnds['wednesday'],
+            'thursday_start' => $mergeStarts['thursday'],
+            'thursday_end' => $mergeEnds['thursday'],
+            'friday_start' => $mergeStarts['friday'],
+            'friday_end' => $mergeEnds['friday'],
+            'updated_at' => now(),
+        ];
 
         if ($existing) {
             DB::table('leave_requests')

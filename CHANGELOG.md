@@ -94,6 +94,20 @@ Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uyg
 - `weekly_goal_edit_grants` tablosu eklendi
 - `weekly_goals` tablosuna approval_status, approved_by, approved_at, approval_note sütunları eklendi
 
+## [3.0.3] - 2026-04-27
+
+### Added
+- `src/hooks/useOutsideClickClose.js`: İç içe modallarda yalnızca en üstteki pencerenin dış tıklama ile kapanması (global yığın).
+- İzin yönetimi (PermissionManagementModal): Özel düzenleme izni sekmesinde aktif izinler listesi ve kaldırma.
+
+### Changed
+- `useWeeklyGoals`: `combinedLocks` — backend `targets_locked` / `actuals_locked` açıkça `false` iken istemci kilidini geçersiz kılar; ilk API yanıtı gelene kadar `locks: null`.
+- Birden çok modal/panel: document `mousedown` dinleyicileri `useOutsideClickClose` ile değiştirildi (UserPanel, PermissionManagementModal, LeaveRequestModal, TaskDetailModal, TaskSettingsModal, ThemePanel, UpdatesModal, UserProfileModal, SystemSettingsPanel, AddTaskForm).
+- İzin Bildirimi (LeaveRequestModal): Kayıtlı izinlerde tam gün grupları + saatlik günler ayrı satır; silme aksiyonları yuvarlak çöp kutusu butonu.
+
+### Fixed
+- `LeaveRequestController::store`: Aynı haftaya yeni izin günü eklerken mevcut haftalık satırdaki diğer günlerin silinmesi (merge: mevcut + yeni).
+
 ## [3.0.2] - 2026-03-16
 
 ### Added

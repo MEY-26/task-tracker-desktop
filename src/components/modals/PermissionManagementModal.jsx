@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { LeaveRequests, EditGrants, SystemSettings } from '../../api';
 import { getMonday, fmtYMD, isWeekday, addDays } from '../../utils/date';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 
 const LEAVE_WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
@@ -100,6 +101,9 @@ export function PermissionManagementModal({
   const [existingLeaveRaw, setExistingLeaveRaw] = useState([]);
   const [leaveListLoading, setLeaveListLoading] = useState(false);
   const [leaveClearingKey, setLeaveClearingKey] = useState(null);
+
+  const modalRef = useRef(null);
+  useOutsideClickClose(open, modalRef, onClose);
 
   const selectedCount = selectedUserIds?.length || 0;
 
@@ -374,6 +378,7 @@ export function PermissionManagementModal({
         onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
       >
         <div
+          ref={modalRef}
           className="fixed z-[100300] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[640px] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden"
           style={{
             pointerEvents: 'auto',

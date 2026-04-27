@@ -594,7 +594,15 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 ## 🆕 Son Güncellemeler
 
-### v3.0.1 - Departman Filtreleme ve Kullanıcı Paneli İyileştirmeleri (Son Güncelleme)
+Ayrıntılı sürüm notları: uygulama içi [public/UPDATES.md](public/UPDATES.md), teknik kayıt [CHANGELOG.md](CHANGELOG.md).
+
+### v3.0.3 - Özel izin, iç içe modallar, izin kaydı ve İzin Bildirimi (Nisan 2026)
+- **Özel düzenleme izni**: API’nin açtığı hedef kilidi artık istemci `uiLocks` tarafından ezilmiyor; izin yönetiminde aktif izin listesi.
+- **İç içe modallar**: Kullanıcı yönetimi + İzin yönetimi gibi üst üste açılan pencerelerde dışa tıklama yalnızca en üstteki modalı kapatır (`useOutsideClickClose`).
+- **İzin bildirimi (API + UI)**: Aynı haftaya yeni gün eklerken mevcut izin günleri korunur; listede saatlik izinler ayrı satırda, silme butonları yuvarlak ve tutarlı.
+- Ayrıntı: [public/UPDATES.md](public/UPDATES.md)
+
+### v3.0.1 - Departman Filtreleme ve Kullanıcı Paneli İyileştirmeleri
 - ✅ **Departman Yönetimi**: Kullanıcı oluşturma/güncelleme ve toplu import akışına departman desteği
 - ✅ **Departman Bazlı Rapor Filtreleme**: Çok dönemli liderlik tablosunda departmana göre filtreleme ve görünüm
 - ✅ **Kullanıcı Paneli Toplu İşlem Barı**: İki satırlı bar ile Lider/Departman/Rol toplu uygulama akışı

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getRoleText } from '../../utils/performance.js';
@@ -16,16 +17,7 @@ export function UserProfileModal({
   const modalRef = useRef(null);
   const { currentTheme } = useTheme();
 
-  useEffect(() => {
-    if (!open) return;
-    const handleDocumentMouseDown = (event) => {
-      const modalEl = modalRef.current;
-      if (!modalEl) return;
-      if (!modalEl.contains(event.target)) onClose?.();
-    };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-  }, [open, onClose]);
+  useOutsideClickClose(open, modalRef, onClose);
 
   if (!open) return null;
 

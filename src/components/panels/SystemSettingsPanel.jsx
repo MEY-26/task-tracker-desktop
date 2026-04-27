@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { SystemSettings, DatabaseBackup } from '../../api';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 
 const WEEKDAYS = [
   { id: 1, label: 'Pazartesi' },
@@ -67,16 +68,7 @@ export function SystemSettingsPanel({ open, onClose, addNotification }) {
     }
   }, [open, notify]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleDocumentMouseDown = (event) => {
-      const modalEl = modalRef.current;
-      if (!modalEl) return;
-      if (!modalEl.contains(event.target)) onClose?.();
-    };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-  }, [open, onClose]);
+  useOutsideClickClose(open, modalRef, onClose);
 
   const toggleWorkingDay = (dayId) => {
     setSettings((prev) => {

@@ -5,6 +5,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { LeaveRequests, SystemSettings } from '../../api';
 import { getMonday, fmtYMD, addDays, isWeekday, isPast } from '../../utils/date';
+import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 
 const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 const MONTH_NAMES = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -142,6 +143,41 @@ function formatCompactDateGroups(dateStrings) {
   });
 }
 
+/** Aynı leave_request satırını tam gün (gruplu gösterim) ve saatlik (ayrı satır) olarak ayırır. */
+function splitLeaveItemDisplay(item, settings) {
+  const mon = new Date(item.week_start + 'T12:00:00');
+  const ws = settings.work_start || DEFAULT_SETTINGS.work_start;
+  const we = settings.work_end || DEFAULT_SETTINGS.work_end;
+  const fullDayDateStrs = [];
+  const fullDayKeys = [];
+  const hourlyRows = [];
+  WEEKDAY_KEYS.forEach((key, i) => {
+    if (!item[key]) return;
+    const dateStr = fmtYMD(addDays(mon, i));
+    const st = item[`${key}_start`];
+    const en = item[`${key}_end`];
+    const startTime = st || ws;
+    const endTime = en || we;
+    const dow = getDayOfWeekFromDateStr(dateStr);
+    if (startTime === ws && endTime === we) {
+      fullDayDateStrs.push(dateStr);
+      fullDayKeys.push(key);
+    } else {
+      const minutes = calculateLeaveMinutesForDay(dow, st, en, settings);
+      const startLabel = (st || ws).slice(0, 5);
+      const endLabel = (en || we).slice(0, 5);
+      hourlyRows.push({
+        weekdayKey: key,
+        dateStr,
+        startLabel,
+        endLabel,
+        minutes,
+      });
+    }
+  });
+  return { fullDayDateStrs, fullDayKeys, hourlyRows };
+}
+
 export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const { user } = useAuth();
   const { currentTheme } = useTheme();
@@ -155,6 +191,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const [selectedHistoryYear, setSelectedHistoryYear] = useState(String(new Date().getFullYear()));
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [clearingLine, setClearingLine] = useState(null);
   const modalRef = useRef(null);
 
   const canSelectPast = ['admin', 'team_leader'].includes(user?.role);
@@ -192,20 +229,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     }
   }, [open, loadItems]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleDocumentMouseDown = (event) => {
-      const modalEl = modalRef.current;
-      if (!modalEl) return;
-      if (!modalEl.contains(event.target)) {
-        onClose?.();
-      }
-    };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => {
-      document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-    };
-  }, [open, onClose]);
+  useOutsideClickClose(open, modalRef, onClose);
 
   const savedDates = useMemo(() => {
     const dates = new Set();
@@ -281,29 +305,54 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Bu izin kaydını silmek istediğinize emin misiniz?')) return;
+  const removeCalendarSelectionForDates = (dateStrs) => {
+    if (!dateStrs?.length) return;
+    setSelectedDates((prev) => {
+      const next = new Set(prev);
+      dateStrs.forEach((d) => next.delete(d));
+      return next;
+    });
+    setDayTimes((prev) => {
+      const t2 = { ...prev };
+      dateStrs.forEach((d) => {
+        delete t2[d];
+      });
+      return t2;
+    });
+  };
+
+  const handleClearFullDayGroup = async (item, fullDayKeys) => {
+    if (fullDayKeys.length === 0) return;
+    if (!window.confirm('Bu tam gün izin günlerini kaldırmak istediğinize emin misiniz?')) return;
+    setClearingLine(`fd-${item.id}`);
     try {
-      await LeaveRequests.delete(id);
-      const item = items.find((x) => x.id === id);
-      if (item) {
-        const toRemove = itemToDates(item);
-        setSelectedDates((prev) => {
-          const next = new Set(prev);
-          toRemove.forEach((d) => next.delete(d));
-          return next;
-        });
-        setDayTimes((prev) => {
-          const t2 = { ...prev };
-          toRemove.forEach((d) => delete t2[d]);
-          return t2;
-        });
+      const toClearDates = splitLeaveItemDisplay(item, systemSettings).fullDayDateStrs;
+      for (const wk of fullDayKeys) {
+        await LeaveRequests.clearWeekday(item.id, wk);
       }
-      addNotification('İzin silindi.', 'success');
-      loadItems();
+      removeCalendarSelectionForDates(toClearDates);
+      addNotification('Tam gün izinler kaldırıldı.', 'success');
+      await loadItems();
       onLeaveSaved?.();
     } catch (err) {
-      addNotification(err.response?.data?.message || 'Silinemedi.', 'error');
+      addNotification(err?.response?.data?.message || 'Kaldırılamadı.', 'error');
+    } finally {
+      setClearingLine(null);
+    }
+  };
+
+  const handleClearOneWeekday = async (leaveId, weekdayKey, dateStr) => {
+    setClearingLine(`${leaveId}-${weekdayKey}`);
+    try {
+      await LeaveRequests.clearWeekday(leaveId, weekdayKey);
+      if (dateStr) removeCalendarSelectionForDates([dateStr]);
+      addNotification('İzin günü kaldırıldı.', 'success');
+      await loadItems();
+      onLeaveSaved?.();
+    } catch (err) {
+      addNotification(err?.response?.data?.message || 'Kaldırılamadı.', 'error');
+    } finally {
+      setClearingLine(null);
     }
   };
 
@@ -617,39 +666,98 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                 </div>
                 <div className="space-y-2 max-h-32 overflow-y-auto no-scrollbar">
                   {filteredItems.map((item) => {
-                    const dateLabels = formatCompactDateGroups([...itemToDates(item)]);
+                    const { fullDayDateStrs, fullDayKeys, hourlyRows } = splitLeaveItemDisplay(item, systemSettings);
+                    const fullDayLabels =
+                      fullDayDateStrs.length > 0
+                        ? formatCompactDateGroups(
+                            [...fullDayDateStrs].sort((a, b) => a.localeCompare(b))
+                          )
+                        : [];
                     return (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-3 py-2 px-3 rounded"
-                        style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background }}
-                      >
-                        <span className="min-w-0 truncate" style={{ color: currentTheme.text }}>
-                          {dateLabels.length ? dateLabels.join(', ') : '-'}
-                        </span>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          title="Sil"
-                          className="inline-flex items-center justify-center text-[18px] transition-colors shrink-0"
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '9999px',
-                            backgroundColor: currentTheme.border,
-                            color: currentTheme.text,
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = currentTheme.accent;
-                            e.target.style.color = '#ffffff';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = currentTheme.border;
-                            e.target.style.color = currentTheme.text;
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                      <React.Fragment key={item.id}>
+                        {fullDayDateStrs.length > 0 && (
+                          <div
+                            className="flex items-center justify-between gap-3 py-2 px-3 rounded"
+                            style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background }}
+                          >
+                            <span className="min-w-0 truncate" style={{ color: currentTheme.text }}>
+                              {fullDayLabels.length ? fullDayLabels.join(', ') : '-'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleClearFullDayGroup(item, fullDayKeys)}
+                              disabled={clearingLine === `fd-${item.id}`}
+                              title="Tam gün izinlerini kaldır"
+                              aria-label="Tam gün izinlerini kaldır"
+                              className="inline-flex items-center justify-center text-[18px] transition-colors shrink-0"
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '9999px',
+                                backgroundColor: currentTheme.border,
+                                color: currentTheme.text,
+                                opacity: clearingLine === `fd-${item.id}` ? 0.6 : 1,
+                                cursor: clearingLine === `fd-${item.id}` ? 'not-allowed' : 'pointer',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (clearingLine === `fd-${item.id}`) return;
+                                e.currentTarget.style.backgroundColor = currentTheme.accent;
+                                e.currentTarget.style.color = '#ffffff';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = currentTheme.border;
+                                e.currentTarget.style.color = currentTheme.text;
+                              }}
+                            >
+                              {clearingLine === `fd-${item.id}` ? '…' : '🗑️'}
+                            </button>
+                          </div>
+                        )}
+                        {hourlyRows.map((row) => (
+                          <div
+                            key={`${item.id}-${row.weekdayKey}`}
+                            className="flex items-center justify-between gap-3 py-2 px-3 rounded"
+                            style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background }}
+                          >
+                            <span className="min-w-0 flex-1 text-sm" style={{ color: currentTheme.text }}>
+                              <span className="font-medium">{formatDateWithWeekday(row.dateStr)}</span>
+                              <span className="mx-1" style={{ color: currentTheme.textSecondary }}>—</span>
+                              {row.startLabel} – {row.endLabel}
+                              <span className="ml-1 font-semibold" style={{ color: currentTheme.accent }}>
+                                {row.minutes} dk
+                              </span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleClearOneWeekday(item.id, row.weekdayKey, row.dateStr)}
+                              disabled={clearingLine === `${item.id}-${row.weekdayKey}`}
+                              title="Bu günü kaldır"
+                              aria-label="Bu günü kaldır"
+                              className="inline-flex items-center justify-center text-[18px] transition-colors shrink-0"
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '9999px',
+                                backgroundColor: currentTheme.border,
+                                color: currentTheme.text,
+                                opacity: clearingLine === `${item.id}-${row.weekdayKey}` ? 0.6 : 1,
+                                cursor: clearingLine === `${item.id}-${row.weekdayKey}` ? 'not-allowed' : 'pointer',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (clearingLine === `${item.id}-${row.weekdayKey}`) return;
+                                e.currentTarget.style.backgroundColor = currentTheme.accent;
+                                e.currentTarget.style.color = '#ffffff';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = currentTheme.border;
+                                e.currentTarget.style.color = currentTheme.text;
+                              }}
+                            >
+                              {clearingLine === `${item.id}-${row.weekdayKey}` ? '…' : '🗑️'}
+                            </button>
+                          </div>
+                        ))}
+                      </React.Fragment>
                     );
                   })}
                   {filteredItems.length === 0 && (
