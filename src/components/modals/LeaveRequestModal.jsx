@@ -367,9 +367,12 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     const months = monthsByRange[historyRange] ?? 12;
     const now = new Date();
     now.setHours(23, 59, 59, 999);
-    const cutoff = new Date(now);
-    cutoff.setMonth(cutoff.getMonth() - months);
-    cutoff.setHours(0, 0, 0, 0);
+    const rangeStart = new Date(now);
+    rangeStart.setMonth(rangeStart.getMonth() - months);
+    rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(now);
+    rangeEnd.setMonth(rangeEnd.getMonth() + months);
+    rangeEnd.setHours(23, 59, 59, 999);
 
     const rangeFiltered = items.filter((item) => {
       const dates = [...itemToDates(item)];
@@ -377,7 +380,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
       return dates.some((dateStr) => {
         const d = new Date(dateStr + 'T12:00:00');
         if (Number.isNaN(d.getTime())) return false;
-        return d >= cutoff && d <= now;
+        return d >= rangeStart && d <= rangeEnd;
       });
     });
 
@@ -675,44 +678,49 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                         : [];
                     return (
                       <React.Fragment key={item.id}>
-                        {fullDayDateStrs.length > 0 && (
+                        {fullDayDateStrs.length > 0 && fullDayLabels.map((label, idx) => (
                           <div
+                            key={`fd-${item.id}-${idx}`}
                             className="flex items-center justify-between gap-3 py-2 px-3 rounded"
                             style={{ backgroundColor: currentTheme.tableRowAlt || currentTheme.background }}
                           >
                             <span className="min-w-0 truncate" style={{ color: currentTheme.text }}>
-                              {fullDayLabels.length ? fullDayLabels.join(', ') : '-'}
+                              {label || '-'}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => handleClearFullDayGroup(item, fullDayKeys)}
-                              disabled={clearingLine === `fd-${item.id}`}
-                              title="Tam gün izinlerini kaldır"
-                              aria-label="Tam gün izinlerini kaldır"
-                              className="inline-flex items-center justify-center text-[18px] transition-colors shrink-0"
-                              style={{
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '9999px',
-                                backgroundColor: currentTheme.border,
-                                color: currentTheme.text,
-                                opacity: clearingLine === `fd-${item.id}` ? 0.6 : 1,
-                                cursor: clearingLine === `fd-${item.id}` ? 'not-allowed' : 'pointer',
-                              }}
-                              onMouseEnter={(e) => {
-                                if (clearingLine === `fd-${item.id}`) return;
-                                e.currentTarget.style.backgroundColor = currentTheme.accent;
-                                e.currentTarget.style.color = '#ffffff';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = currentTheme.border;
-                                e.currentTarget.style.color = currentTheme.text;
-                              }}
-                            >
-                              {clearingLine === `fd-${item.id}` ? '…' : '🗑️'}
-                            </button>
+                            {idx === 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => handleClearFullDayGroup(item, fullDayKeys)}
+                                disabled={clearingLine === `fd-${item.id}`}
+                                title="Tam gün izinlerini kaldır"
+                                aria-label="Tam gün izinlerini kaldır"
+                                className="inline-flex items-center justify-center text-[18px] transition-colors shrink-0"
+                                style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '9999px',
+                                  backgroundColor: currentTheme.border,
+                                  color: currentTheme.text,
+                                  opacity: clearingLine === `fd-${item.id}` ? 0.6 : 1,
+                                  cursor: clearingLine === `fd-${item.id}` ? 'not-allowed' : 'pointer',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (clearingLine === `fd-${item.id}`) return;
+                                  e.currentTarget.style.backgroundColor = currentTheme.accent;
+                                  e.currentTarget.style.color = '#ffffff';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = currentTheme.border;
+                                  e.currentTarget.style.color = currentTheme.text;
+                                }}
+                              >
+                                {clearingLine === `fd-${item.id}` ? '…' : '🗑️'}
+                              </button>
+                            ) : (
+                              <span className="shrink-0" style={{ width: '40px', height: '40px' }} />
+                            )}
                           </div>
-                        )}
+                        ))}
                         {hourlyRows.map((row) => (
                           <div
                             key={`${item.id}-${row.weekdayKey}`}
