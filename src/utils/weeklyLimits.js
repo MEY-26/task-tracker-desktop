@@ -14,7 +14,7 @@ export function getDailyActualLimits() {
 /**
  * Mesai limitlerini döndürür
  */
-export function getDailyOvertimeLimits() .
+export function getDailyOvertimeLimits() {
   return {
     1: 150,   // Pazartesi
     2: 300,   // Salı (toplam)
