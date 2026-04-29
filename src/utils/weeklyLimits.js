@@ -14,7 +14,7 @@ export function getDailyActualLimits() {
 /**
  * Mesai limitlerini döndürür
  */
-export function getDailyOvertimeLimits() {
+export function getDailyOvertimeLimits() .
   return {
     1: 150,   // Pazartesi
     2: 300,   // Salı (toplam)
@@ -27,9 +27,10 @@ export function getDailyOvertimeLimits() {
 }
 
 /**
- * Bugünün tarihine göre maksimum gerçekleşme limitini döndürür (mesai dahil, izin düşülmüş)
+ * Bugünün tarihine göre maksimum gerçekleşme limitini döndürür (mesai dahil).
+ * Haftalık izin düşümü haftalık T_allow / overCapacity ile yapılır; günlük tavanda tekrar düşülmez (backend ile aynı).
  */
-export function getMaxActualLimitForToday(weekStart, overtimeMinutes = 0, leaveMinutes = 0) {
+export function getMaxActualLimitForToday(weekStart, overtimeMinutes = 0) {
   const monday = new Date(weekStart);
   monday.setHours(0, 0, 0, 0);
   const today = new Date();
@@ -57,9 +58,8 @@ export function getMaxActualLimitForToday(weekStart, overtimeMinutes = 0, leaveM
   // Mesai süresini ekle (günlük mesai limitine göre)
   const maxOvertimeLimit = getMaxOvertimeLimitForToday(weekStart);
   const allowedOvertime = Math.min(overtimeMinutes, maxOvertimeLimit);
-  const allowedLeave = Math.max(0, Math.round(Number(leaveMinutes || 0)));
 
-  return Math.max(0, baseLimit + allowedOvertime - allowedLeave);
+  return baseLimit + allowedOvertime;
 }
 
 /**
