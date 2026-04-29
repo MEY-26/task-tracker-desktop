@@ -230,7 +230,16 @@ export function WeeklyGoalsModal({
             <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
             <div className="rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 8px' }}>
+                <table className="min-w-full w-full table-fixed text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 8px' }}>
+                  <colgroup>
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '30%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '5%' }} />
+                  </colgroup>
                   <thead>
                     <tr style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
                       <th className="px-2 py-2 text-left text-[14px]" style={{ width: '20%', color: currentTheme.text }}>Başlık</th>
@@ -554,15 +563,23 @@ export function WeeklyGoalsModal({
             <div className="mt-3 border-t" style={{ borderColor: currentTheme.border }} />
             <div className="rounded p-3" style={{ marginLeft: '2px', marginRight: '2px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 6px' }}>
+                <table className="min-w-full w-full table-fixed text-sm" style={{ borderCollapse: 'separate', borderSpacing: '8px 8px' }}>
+                  <colgroup>
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '30%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '5%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '5%' }} />
+                  </colgroup>
                   <thead>
                     <tr style={{ backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
-                      <th className="px-2 py-2 text-left text-[14px]" colSpan="2" style={{ width: '30%', color: currentTheme.text }}>Başlık</th>
-                      <th className="px-2 py-2 text-left text-[14px]" colSpan="3" style={{ width: '40%', color: currentTheme.text }}>İş Ayrıntısı</th>
-                      <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%', color: currentTheme.text }}>Süre(dk)</th>
-                      <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Ağırlık(%)</th>
-                      <th className="px-2 py-2 text-center text-[14px]" style={{ width: '10%', color: currentTheme.text }}>Açıklama</th>
-                      <th className="px-2 py-2 text-center text-[14px]" style={{ width: '5%', color: currentTheme.text }}>Sil</th>
+                      <th className="px-2 py-2 text-left text-[14px]" style={{ color: currentTheme.text }}>Başlık</th>
+                      <th className="px-2 py-2 text-left text-[14px]" colSpan={3} style={{ color: currentTheme.text }}>İş Ayrıntısı</th>
+                      <th className="px-2 py-2 text-center text-[14px]" style={{ color: currentTheme.text }}>Süre(dk)</th>
+                      <th className="px-2 py-2 text-center text-[14px]" style={{ color: currentTheme.text }}>Açıklama</th>
+                      <th className="px-2 py-2 text-center text-[14px]" style={{ color: currentTheme.text }}>Sil</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -573,7 +590,7 @@ export function WeeklyGoalsModal({
                         <tr key={row.id || `u-${idx}`} style={{
                           backgroundColor: currentTheme.tableBackground || currentTheme.background
                         }}>
-                          <td className="px-3 py-2 align-top" colSpan="2" style={{ verticalAlign: 'top' }}>
+                          <td className="px-3 py-2 align-top" style={{ verticalAlign: 'top' }}>
                             <textarea
                               disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
                               defaultValue={row.title || ''}
@@ -623,7 +640,7 @@ export function WeeklyGoalsModal({
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 align-top" colSpan="3" style={{ verticalAlign: 'top' }}>
+                          <td className="px-3 py-2 align-middle" style={{ verticalAlign: 'top' }} colSpan={3}>
                             <textarea
                               disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'}
                               defaultValue={row.action_plan || ''}
@@ -646,10 +663,8 @@ export function WeeklyGoalsModal({
                                 e.target.style.boxShadow = hasValidationError ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none';
                                 e.target.style.borderWidth = hasValidationError ? '2px' : '1px';
                               }}
-                              className="w-full rounded px-3 py-2 h-[60px] text-[16px] resize-none"
+                              className="w-full rounded px-3 py-2 min-h-[60px] text-[16px] resize-y"
                               style={{
-                                overflow: 'auto',
-                                wordWrap: 'break-word',
                                 backgroundColor: currentTheme.tableRowAlt || currentTheme.tableBackground || currentTheme.background,
                                 color: currentTheme.text,
                                 borderColor: hasValidationError ? '#ef4444' : currentTheme.border,
@@ -673,7 +688,7 @@ export function WeeklyGoalsModal({
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-center align-top">
+                          <td className="px-2 py-2 align-middle text-center" style={{ verticalAlign: 'top' }}>
                             <input type="number" disabled={(combinedLocks.actuals_locked && user?.role !== 'admin') || user?.role === 'observer'} value={row.actual_minutes || 0}
                               onChange={e => {
                                 updateNumberInput(row, 'actual_minutes', e.target.value);
