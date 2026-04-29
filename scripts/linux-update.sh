@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Task Tracker Desktop - Linux Güncelleme Script'i
+# Task Tracker Desktop - Linux Güncelleme Script'i (basit tam güncelleme)
+# Her zaman npm + composer + migrate çalıştırır.
+# Değişen dosyaya göre sadece gerekenleri çalıştıran sürüm: scripts/linux-deploy-smart.sh
 # Bu script projeyi GitHub'tan günceller ve bağımlılıkları yükler
 
 set -e  # Hata durumunda script'i durdur

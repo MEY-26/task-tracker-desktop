@@ -77,6 +77,35 @@ sudo systemctl status task-tracker-frontend
 sudo ss -ltnp | grep -E ':5173|:8000'
 ```
 
+## Akıllı güncelleme (GitHub + seçmeli adımlar)
+
+Repo kökünde örnek: `scripts/linux-deploy-smart.sh` — önerilir; bir commit içinde hangi dosyaların değiştiğine göre gereksiz adımları atlar.
+
+**Ne zaman ne çalışır (özet):**
+
+- Frontend (repo kökü, `task-tracker-api` dışında) dosya değiştiyse: `npm install` (isteğe `--build-ui` ile `npm run build:ui`).
+- `task-tracker-api/composer.json` veya `composer.lock`: `composer install`.
+- `task-tracker-api/database/migrations/` altında değişiklik: `php artisan migrate --force`.
+- Composer kurulumu, migration veya `config/` / `routes/` / `bootstrap/` değiştiyse: `php artisan config:clear`, `cache:clear`, `route:clear`.
+- Gerekirse `sudo systemctl restart task-tracker-api` ve/veya `task-tracker-frontend`.
+
+Örnekler:
+
+```bash
+chmod +x scripts/linux-deploy-smart.sh
+./scripts/linux-deploy-smart.sh ~/task-tracker-desktop
+./scripts/linux-deploy-smart.sh ~/task-tracker-desktop --dry-run
+./scripts/linux-deploy-smart.sh --force-all --build-ui ~/task-tracker-desktop
+```
+
+Cron (yolunu kendi sunucunuza göre yazın):
+
+```cron
+17 * * * * /home/gtakip/task-tracker-desktop/scripts/linux-deploy-smart.sh /home/gtakip/task-tracker-desktop >/tmp/task-tracker-deploy.log 2>&1
+```
+
+Not: `scripts/linux-update.sh` her çalışmada npm, composer ve migrate yapar; bu script daha az yan etki için yukarıdakini kullanır.
+
 ## Servis Yönetimi
 
 ### Servisleri Başlat/Durdur/Yeniden Başlat
