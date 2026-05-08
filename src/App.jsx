@@ -43,6 +43,7 @@ import { exportOverviewToExcel, exportUserDetailToExcel } from './utils/excelExp
 
 
 const WEEKLY_BASE_MINUTES = 2700;
+const UPDATES_SEEN_STORAGE_PREFIX = 'tasktracker:updates:last-seen:';
 
 function App() {
   const { user, setUser } = useAuth();
@@ -127,6 +128,8 @@ function App() {
   const [showSystemSettings, setShowSystemSettings] = useState(false);
   const [showUpdatesModal, setShowUpdatesModal] = useState(false);
   const [updatesContent, setUpdatesContent] = useState('');
+  const [updatesSignature, setUpdatesSignature] = useState('');
+  const [hasUnreadUpdates, setHasUnreadUpdates] = useState(false);
   const [activeTab, setActiveTab] = useState('active');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [selectedTaskType, setSelectedTaskType] = useState('all');
@@ -135,6 +138,67 @@ function App() {
   const [attachmentsExpanded, setAttachmentsExpanded] = useState(false);
   const [detailDraft, setDetailDraft] = useState(null);
   const assigneeDetailInputRef = useRef(null);
+  const updatesSeenStorageKey = `${UPDATES_SEEN_STORAGE_PREFIX}${user?.id || 'anonymous'}`;
+
+  const computeUpdatesSignature = useCallback((text) => {
+    const src = String(text || '');
+    let hash = 2166136261;
+    for (let i = 0; i < src.length; i += 1) {
+      hash ^= src.charCodeAt(i);
+      hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+    }
+    return `u${(hash >>> 0).toString(16)}`;
+  }, []);
+
+  const loadUpdatesNotes = useCallback(async () => {
+    try {
+      const response = await fetch('/UPDATES.md', { cache: 'no-store' });
+      const text = await response.text();
+      const safeText = text?.trim()
+        ? text
+        : '# Güncelleme Notları\n\nHenüz yayınlanmış bir güncelleme notu bulunamadı.';
+      setUpdatesContent(safeText);
+      const sig = computeUpdatesSignature(safeText);
+      setUpdatesSignature(sig);
+      return { content: safeText, signature: sig };
+    } catch (err) {
+      console.error('Failed to load updates:', err);
+      const fallback = '# Güncelleme Notları\n\nGüncelleme notları yüklenemedi.';
+      setUpdatesContent(fallback);
+      const sig = computeUpdatesSignature(fallback);
+      setUpdatesSignature(sig);
+      return { content: fallback, signature: sig };
+    }
+  }, [computeUpdatesSignature]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkUpdatesBadge = async () => {
+      const { signature } = await loadUpdatesNotes();
+      if (cancelled) return;
+      try {
+        const seenSignature = localStorage.getItem(updatesSeenStorageKey) || '';
+        setHasUnreadUpdates(Boolean(signature) && signature !== seenSignature);
+      } catch {
+        setHasUnreadUpdates(Boolean(signature));
+      }
+    };
+    void checkUpdatesBadge();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadUpdatesNotes, updatesSeenStorageKey]);
+
+  const handleCloseUpdatesModal = useCallback(() => {
+    setShowUpdatesModal(false);
+    if (!updatesSignature) return;
+    try {
+      localStorage.setItem(updatesSeenStorageKey, updatesSignature);
+    } catch {
+      // no-op (private mode/storage restrictions)
+    }
+    setHasUnreadUpdates(false);
+  }, [updatesSeenStorageKey, updatesSignature]);
 
   const taskCounts = {
     active: Array.isArray(tasks) ? tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length : 0,
@@ -1284,22 +1348,19 @@ function App() {
                     e.preventDefault();
                     e.stopPropagation();
                     try {
-                      if (!updatesContent) {
-                        try {
-                          const response = await fetch('/UPDATES.md');
-                          const text = await response.text();
-                          setUpdatesContent(text);
-                        } catch (err) {
-                          console.error('Failed to load updates:', err);
-                          setUpdatesContent('# Güncelleme Notları\n\nGüncelleme notları yüklenemedi.');
-                        }
+                      const { signature } = await loadUpdatesNotes();
+                      try {
+                        const seenSignature = localStorage.getItem(updatesSeenStorageKey) || '';
+                        setHasUnreadUpdates(Boolean(signature) && signature !== seenSignature);
+                      } catch {
+                        setHasUnreadUpdates(Boolean(signature));
                       }
                       setShowUpdatesModal(true);
                     } catch (err) {
                       console.error('Error opening updates modal:', err);
                     }
                   }}
-                  className="add-task-button rounded-lg overflow-visible"
+                  className={`add-task-button rounded-lg overflow-visible relative ${hasUnreadUpdates ? 'updates-button--has-new' : ''}`}
                   aria-label="Güncelleme Notları"
                   title="Güncelleme Notları"
                   style={{
@@ -1311,6 +1372,11 @@ function App() {
                     border: `1px solid ${currentTheme.border}`
                   }}
                 >
+                  {hasUnreadUpdates && (
+                    <span className="updates-new-dot" aria-hidden>
+                      <span className="updates-new-dot__halo" />
+                    </span>
+                  )}
                   <span style={{ color: '#ffffff' }}>📋</span>
                 </button>
                 <NotificationsPanel
@@ -1325,7 +1391,7 @@ function App() {
                 />
                 <UpdatesModal
                   open={showUpdatesModal}
-                  onClose={() => setShowUpdatesModal(false)}
+                  onClose={handleCloseUpdatesModal}
                   updatesContent={updatesContent}
                 />
 
