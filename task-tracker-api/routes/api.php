@@ -16,6 +16,7 @@ use App\Http\Controllers\TaskTypeController;
 use App\Http\Controllers\TaskStatusController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\SystemSettingsController;
+use App\Http\Controllers\CalendarOverrideController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -78,6 +79,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/system-settings', [SystemSettingsController::class, 'index']);
     Route::put('/system-settings', [SystemSettingsController::class, 'update']);
 
+    Route::get('/calendar-overrides/presets/turkish', [CalendarOverrideController::class, 'presetsTurkish']);
+    Route::get('/calendar-overrides/effective-day-minutes', [CalendarOverrideController::class, 'effectiveDayMinutes']);
+    Route::get('/calendar-overrides', [CalendarOverrideController::class, 'index']);
+    Route::post('/calendar-overrides', [CalendarOverrideController::class, 'store']);
+    Route::put('/calendar-overrides/{id}', [CalendarOverrideController::class, 'update']);
+    Route::delete('/calendar-overrides/{id}', [CalendarOverrideController::class, 'destroy']);
     // Weekly Goals
     Route::get('/weekly-goals/leaderboard', [WeeklyGoalController::class, 'leaderboard']);
     Route::get('/weekly-goals/multi-week-leaderboard', [WeeklyGoalController::class, 'multiWeekLeaderboard']);

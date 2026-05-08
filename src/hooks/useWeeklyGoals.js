@@ -55,17 +55,22 @@ export function useWeeklyGoals() {
     });
   }, [getInvalidItemIndices]);
 
+  const effectiveWeeklyBase = useMemo(() => {
+    const b = Number(weeklyGoals.summary?.base_minutes);
+    return Number.isFinite(b) && b >= 0 ? b : WEEKLY_BASE_MINUTES;
+  }, [weeklyGoals.summary?.base_minutes]);
+
   const weeklyLeaveMinutes = useMemo(() => {
     try {
       const normalized = (weeklyLeaveMinutesInput ?? '').toString().replace(',', '.').trim();
       if (!normalized) return 0;
       const minutes = Math.round(Number(normalized));
       if (!Number.isFinite(minutes) || minutes <= 0) return 0;
-      return Math.min(WEEKLY_BASE_MINUTES, Math.max(0, minutes));
+      return Math.min(effectiveWeeklyBase, Math.max(0, minutes));
     } catch {
       return 0;
     }
-  }, [weeklyLeaveMinutesInput]);
+  }, [weeklyLeaveMinutesInput, effectiveWeeklyBase]);
 
   const weeklyOvertimeMinutes = useMemo(() => {
     try {
@@ -170,7 +175,7 @@ export function useWeeklyGoals() {
     })();
 
     const breakdown = computeWeeklyScore({
-      baseMinutes: WEEKLY_BASE_MINUTES,
+      baseMinutes: effectiveWeeklyBase,
       leaveMinutes: weeklyLeaveMinutes,
       overtimeMinutes: weeklyOvertimeMinutes,
       planned,
@@ -222,7 +227,7 @@ export function useWeeklyGoals() {
       breakdown,
       overtimeBonusPercent: Number((overtimeBonus * 100).toFixed(2)),
     };
-  }, [weeklyGoals.items, weeklyLeaveMinutes, weeklyOvertimeMinutes, weeklyWeekStart]);
+  }, [weeklyGoals.items, weeklyLeaveMinutes, weeklyOvertimeMinutes, weeklyWeekStart, effectiveWeeklyBase]);
 
   const updateNumberInput = useCallback((row, field, value) => {
     const items = [...weeklyGoals.items];
@@ -261,8 +266,10 @@ export function useWeeklyGoals() {
     if (!normalized) { setWeeklyLeaveMinutesInput('0'); return; }
     const parsed = parseInt(normalized, 10);
     if (Number.isNaN(parsed) || parsed < 0) { setWeeklyLeaveMinutesInput('0'); return; }
-    setWeeklyLeaveMinutesInput(Math.min(parsed, WEEKLY_BASE_MINUTES).toString());
-  }, [weeklyLeaveMinutesInput]);
+    const cap = Number(weeklyGoals.summary?.base_minutes);
+    const maxLeave = Number.isFinite(cap) && cap >= 0 ? cap : WEEKLY_BASE_MINUTES;
+    setWeeklyLeaveMinutesInput(Math.min(parsed, maxLeave).toString());
+  }, [weeklyLeaveMinutesInput, weeklyGoals.summary?.base_minutes]);
 
   const handleWeeklyOvertimeMinutesChange = useCallback((event) => {
     const raw = (event?.target?.value ?? '').toString();
@@ -442,7 +449,7 @@ export function useWeeklyGoals() {
       const overtimeMinutesForSave = weeklyOvertimeMinutes;
       const availableMinutes = Number.isFinite(weeklyLive?.availableMinutes)
         ? Number(weeklyLive.availableMinutes)
-        : Math.max(0, WEEKLY_BASE_MINUTES - leaveMinutesForSave + overtimeMinutesForSave);
+        : Math.max(0, (Number(weeklyGoals.summary?.base_minutes) >= 0 ? Number(weeklyGoals.summary?.base_minutes) : WEEKLY_BASE_MINUTES) - leaveMinutesForSave + overtimeMinutesForSave);
 
       if (itemsToSave.length > 0) {
         const invalidItems = itemsToSave.filter(x => {
@@ -603,13 +610,15 @@ export function useWeeklyGoals() {
     const plannedActual = Number(weeklyLive?.plannedActual || 0);
     const unplannedMinutes = Number(weeklyLive?.unplannedMinutes || 0);
     const totalUsedMinutes = plannedActual + unplannedMinutes;
-    const capacity = Number.isFinite(weeklyLive?.availableMinutes) ? Number(weeklyLive.availableMinutes) : WEEKLY_BASE_MINUTES;
+    const capacity = Number.isFinite(weeklyLive?.availableMinutes)
+      ? Number(weeklyLive.availableMinutes)
+      : effectiveWeeklyBase;
     if (totalUsedMinutes > capacity) {
       setWeeklyValidationErrors(prev => ({ ...prev, overCapacity: true }));
     } else {
       setWeeklyValidationErrors(prev => ({ ...prev, overCapacity: false }));
     }
-  }, [weeklyLive.plannedActual, weeklyLive.unplannedMinutes, weeklyLive.availableMinutes]);
+  }, [weeklyLive.plannedActual, weeklyLive.unplannedMinutes, weeklyLive.availableMinutes, effectiveWeeklyBase]);
 
   useEffect(() => {
     if (!weeklyWeekStart) return;
@@ -617,7 +626,11 @@ export function useWeeklyGoals() {
     if (weeklyWeekStart === currentWeekStart) {
       const totalActual = Number(weeklyLive?.totalActual || 0);
       const overtimeMinutes = Number(weeklyLive?.overtimeMinutes || 0);
-      const maxActualLimit = getMaxActualLimitForToday(weeklyWeekStart, overtimeMinutes);
+      const maxActualLimit = getMaxActualLimitForToday(
+        weeklyWeekStart,
+        overtimeMinutes,
+        weeklyGoals.summary?.daily_breakdown
+      );
       if (totalActual > maxActualLimit) {
         setWeeklyValidationErrors(prev => ({
           ...prev,
@@ -641,7 +654,7 @@ export function useWeeklyGoals() {
         overDailyLimitMax: 0
       }));
     }
-  }, [weeklyLive.totalActual, weeklyLive.overtimeMinutes, weeklyWeekStart]);
+  }, [weeklyLive.totalActual, weeklyLive.overtimeMinutes, weeklyWeekStart, weeklyGoals.summary?.daily_breakdown]);
 
   return {
     weeklyGoals,
@@ -683,5 +696,6 @@ export function useWeeklyGoals() {
     weeklyLeaveMinutes,
     weeklyOvertimeMinutes,
     WEEKLY_BASE_MINUTES,
+    effectiveWeeklyBase,
   };
 }

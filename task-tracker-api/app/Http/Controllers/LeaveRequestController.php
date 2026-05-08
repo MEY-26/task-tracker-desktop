@@ -11,7 +11,7 @@ use Carbon\Carbon;
 
 class LeaveRequestController extends Controller
 {
-    private const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    private const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
     private function mondayOfWeek(?string $date = null): string
     {
@@ -73,6 +73,8 @@ class LeaveRequestController extends Controller
             'wednesday' => 'boolean',
             'thursday' => 'boolean',
             'friday' => 'boolean',
+            'saturday' => 'boolean',
+            'sunday' => 'boolean',
         ];
         foreach (self::WEEKDAY_KEYS as $key) {
             $rules[$key . '_start'] = 'nullable|string|regex:/^\d{1,2}:\d{2}$/';
@@ -119,6 +121,8 @@ class LeaveRequestController extends Controller
             'wednesday' => $mergeFlags['wednesday'],
             'thursday' => $mergeFlags['thursday'],
             'friday' => $mergeFlags['friday'],
+            'saturday' => $mergeFlags['saturday'],
+            'sunday' => $mergeFlags['sunday'],
             'monday_start' => $mergeStarts['monday'],
             'monday_end' => $mergeEnds['monday'],
             'tuesday_start' => $mergeStarts['tuesday'],
@@ -129,6 +133,10 @@ class LeaveRequestController extends Controller
             'thursday_end' => $mergeEnds['thursday'],
             'friday_start' => $mergeStarts['friday'],
             'friday_end' => $mergeEnds['friday'],
+            'saturday_start' => $mergeStarts['saturday'],
+            'saturday_end' => $mergeEnds['saturday'],
+            'sunday_start' => $mergeStarts['sunday'],
+            'sunday_end' => $mergeEnds['sunday'],
             'updated_at' => now(),
         ];
 
@@ -179,7 +187,7 @@ class LeaveRequestController extends Controller
     public function clearWeekday(Request $request, $id)
     {
         $request->validate([
-            'weekday' => 'required|string|in:monday,tuesday,wednesday,thursday,friday',
+            'weekday' => 'required|string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
         ]);
 
         $auth = $request->user();
@@ -322,6 +330,8 @@ class LeaveRequestController extends Controller
                     'wednesday' => ['active' => false, 'start' => null, 'end' => null],
                     'thursday' => ['active' => false, 'start' => null, 'end' => null],
                     'friday' => ['active' => false, 'start' => null, 'end' => null],
+                    'saturday' => ['active' => false, 'start' => null, 'end' => null],
+                    'sunday' => ['active' => false, 'start' => null, 'end' => null],
                 ];
             }
             $dayKey = self::WEEKDAY_KEYS[$dayOfWeek - 1];
@@ -364,6 +374,8 @@ class LeaveRequestController extends Controller
                     'wednesday' => $mergeFlags['wednesday'],
                     'thursday' => $mergeFlags['thursday'],
                     'friday' => $mergeFlags['friday'],
+                    'saturday' => $mergeFlags['saturday'],
+                    'sunday' => $mergeFlags['sunday'],
                     'monday_start' => $mergeStarts['monday'],
                     'monday_end' => $mergeEnds['monday'],
                     'tuesday_start' => $mergeStarts['tuesday'],
@@ -374,6 +386,10 @@ class LeaveRequestController extends Controller
                     'thursday_end' => $mergeEnds['thursday'],
                     'friday_start' => $mergeStarts['friday'],
                     'friday_end' => $mergeEnds['friday'],
+                    'saturday_start' => $mergeStarts['saturday'],
+                    'saturday_end' => $mergeEnds['saturday'],
+                    'sunday_start' => $mergeStarts['sunday'],
+                    'sunday_end' => $mergeEnds['sunday'],
                     'updated_at' => now(),
                 ];
 

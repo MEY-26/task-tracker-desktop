@@ -1336,6 +1336,7 @@ function App() {
                     open={showSystemSettings}
                     onClose={() => setShowSystemSettings(false)}
                     addNotification={addNotification}
+                    users={users}
                   />
                 )}
                 {showLeaveRequestModal && (

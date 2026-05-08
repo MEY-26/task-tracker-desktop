@@ -3,14 +3,25 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { LeaveRequests, SystemSettings } from '../../api';
+import { LeaveRequests, SystemSettings, CalendarOverrides } from '../../api';
+import {
+  monthGridRange,
+  normalizeCalendarRow,
+  buildCalendarItemsByDate,
+  workingCalendarDayInfo,
+  workingCalendarCellColor,
+  workingCalendarCellTitle,
+} from '../../utils/workingCalendarShared';
 import { getMonday, fmtYMD, addDays, isWeekday, isPast } from '../../utils/date';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
+import { WorkingCalendarMonthGrid, WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/WorkingCalendarMonthGrid';
 
-const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const MONTH_NAMES = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 const WEEKDAY_SHORT_TR = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
+const LEAVE_DAY_BLUE = 'rgba(37, 99, 235, 0.58)';
+const LEAVE_SELECTION_BLUE = 'rgba(59, 130, 246, 0.4)';
 const DEFAULT_SETTINGS = {
   work_start: '08:00',
   work_end: '18:15',
@@ -192,6 +203,9 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [clearingLine, setClearingLine] = useState(null);
+  const [calendarOverrideItems, setCalendarOverrideItems] = useState([]);
+  /** null = loading; object = map date -> minutes (empty {} after error) */
+  const [minuteMap, setMinuteMap] = useState(null);
   const modalRef = useRef(null);
 
   const canSelectPast = ['admin', 'team_leader'].includes(user?.role);
@@ -229,6 +243,33 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     }
   }, [open, loadItems]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const { from, to } = monthGridRange(viewMonth.getFullYear(), viewMonth.getMonth());
+    setMinuteMap(null);
+    let cancelled = false;
+    (async () => {
+      try {
+        const [cal, eff] = await Promise.all([
+          CalendarOverrides.list({ from, to }),
+          CalendarOverrides.effectiveDayMinutes({ from, to }),
+        ]);
+        if (cancelled) return;
+        setCalendarOverrideItems((cal.items || []).map(normalizeCalendarRow));
+        setMinuteMap(eff.minutes_by_day || {});
+      } catch (err) {
+        if (!cancelled) {
+          addNotification(err.response?.data?.message || 'Takvim senkronize edilemedi.', 'error');
+          setCalendarOverrideItems([]);
+          setMinuteMap({});
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, viewMonth, addNotification]);
+
   useOutsideClickClose(open, modalRef, onClose);
 
   const savedDates = useMemo(() => {
@@ -237,9 +278,41 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
     return dates;
   }, [items]);
 
+  const itemsByDate = useMemo(
+    () => buildCalendarItemsByDate(calendarOverrideItems),
+    [calendarOverrideItems]
+  );
+
+  const calendarCells = useMemo(() => {
+    const y = viewMonth.getFullYear();
+    const m = viewMonth.getMonth();
+    const { from: gridStartStr } = monthGridRange(y, m);
+    const startDate = new Date(`${gridStartStr}T12:00:00`);
+    const out = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      out.push(d);
+    }
+    return out;
+  }, [viewMonth]);
+
+  const calendarReady = minuteMap !== null;
+
+  const canSelectDateForLeave = useCallback(
+    (dateStr, d) => {
+      if (!calendarReady) return false;
+      if (Object.prototype.hasOwnProperty.call(minuteMap, dateStr)) {
+        return minuteMap[dateStr] > 0;
+      }
+      return isWeekday(d);
+    },
+    [calendarReady, minuteMap]
+  );
+
   const toggleDate = (dateStr) => {
     const d = new Date(dateStr + 'T12:00:00');
-    if (!isWeekday(d)) return;
+    if (!canSelectDateForLeave(dateStr, d)) return;
     if (!canSelectPast && isPast(d)) return;
     setSelectedDates((prev) => {
       const next = new Set(prev);
@@ -398,13 +471,6 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
 
   const year = viewMonth.getFullYear();
   const month = viewMonth.getMonth();
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0);
-  const startPad = (first.getDay() || 7) - 1;
-  const daysInMonth = last.getDate();
-  const cells = [];
-  for (let i = 0; i < startPad; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   const prevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1));
   const nextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1));
@@ -421,7 +487,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
       >
         <div
           ref={modalRef}
-          className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[620px] max-h-[90vh] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden flex flex-col"
+          className="fixed z-[100260] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[960px] max-h-[90vh] rounded-2xl border shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden flex flex-col"
           style={{
             pointerEvents: 'auto',
             backgroundColor: currentTheme.tableBackground || currentTheme.background,
@@ -448,7 +514,8 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
           </div>
           <div className="space-y-4 overflow-y-auto no-scrollbar" style={{ padding: '24px 32px' }}>
             <p className="text-sm" style={{ color: currentTheme.textSecondary }}>
-              Takvimden izinli olduğunuz günleri seçin. Tam gün yerine saatlik izin için başlangıç ve bitiş saatlerini girin. Mola süreleri otomatik düşülür.
+              Takvimdeki renkler Sistem Yönetimi çalışma takvimiyle aynıdır (tatil, çalışma istisnası vb.). Kendi izinli günleriniz mavi görünür.
+              Çalışma olarak işaretlenen hafta sonlarına da izin girebilirsiniz. Tam gün yerine saatlik izin için başlangıç ve bitiş saatlerini girin; mola süreleri otomatik düşülür.
             </p>
             {!canSelectPast && (
               <p className="text-xs" style={{ color: currentTheme.textSecondary }}>
@@ -478,42 +545,86 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
               </button>
             </div>
 
-            <div className="grid grid-cols-7 gap-0.5 text-center">
-              {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map((label) => (
-                <div key={label} className="text-xs font-medium py-1" style={{ color: currentTheme.textSecondary }}>
-                  {label}
-                </div>
-              ))}
-              {cells.map((d, idx) => {
-                if (d === null) return <div key={`empty-${idx}`} />;
-                const date = new Date(year, month, d);
-                const dateStr = fmtYMD(date);
-                const weekday = date.getDay();
-                const isSatSun = weekday === 0 || weekday === 6;
+            {!calendarReady && (
+              <div className="text-xs text-center py-1" style={{ color: currentTheme.textSecondary }}>
+                Takvim yükleniyor…
+              </div>
+            )}
+
+            <WorkingCalendarMonthGrid headerColor={currentTheme.textSecondary}>
+              {calendarCells.map((dateObj) => {
+                const dateStr = fmtYMD(dateObj);
+                const inMonth = dateObj.getMonth() === month;
+                const info = workingCalendarDayInfo(dateObj, itemsByDate);
+                let baseBg = workingCalendarCellColor(info.list, info.baseHoliday);
+                if (baseBg === 'transparent') {
+                  baseBg = `${currentTheme.tableRowAlt || currentTheme.border}33`;
+                }
+                const subtitle = workingCalendarCellTitle(info.list, info.baseHoliday);
                 const isSaved = savedDates.has(dateStr);
-                const disabled = isSatSun || (!canSelectPast && isPast(date)) || isSaved;
                 const selected = selectedDates.has(dateStr);
+                const pastBlocked = !canSelectPast && isPast(dateObj);
+                const workSelectable = canSelectDateForLeave(dateStr, dateObj);
+                const disabled =
+                  !inMonth || !calendarReady || isSaved || pastBlocked || !workSelectable;
+
+                let bg = baseBg;
+                if (isSaved) bg = LEAVE_DAY_BLUE;
+                else if (selected) bg = LEAVE_SELECTION_BLUE;
+
+                const selOutline = selected && !isSaved;
+                const borderColor = selOutline
+                  ? (currentTheme.accent || '#3b82f6')
+                  : isSaved
+                    ? 'rgba(37, 99, 235, 0.95)'
+                    : (currentTheme.border || '#444');
+
+                const textColor =
+                  isSaved || selected
+                    ? '#fff'
+                    : disabled
+                      ? (currentTheme.textSecondary || currentTheme.text)
+                      : currentTheme.text;
+
                 return (
                   <button
                     key={dateStr}
                     type="button"
                     onClick={() => !disabled && toggleDate(dateStr)}
                     disabled={disabled}
-                    className="rounded py-1.5 text-sm transition-colors"
+                    className={`${WORKING_CALENDAR_CELL_BUTTON_CLASS} text-sm`}
                     style={{
-                      backgroundColor: selected ? (currentTheme.accent || '#3b82f6') : 'transparent',
-                      color: selected ? '#fff' : disabled ? (currentTheme.textSecondary || currentTheme.text) : currentTheme.text,
-                      opacity: disabled ? 0.5 : 1,
+                      opacity: inMonth ? 1 : 0.35,
+                      backgroundColor: bg,
+                      color: textColor,
                       cursor: disabled ? 'not-allowed' : 'pointer',
-                      border: isSaved ? `1px solid ${currentTheme.accent || '#3b82f6'}` : '1px solid transparent',
+                      borderWidth: selOutline ? 2 : 1,
+                      borderStyle: 'solid',
+                      borderColor,
+                      boxShadow: selOutline ? `0 0 0 1px ${currentTheme.accent || '#3b82f6'}40` : 'none',
                     }}
-                    title={isSaved ? 'Bu gün zaten kayıtlı izinlerde. Değiştirmek için kaydı silip yeniden ekleyin.' : ''}
+                    title={
+                      isSaved
+                        ? 'Bu gün zaten kayıtlı izinlerde. Değiştirmek için kaydı silip yeniden ekleyin.'
+                        : subtitle || dateStr
+                    }
                   >
-                    {d}
+                    <div className="font-semibold shrink-0" style={{ fontSize: '17px' }}>
+                      {dateObj.getDate()}
+                    </div>
+                    {subtitle ? (
+                      <div
+                        className="mt-1 line-clamp-4 leading-snug break-words flex-1 min-h-0"
+                        style={{ fontSize: '12px', opacity: isSaved || selected ? 0.92 : 1 }}
+                        title={subtitle}
+                      >
+                        {subtitle}
+                      </div>
+                    ) : null}
                   </button>
                 );
               })}
-            </div>
+            </WorkingCalendarMonthGrid>
 
             {sortedSelectedDates.length > 0 && (
               <div className="pt-4 border-t space-y-3" style={{ borderColor: currentTheme.border }}>
@@ -585,12 +696,12 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
             <div className="pt-2">
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !calendarReady}
                 className="w-full px-4 py-2 rounded font-medium"
                 style={{
                   backgroundColor: currentTheme.accent,
                   color: '#fff',
-                  opacity: saving ? 0.7 : 1,
+                  opacity: saving || !calendarReady ? 0.7 : 1,
                 }}
               >
                 {saving ? 'Kaydediliyor...' : 'Kaydet'}

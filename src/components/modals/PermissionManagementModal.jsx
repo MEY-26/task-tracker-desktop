@@ -5,8 +5,9 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { LeaveRequests, EditGrants, SystemSettings } from '../../api';
 import { getMonday, fmtYMD, isWeekday, addDays } from '../../utils/date';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
+import { WorkingCalendarMonthGrid, WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/WorkingCalendarMonthGrid';
 
-const LEAVE_WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+const LEAVE_WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 const MONTH_NAMES = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
@@ -465,14 +466,11 @@ export function PermissionManagementModal({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-0.5 text-center mb-4">
-                  {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map((label) => (
-                    <div key={label} className="text-xs font-medium py-1" style={{ color: currentTheme.textSecondary }}>
-                      {label}
-                    </div>
-                  ))}
+                <WorkingCalendarMonthGrid headerColor={currentTheme.textSecondary}>
                   {cells.map((d, idx) => {
-                    if (d === null) return <div key={`empty-${idx}`} />;
+                    if (d === null) {
+                      return <div key={`empty-${idx}`} className={`${WORKING_CALENDAR_CELL_BUTTON_CLASS} opacity-0 pointer-events-none`} aria-hidden />;
+                    }
                     const date = new Date(year, month, d);
                     const dateStr = fmtYMD(date);
                     const weekday = date.getDay();
@@ -484,19 +482,24 @@ export function PermissionManagementModal({
                         type="button"
                         onClick={() => !isSatSun && toggleDate(dateStr)}
                         disabled={isSatSun}
-                        className="rounded py-1.5 text-sm transition-colors"
+                        className={`${WORKING_CALENDAR_CELL_BUTTON_CLASS} text-sm justify-center items-center`}
                         style={{
                           backgroundColor: selected ? (currentTheme.accent || '#3b82f6') : 'transparent',
                           color: selected ? '#fff' : isSatSun ? (currentTheme.textSecondary || currentTheme.text) : currentTheme.text,
                           opacity: isSatSun ? 0.5 : 1,
                           cursor: isSatSun ? 'not-allowed' : 'pointer',
+                          borderWidth: 1,
+                          borderStyle: 'solid',
+                          borderColor: currentTheme.border || 'transparent',
                         }}
                       >
-                        {d}
+                        <span className="font-semibold" style={{ fontSize: '17px' }}>
+                          {d}
+                        </span>
                       </button>
                     );
                   })}
-                </div>
+                </WorkingCalendarMonthGrid>
 
                 {sortedSelectedDates.length > 0 && (
                   <div className="pt-4 border-t space-y-3 mb-4" style={{ borderColor: currentTheme.border }}>

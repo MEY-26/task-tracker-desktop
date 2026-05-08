@@ -1,3 +1,35 @@
+## v3.0.4 – 08.05.2026
+
+### Yeni Özellikler
+
+**Çalışma Takvimi İstisnaları (Sistem Yönetimi)**
+- Sistem ayarları içinde gün bazlı çalışma takvimi istisnası ekleme/düzenleme akışı eklendi
+- "Tatil / Çalışma" tipi seçimi, kapsam hedefleme (tüm kullanıcılar, departman, takım, kullanıcı) desteklendi
+- Takvim üzerinde seçili gün için inline düzenleme paneli ile hızlı kayıt/silme akışı eklendi
+
+**Resmi Tatil Presetleri (TR)**
+- Türkiye resmi tatilleri varsayılan takvim katmanı olarak eklendi
+- Presetten gelen günler ayrı kaynak bilgisiyle (`source: preset`) işaretlenir
+- Gerekli helper yapıları frontend ve backend tarafında ortak mantıkla güncellendi
+
+### Değişiklikler
+
+**Takvim ve İzin Entegrasyonu**
+- İzin Bildirimi ve İzin Yönetimi ekranları çalışma takvimi renk/istatü bilgisiyle senkron hale getirildi
+- Çalışma olarak işaretlenen hafta sonlarında izin seçimi desteklendi
+- Gün bazlı efektif dakika hesabı (`effective-day-minutes`) ile izin süreleri daha doğru hesaplanır hale getirildi
+
+**Sistem Ayarları ve Mola Düzeni**
+- Mesai satırındaki Başlangıç / Bitiş / Tam gün alanları aynı yükseklikte hizalandı
+- Mola satırlarının görsel ayrımı ve silme butonlarının yerleşimi iyileştirildi
+
+### Altyapı ve Veri Katmanı
+- `calendar_overrides` tablosuna `source` alanı eklendi ve ilgili migration/controller doğrulamaları güncellendi
+- İzin tabloları için hafta sonu izin alanları ve yardımcı hesaplama fonksiyonları geliştirildi
+- Çalışma takvimi ve resmi tatil kaynaklarını birleştiren yardımcı sınıflar eklendi
+
+---
+
 ## v3.0.3 – 27.04.2026
 
 ### Yeni Özellikler

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\LeaveMinutesHelper;
 use App\Helpers\SystemSettingsHelper;
+use App\Helpers\WorkingCalendarHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,12 +14,22 @@ use App\Notifications\WeeklyGoalRejected;
 
 class WeeklyGoalController extends Controller
 {
-    private function weeklyBaseMinutes(): int
+    private function weeklyBaseMinutesFallback(): int
     {
         $workingDays = SystemSettingsHelper::workingDays();
         $fullDay = SystemSettingsHelper::fullDayMinutes();
         $count = count(array_intersect([1, 2, 3, 4, 5], $workingDays)) ?: 5;
+
         return $count * $fullDay;
+    }
+
+    private function weeklyBaseMinutes(int $userId, string $weekStart): int
+    {
+        if ($userId <= 0) {
+            return $this->weeklyBaseMinutesFallback();
+        }
+
+        return WorkingCalendarHelper::weekWorkingMinutes($userId, $weekStart);
     }
 
     private function mondayOfWeek(?string $date = null): string
@@ -76,17 +87,19 @@ class WeeklyGoalController extends Controller
         return false;
     }
 
-    private function normalizeLeaveMinutes($value): int
+    private function normalizeLeaveMinutes($value, int $userId, string $weekStart): int
     {
-        $leave = max(0, (int)($value ?? 0));
-        return (int) min($this->weeklyBaseMinutes(), $leave);
+        $leave = max(0, (int) ($value ?? 0));
+
+        return (int) min($this->weeklyBaseMinutes($userId, $weekStart), $leave);
     }
 
-    private function weekCapacity(int $leaveMinutes, int $overtimeMinutes = 0): int
+    private function weekCapacity(int $leaveMinutes, int $overtimeMinutes, int $userId, string $weekStart): int
     {
-        $leave = $this->normalizeLeaveMinutes($leaveMinutes);
-        $overtime = max(0, (int)$overtimeMinutes);
-        return max(0, $this->weeklyBaseMinutes() - $leave + $overtime);
+        $leave = $this->normalizeLeaveMinutes($leaveMinutes, $userId, $weekStart);
+        $overtime = max(0, (int) $overtimeMinutes);
+
+        return max(0, $this->weeklyBaseMinutes($userId, $weekStart) - $leave + $overtime);
     }
 
     /**
@@ -109,51 +122,59 @@ class WeeklyGoalController extends Controller
     /**
      * Günlük gerçekleşme limitlerini döndürür
      */
-    private function getDailyActualLimits(): array
+    /**
+     * @return array<int, int>
+     */
+    private function getDailyActualLimits(int $userId, string $weekStart): array
     {
-        $perDay = SystemSettingsHelper::fullDayMinutes();
-        return [
-            1 => $perDay,
-            2 => $perDay * 2,
-            3 => $perDay * 3,
-            4 => $perDay * 4,
-            5 => $this->weeklyBaseMinutes(),
-        ];
+        if ($userId <= 0) {
+            $perDay = SystemSettingsHelper::fullDayMinutes();
+
+            return [
+                1 => $perDay,
+                2 => $perDay * 2,
+                3 => $perDay * 3,
+                4 => $perDay * 4,
+                5 => $this->weeklyBaseMinutesFallback(),
+            ];
+        }
+
+        return WorkingCalendarHelper::getDailyActualLimitsForWeek($userId, $weekStart);
     }
 
     /**
      * Bugünün tarihine göre maksimum gerçekleşme limitini döndürür (mesai dahil)
      */
-    private function getMaxActualLimitForToday(string $weekStart, int $overtimeMinutes = 0): int
+    private function getMaxActualLimitForToday(string $weekStart, int $overtimeMinutes = 0, int $userId = 0): int
     {
         $tz = 'Europe/Istanbul';
         $monday = Carbon::parse($weekStart, $tz)->startOfDay();
         $today = Carbon::now($tz)->startOfDay();
-        
-        // Eğer bugün haftanın dışındaysa
+
         if ($today->lessThan($monday)) {
-            return 0; // Gelecek hafta
+            return 0;
         }
-        
-        // Eğer bugün haftadan sonraki bir günse (gelecek hafta)
+
         $nextMonday = $monday->copy()->addWeek();
         if ($today->greaterThanOrEqualTo($nextMonday)) {
-            return 2700; // Geçmiş hafta için tam limit
+            return $userId > 0
+                ? WorkingCalendarHelper::weekWorkingMinutes($userId, $weekStart)
+                : $this->weeklyBaseMinutesFallback();
         }
-        
-        $dayOfWeek = $today->dayOfWeek; // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
-        $limits = $this->getDailyActualLimits();
-        
-        // Temel günlük limit
-        $baseLimit = 2700;
+
+        $dayOfWeek = $today->dayOfWeek;
+        $limits = $this->getDailyActualLimits($userId, $weekStart);
+
+        $baseLimit = $userId > 0
+            ? WorkingCalendarHelper::weekWorkingMinutes($userId, $weekStart)
+            : $this->weeklyBaseMinutesFallback();
         if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
-            $baseLimit = $limits[$dayOfWeek] ?? 2700;
+            $baseLimit = $limits[$dayOfWeek] ?? $baseLimit;
         }
-        
-        // Mesai süresini ekle (günlük mesai limitine göre)
+
         $maxOvertimeLimit = $this->getMaxOvertimeLimitForToday($weekStart);
         $allowedOvertime = min($overtimeMinutes, $maxOvertimeLimit);
-        
+
         return $baseLimit + $allowedOvertime;
     }
 
@@ -202,6 +223,9 @@ class WeeklyGoalController extends Controller
 
         $weekStart = $request->input('week_start');
         $weekStart = $this->mondayOfWeek($weekStart);
+        $mon = Carbon::parse($weekStart, 'Europe/Istanbul')->startOfDay()->startOfWeek(Carbon::MONDAY);
+        WorkingCalendarHelper::preloadOverridesForRange($mon->toDateString(), $mon->copy()->addDays(6)->toDateString());
+
         $locks = $this->locksForWeek($weekStart, $auth, $userId);
 
         $goal = DB::table('weekly_goals')->where('user_id', $userId)->where('week_start', $weekStart)->first();
@@ -214,7 +238,7 @@ class WeeklyGoalController extends Controller
                     'goal' => null,
                     'items' => [],
                     'locks' => $locks,
-                    'summary' => $this->computeSummary([], 0, 0, $weekStart),
+                    'summary' => $this->computeSummary([], 0, 0, $weekStart, 0),
                     'message' => 'Observer kullanıcılar için haftalık hedef oluşturulamaz.'
                 ]);
             }
@@ -249,7 +273,7 @@ class WeeklyGoalController extends Controller
 
         $items = DB::table('weekly_goal_items')->where('weekly_goal_id', $goal->id)->orderBy('id')->get();
 
-        $summary = $this->computeSummary($items, $leaveMinutesFromRequests, (int)($goal->overtime_minutes ?? 0), $weekStart);
+        $summary = $this->computeSummary($items, $leaveMinutesFromRequests, (int) ($goal->overtime_minutes ?? 0), $weekStart, $userId);
 
         return response()->json([
             'goal' => $goal,
@@ -263,20 +287,22 @@ class WeeklyGoalController extends Controller
      * Frontend computeWeeklyScore ile birebir aynı mantık.
      * performans skoru hesaplaması Hedef Ayrıntısı ile Haftalık Hedef listesinde tutarlı olmalı.
      */
-    private function computeSummary($items, int $leaveMinutes = 0, int $overtimeMinutes = 0, ?string $weekStart = null)
+    private function computeSummary($items, int $leaveMinutes = 0, int $overtimeMinutes = 0, ?string $weekStart = null, int $userId = 0)
     {
         $collection = collect($items);
         $planned = $collection->where('is_unplanned', false)->values();
         $unplanned = $collection->where('is_unplanned', true)->values();
 
-        $leaveMinutes = $this->normalizeLeaveMinutes($leaveMinutes);
-        $overtimeMinutes = max(0, (int)$overtimeMinutes);
-        $T_cap = $this->weeklyBaseMinutes();
-        $T_allow = $this->weekCapacity($leaveMinutes, $overtimeMinutes);
+        $ws = $weekStart ?? $this->mondayOfWeek();
+        $leaveMinutes = $this->normalizeLeaveMinutes($leaveMinutes, $userId, $ws);
+        $overtimeMinutes = max(0, (int) $overtimeMinutes);
+        $T_cap = $this->weeklyBaseMinutes($userId, $ws);
+        $T_allow = $this->weekCapacity($leaveMinutes, $overtimeMinutes, $userId, $ws);
+        $dailyBreakdown = $userId > 0 ? WorkingCalendarHelper::dailyBreakdown($userId, $ws) : [];
 
-        $totalTarget = (int)$planned->sum(fn($it) => max(0, (int)($it->target_minutes ?? 0)));
-        $unplannedMinutes = (int)$unplanned->sum(fn($it) => max(0, (int)($it->actual_minutes ?? 0)));
-        $plannedActual = (int)$planned->sum(fn($it) => max(0, (int)($it->actual_minutes ?? 0)));
+        $totalTarget = (int) $planned->sum(fn ($it) => max(0, (int) ($it->target_minutes ?? 0)));
+        $unplannedMinutes = (int) $unplanned->sum(fn ($it) => max(0, (int) ($it->actual_minutes ?? 0)));
+        $plannedActual = (int) $planned->sum(fn ($it) => max(0, (int) ($it->actual_minutes ?? 0)));
 
         $totalWeightRaw = $T_allow > 0 ? (($totalTarget / $T_allow) * 100.0) : 0.0;
         $totalWeight = min(100.0, $totalWeightRaw);
@@ -292,6 +318,8 @@ class WeeklyGoalController extends Controller
                 'available_minutes' => $T_allow,
                 'leave_minutes' => $leaveMinutes,
                 'overtime_minutes' => $overtimeMinutes,
+                'base_minutes' => $T_cap,
+                'daily_breakdown' => $dailyBreakdown,
             ];
         }
 
@@ -370,7 +398,7 @@ class WeeklyGoalController extends Controller
 
         // Mesai bonusu (1.5x)
         $T_overtime_used = max(0, min($overtimeMinutes, $W - $T_cap));
-        $overtimeBonus = $T_overtime_used > 0 ? (($T_overtime_used / $T_cap) * 1.5) : 0.0;
+        $overtimeBonus = ($T_cap > 0 && $T_overtime_used > 0) ? (($T_overtime_used / $T_cap) * 1.5) : 0.0;
 
         // Final (frontend: Score = 100 * clamp(ScoreRaw, 0, scoreCap), BonusB eklenmez)
         $scoreRaw = $planlyScore + $unplannedScore + $overtimeBonus - ($penaltyP1 + $penaltyEASA);
@@ -386,6 +414,8 @@ class WeeklyGoalController extends Controller
             'available_minutes' => $T_allow,
             'leave_minutes' => $leaveMinutes,
             'overtime_minutes' => $overtimeMinutes,
+            'base_minutes' => $T_cap,
+            'daily_breakdown' => $dailyBreakdown,
         ];
     }
 
@@ -422,6 +452,9 @@ class WeeklyGoalController extends Controller
 
         $weekStart = $this->mondayOfWeek($request->input('week_start'));
         $leaderId = $request->input('leader_id');
+
+        $mon = Carbon::parse($weekStart, 'Europe/Istanbul')->startOfDay()->startOfWeek(Carbon::MONDAY);
+        WorkingCalendarHelper::preloadOverridesForRange($mon->toDateString(), $mon->copy()->addDays(6)->toDateString());
 
         $usersQuery = User::query()
             ->select('users.*', 'leaders.name as leader_name')
@@ -519,7 +552,7 @@ class WeeklyGoalController extends Controller
                 ? $userData->items
                 : collect($userData->items ?? []);
 
-            $summary = $this->computeSummary($userItems, $leaveMinutes, $overtimeMinutes, $weekStart);
+            $summary = $this->computeSummary($userItems, $leaveMinutes, $overtimeMinutes, $weekStart, (int) $user->id);
             $plannedItems = $userItems->where('is_unplanned', false);
             $totalActual = (int)$plannedItems->sum('actual_minutes');
             $totalTarget = max(0, (int)($summary['total_target_minutes'] ?? 0));
@@ -543,7 +576,7 @@ class WeeklyGoalController extends Controller
                 'planned_score' => $summary['planned_score'] ?? 0,
                 'unplanned_bonus' => $summary['unplanned_bonus'] ?? 0,
                 'completion_percent' => $completionPercent,
-                'available_minutes' => $summary['available_minutes'] ?? $this->weekCapacity($leaveMinutes, $overtimeMinutes),
+                'available_minutes' => $summary['available_minutes'] ?? $this->weekCapacity($leaveMinutes, $overtimeMinutes, (int) $user->id, $weekStart),
                 'leave_minutes' => $summary['leave_minutes'] ?? $leaveMinutes,
                 'overtime_minutes' => $summary['overtime_minutes'] ?? $overtimeMinutes,
             ];
@@ -603,6 +636,12 @@ class WeeklyGoalController extends Controller
             $cur->addWeek();
         }
         $weeksCount = $weeks->count();
+
+        if ($weeks->isNotEmpty()) {
+            $rangeStart = $weeks->first();
+            $rangeEndSunday = Carbon::parse($weeks->last(), $tz)->copy()->addDays(6);
+            WorkingCalendarHelper::preloadOverridesForRange($rangeStart, $rangeEndSunday->toDateString());
+        }
 
         $rolesFilter = $request->filled('roles')
             ? array_map('trim', explode(',', $request->input('roles')))
@@ -695,7 +734,8 @@ class WeeklyGoalController extends Controller
                         'is_unplanned' => (bool)($r->is_unplanned ?? false),
                         'is_completed' => (bool)($r->is_completed ?? false),
                     ]);
-                $summary = $this->computeSummary($items, $leave, $overtime, $weekStart);
+                $uid = (int) ($first->user_id ?? 0);
+                $summary = $this->computeSummary($items, $leave, $overtime, $weekStart, $uid);
                 $plannedItems = $items->where('is_unplanned', false);
                 $totalActual = (int)$plannedItems->sum('actual_minutes');
                 return [
@@ -802,6 +842,11 @@ class WeeklyGoalController extends Controller
             $cur->addWeek();
         }
 
+        if ($weeks->isNotEmpty()) {
+            $rangeEndSunday = Carbon::parse($weeks->last(), $tz)->copy()->addDays(6);
+            WorkingCalendarHelper::preloadOverridesForRange($weeks->first(), $rangeEndSunday->toDateString());
+        }
+
         $goals = DB::table('weekly_goals')
             ->where('user_id', $userId)
             ->whereIn('week_start', $weeks->all())
@@ -837,7 +882,8 @@ class WeeklyGoalController extends Controller
                 $itemsForSummary,
                 (int)($goal->leave_minutes ?? 0),
                 (int)($goal->overtime_minutes ?? 0),
-                $goal->week_start ?? null
+                $goal->week_start ?? null,
+                $userId
             );
             $plannedItems = $itemsForSummary->where('is_unplanned', false);
             $totalActual = (int)$plannedItems->sum('actual_minutes');
@@ -890,7 +936,7 @@ class WeeklyGoalController extends Controller
         $validationRules = [
             'user_id' => 'nullable|integer|exists:users,id',
             'week_start' => 'nullable|date',
-            'leave_minutes' => 'nullable|integer|min:0|max:'.$this->weeklyBaseMinutes(),
+            'leave_minutes' => 'nullable|integer|min:0|max:50000',
             'overtime_minutes' => 'nullable|integer|min:0',
             'items' => 'nullable|array', // Boş array göndermek için nullable
         ];
@@ -915,6 +961,8 @@ class WeeklyGoalController extends Controller
             return response()->json(['message' => 'Yetkiniz yok.'], 403);
         }
         $weekStart = $this->mondayOfWeek($request->input('week_start'));
+        $monSav = Carbon::parse($weekStart, 'Europe/Istanbul')->startOfDay()->startOfWeek(Carbon::MONDAY);
+        WorkingCalendarHelper::preloadOverridesForRange($monSav->toDateString(), $monSav->copy()->addDays(6)->toDateString());
         $locks = $this->locksForWeek($weekStart, $auth, $userId);
 
         $goal = DB::table('weekly_goals')->where('user_id', $userId)->where('week_start', $weekStart)->first();
@@ -932,13 +980,13 @@ class WeeklyGoalController extends Controller
         }
 
         $leaveMinutesFromRequests = $this->getLeaveMinutesFromLeaveRequests($userId, $weekStart);
-        $existingLeave = $this->normalizeLeaveMinutes($goal->leave_minutes ?? 0);
+        $existingLeave = $this->normalizeLeaveMinutes($goal->leave_minutes ?? 0, $userId, $weekStart);
         $requestedOvertime = max(0, (int)($request->input('overtime_minutes') ?? 0));
         $existingOvertime = max(0, (int)($goal->overtime_minutes ?? 0));
         $canEditTargets = !$locks['targets_locked'] || $auth->role === 'admin';
         $leaveMinutes = $leaveMinutesFromRequests;
         $overtimeMinutes = $canEditTargets ? $requestedOvertime : $existingOvertime;
-        $capacity = $this->weekCapacity($leaveMinutes, $overtimeMinutes);
+        $capacity = $this->weekCapacity($leaveMinutes, $overtimeMinutes, $userId, $weekStart);
         
         // items'ı normalize et (null ise boş array yap)
         if (!is_array($items)) {
@@ -1029,7 +1077,7 @@ class WeeklyGoalController extends Controller
             
             // Günlük gerçekleşme limiti kontrolü (sadece mevcut hafta için, mesai dahil)
             if ($requestedWeekStart->equalTo($currentWeekStartCarbon)) {
-                $maxActualLimit = $this->getMaxActualLimitForToday($weekStart, $overtimeMinutes);
+                $maxActualLimit = $this->getMaxActualLimitForToday($weekStart, $overtimeMinutes, $userId);
                 if ($totalActual > $maxActualLimit) {
                     $dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
                     $today = Carbon::now($tz);
@@ -1167,7 +1215,7 @@ class WeeklyGoalController extends Controller
             'goal' => $goal,
             'items' => $fresh,
             'locks' => $locks,
-            'summary' => $this->computeSummary($fresh, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0), $goal->week_start ?? null),
+            'summary' => $this->computeSummary($fresh, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0), $goal->week_start ?? null, $userId),
             'message' => 'Kaydedildi'
         ]);
     }
@@ -1192,9 +1240,10 @@ class WeeklyGoalController extends Controller
         }
 
         $weekStart = $this->mondayOfWeek($request->input('week_start'));
-        $locks = $this->locksForWeek($weekStart, $auth, $userId);
+        $monAp = Carbon::parse($weekStart, 'Europe/Istanbul')->startOfDay()->startOfWeek(Carbon::MONDAY);
+        WorkingCalendarHelper::preloadOverridesForRange($monAp->toDateString(), $monAp->copy()->addDays(6)->toDateString());
 
-        // Takım lideri için: 13:30'dan sonra onay yapılamaz (admin hariç)
+        $locks = $this->locksForWeek($weekStart, $auth, $userId);
         /*if ($auth->role === 'team_leader' && $locks['targets_locked']) {
             return response()->json(['message' => 'Onay süresi doldu. Pazartesi 13:30\'dan sonra onay yapılamaz.'], 422);
         }*/
@@ -1231,7 +1280,7 @@ class WeeklyGoalController extends Controller
             'goal' => $goal,
             'items' => $items,
             'locks' => $locks,
-            'summary' => $this->computeSummary($items, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0), $goal->week_start ?? null),
+            'summary' => $this->computeSummary($items, (int)($goal->leave_minutes ?? 0), (int)($goal->overtime_minutes ?? 0), $goal->week_start ?? null, $userId),
             'message' => $status === 'approved' ? 'Onaylandı' : 'Reddedildi',
         ]);
     }

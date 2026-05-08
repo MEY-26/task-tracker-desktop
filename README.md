@@ -596,6 +596,13 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 Ayrıntılı sürüm notları: uygulama içi [public/UPDATES.md](public/UPDATES.md), teknik kayıt [CHANGELOG.md](CHANGELOG.md).
 
+### v3.0.4 - Çalışma Takvimi İstisnaları ve İzin Hesapları (Mayıs 2026)
+- ✅ **Çalışma Takvimi İstisnaları**: Sistem Yönetimi içinde gün bazlı "Tatil / Çalışma" istisnaları, kapsam seçimi (tüm kullanıcılar/departman/takım/kullanıcı) ve inline düzenleme akışı.
+- ✅ **Resmi Tatil Preset Desteği**: Türkiye resmi tatilleri varsayılan olarak takvimde işaretlenir; gün detayında preset kaynağı görülebilir.
+- ✅ **Kaynak Takibi (`source`)**: `calendar_overrides` kayıtlarında kaynak alanı eklendi (preset/manual) ve backend doğrulaması güncellendi.
+- ✅ **İzin Hesabı Takvim Entegrasyonu**: Çalışma olarak işaretlenen hafta sonlarında izin seçimi desteklendi; gün bazlı efektif dakika (`effective-day-minutes`) ile izin süresi daha doğru hesaplanır.
+- ✅ **Mesai/Mola UI İyileştirmeleri**: Mesai satırındaki başlangıç-bitiş-tam gün alanları aynı yükseklikte hizalandı; mola alanlarında görünürlük ve buton düzeni iyileştirildi.
+
 ### v3.0.3 - Özel izin, iç içe modallar, izin kaydı ve İzin Bildirimi (Nisan 2026)
 - **Özel düzenleme izni**: API’nin açtığı hedef kilidi artık istemci `uiLocks` tarafından ezilmiyor; izin yönetiminde aktif izin listesi.
 - **İç içe modallar**: Kullanıcı yönetimi + İzin yönetimi gibi üst üste açılan pencerelerde dışa tıklama yalnızca en üstteki modalı kapatır (`useOutsideClickClose`).

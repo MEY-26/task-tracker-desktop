@@ -775,6 +775,33 @@ export const SystemSettings = {
   },
 };
 
+export const CalendarOverrides = {
+  list: async (params) => {
+    const response = await api.get('/calendar-overrides', { params });
+    return response.data;
+  },
+  effectiveDayMinutes: async ({ from, to }) => {
+    const response = await api.get('/calendar-overrides/effective-day-minutes', { params: { from, to } });
+    return response.data;
+  },
+  presetsTurkish: async (year) => {
+    const response = await api.get('/calendar-overrides/presets/turkish', { params: { year } });
+    return response.data;
+  },
+  create: async (payload) => {
+    const response = await api.post('/calendar-overrides', payload);
+    return response.data;
+  },
+  update: async (id, payload) => {
+    const response = await api.put(`/calendar-overrides/${id}`, payload);
+    return response.data;
+  },
+  remove: async (id) => {
+    const response = await api.delete(`/calendar-overrides/${id}`);
+    return response.data;
+  },
+};
+
 export const EditGrants = {
   list: async (params = {}) => {
     try {

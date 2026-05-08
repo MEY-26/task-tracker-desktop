@@ -2,9 +2,9 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { getMonday, fmtYMD, isoWeekNumber } from '../../utils/date';
 import { getPerformanceGrade } from '../../utils/performance';
-import { getDailyActualLimits, getDailyOvertimeLimits } from '../../utils/weeklyLimits';
+import { getDailyOvertimeLimits, getDailyActualLimitsFromBreakdown } from '../../utils/weeklyLimits';
 
-const WEEKLY_BASE_MINUTES = 2700;
+const FALLBACK_WEEK_BASE = 2700;
 
 export function WeeklyGoalsModal({
   open,
@@ -17,6 +17,8 @@ export function WeeklyGoalsModal({
   weeklyWeekStart,
   loadWeeklyGoals,
   weeklyLeaveMinutesInput,
+  handleWeeklyLeaveMinutesChange,
+  handleWeeklyLeaveMinutesBlur,
   weeklyOvertimeMinutesInput,
   handleWeeklyOvertimeMinutesChange,
   handleWeeklyOvertimeMinutesBlur,
@@ -38,6 +40,10 @@ export function WeeklyGoalsModal({
   getTextInputKey,
 }) {
   const canShowFullScore = user?.role === 'admin';
+
+  const weekBaseMinutes = weeklyGoals.summary?.base_minutes != null
+    ? Number(weeklyGoals.summary.base_minutes)
+    : FALLBACK_WEEK_BASE;
 
   if (!open) return null;
   const canShowGradeOnly = user?.role === 'team_leader';
@@ -810,7 +816,7 @@ export function WeeklyGoalsModal({
                 const totalUsed = Number(weeklyLive.totalActual || 0);
                 const remainingWeeklyCapacity = Math.max(0, weeklyCapacity - totalUsed);
 
-                const dailyLimits = getDailyActualLimits();
+                const dailyLimits = getDailyActualLimitsFromBreakdown(weeklyGoals.summary?.daily_breakdown);
                 const overtimeLimits = getDailyOvertimeLimits();
 
                 const dailyLimitTooltip = [
@@ -866,7 +872,7 @@ export function WeeklyGoalsModal({
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.leaveMinutes} dk</div>
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>{weeklyLive.overtimeMinutes} dk</div>
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
-                        {WEEKLY_BASE_MINUTES + weeklyLive.overtimeMinutes - weeklyLive.leaveMinutes} dk
+                        {weekBaseMinutes + weeklyLive.overtimeMinutes - weeklyLive.leaveMinutes} dk
                       </div>
                       <div className="font-semibold whitespace-nowrap text-left" style={{ color: currentTheme.text }}>
                         {weeklyLive.totalTarget > 0 ? `${weeklyLive.totalTarget} dk` : '0 dk'}

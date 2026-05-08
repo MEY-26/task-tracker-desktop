@@ -9,7 +9,7 @@ namespace App\Helpers;
  */
 class LeaveMinutesHelper
 {
-    private const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    private const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
     public static function weeklyBaseCap(): int
     {
@@ -36,11 +36,13 @@ class LeaveMinutesHelper
             $total += self::minutesForWeekday($dayOfWeek, $start, $end);
         }
 
-        return min(self::weeklyBaseCap(), $total);
+        $cap = WorkingCalendarHelper::weekWorkingMinutes((int) $row->user_id, (string) $row->week_start);
+
+        return min($cap, $total);
     }
 
     /**
-     * $dayOfWeek: 1=Monday … 5=Friday
+     * $dayOfWeek: 1=Monday … 7=Sunday
      */
     public static function minutesForWeekday(int $dayOfWeek, ?string $start, ?string $end): int
     {
