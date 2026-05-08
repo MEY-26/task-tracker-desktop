@@ -5,7 +5,8 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { LeaveRequests, EditGrants, SystemSettings } from '../../api';
 import { getMonday, fmtYMD, isWeekday, addDays } from '../../utils/date';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
-import { WorkingCalendarMonthGrid, WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/WorkingCalendarMonthGrid';
+import { WorkingCalendarMonthGrid } from '../calendar/WorkingCalendarMonthGrid';
+import { WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/workingCalendarStyles';
 
 const LEAVE_WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 

@@ -9,7 +9,8 @@ import {
   workingCalendarCellTitle as cellTitle,
 } from '../../utils/workingCalendarShared';
 
-import { WorkingCalendarMonthGrid, WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/WorkingCalendarMonthGrid';
+import { WorkingCalendarMonthGrid } from '../calendar/WorkingCalendarMonthGrid';
+import { WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/workingCalendarStyles';
 
 const SCOPES = [
   { id: 'global', label: 'Tüm kullanıcılar' },

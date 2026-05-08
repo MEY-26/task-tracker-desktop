@@ -17,8 +17,6 @@ export function WeeklyGoalsModal({
   weeklyWeekStart,
   loadWeeklyGoals,
   weeklyLeaveMinutesInput,
-  handleWeeklyLeaveMinutesChange,
-  handleWeeklyLeaveMinutesBlur,
   weeklyOvertimeMinutesInput,
   handleWeeklyOvertimeMinutesChange,
   handleWeeklyOvertimeMinutesBlur,
