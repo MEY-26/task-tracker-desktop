@@ -168,8 +168,4 @@ jobs:
       - run: npm run build:ui
       - name: Build (dir only)
         run: npx electron-builder --dir
-      - uses: actions/upload-artifact@v4
-        with:
-          name: electron-dir-${{ github.ref_name }}
-          path: release/**
 
