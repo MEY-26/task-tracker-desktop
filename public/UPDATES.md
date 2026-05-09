@@ -2,31 +2,24 @@
 
 ### Yeni Özellikler
 
-**Çalışma Takvimi İstisnaları (Sistem Yönetimi)**
-- Sistem ayarları içinde gün bazlı çalışma takvimi istisnası ekleme/düzenleme akışı eklendi
-- "Tatil / Çalışma" tipi seçimi, kapsam hedefleme (tüm kullanıcılar, departman, takım, kullanıcı) desteklendi
-- Takvim üzerinde seçili gün için inline düzenleme paneli ile hızlı kayıt/silme akışı eklendi
+**Çalışma Takvimi (Sistem Yönetimi)**
+- Sistem Yönetimi’nde gün bazlı çalışma takvimi istisnası ekleyip düzenleyebilirsiniz.
+- Her gün için **Tatil** veya **Çalışma** seçebilir; istisnanın geçerli olacağı kitleyi belirleyebilirsiniz (tüm kullanıcılar, departman, takım, seçili kullanıcılar).
+- Takvimde bir günü seçtiğinizde aynı ekranda hızlı kayıt veya silme yapılır.
 
-**Resmi Tatil Presetleri (TR)**
-- Türkiye resmi tatilleri varsayılan takvim katmanı olarak eklendi
-- Presetten gelen günler ayrı kaynak bilgisiyle (`source: preset`) işaretlenir
-- Gerekli helper yapıları frontend ve backend tarafında ortak mantıkla güncellendi
+**Türkiye Resmi Tatilleri**
+- Resmi tatiller takvimde varsayılan olarak görünür; böylece çalışma günleri ve izin hesapları daha tutarlı olur.
 
 ### Değişiklikler
 
-**Takvim ve İzin Entegrasyonu**
-- İzin Bildirimi ve İzin Yönetimi ekranları çalışma takvimi renk/istatü bilgisiyle senkron hale getirildi
-- Çalışma olarak işaretlenen hafta sonlarında izin seçimi desteklendi
-- Gün bazlı efektif dakika hesabı (`effective-day-minutes`) ile izin süreleri daha doğru hesaplanır hale getirildi
+**İzin ve Çalışma Takvimi**
+- İzin bildirimi ve izin yönetimi ekranlarındaki takvim renkleri, sistemdeki çalışma takvimiyle uyumludur.
+- Hafta sonu bir gün **çalışma günü** olarak işaretlenmişse, o güne de izin girebilirsiniz.
+- İzin süreleri, o günün gerçek çalışma süresine göre daha doğru hesaplanır.
 
-**Sistem Ayarları ve Mola Düzeni**
-- Mesai satırındaki Başlangıç / Bitiş / Tam gün alanları aynı yükseklikte hizalandı
-- Mola satırlarının görsel ayrımı ve silme butonlarının yerleşimi iyileştirildi
-
-### Altyapı ve Veri Katmanı
-- `calendar_overrides` tablosuna `source` alanı eklendi ve ilgili migration/controller doğrulamaları güncellendi
-- İzin tabloları için hafta sonu izin alanları ve yardımcı hesaplama fonksiyonları geliştirildi
-- Çalışma takvimi ve resmi tatil kaynaklarını birleştiren yardımcı sınıflar eklendi
+**Mesai ve Molalar**
+- **Başlangıç**, **Bitiş** ve **Tam gün (dakika)** alanları aynı yükseklikte hizalandı.
+- Mola satırları ve silme düğmeleri daha net görünür.
 
 ---
 
@@ -34,30 +27,30 @@
 
 ### Yeni Özellikler
 
-**İzin Yönetimi – Aktif Özel Düzenleme İzinleri**
-- "Özel Düzenleme İzni" sekmesinde verilmiş aktif izinlerin listesi (kullanıcı, hafta, bitiş zamanı, kaldırma)
-- İzin verildikten veya kaldırıktan sonra listenin ve haftalık hedeflerin güncellenmesi
+**Özel Düzenleme İzinleri**
+- İzin Yönetimi’nde, verilmiş aktif özel düzenleme izinlerini listeleyebilir ve kaldırabilirsiniz.
+- İzin verildikten veya kaldırıldıktan sonra liste ve haftalık hedefler güncellenir.
 
-**İç İçe Pencereler (Modal Yığını)**
-- `useOutsideClickClose` ile yalnızca en üstteki pencerenin dışa tıklanınca kapanması
-- Kullanıcı Yönetimi açıkken İzin Yönetimi’ne tıklanınca her iki pencerenin birden kapanma sorununun giderilmesi
+**Üst Üste Açılan Pencereler**
+- Birkaç pencere açıkken dışarı tıkladığınızda yalnızca en üstteki pencere kapanır (diğerleri açık kalabilir).
+- Örneğin Kullanıcı Yönetimi açıkken İzin Yönetimi’ni açtığınızda artık her iki pencerenin birden kapanması sorunu giderildi.
 
 ### Değişiklikler
 
-**Haftalık Hedefler ve Özel Düzenleme İzni**
-- Yöneticinin verdiği özel düzenleme izni varken, uygulama içi saat kilidinin bu izni geçersiz kılması düzeltildi
-- Haftalık hedef verisi yüklenmeden önce kilit durumunun yanlış yorumlanmaması için ilk yüklemede kilit bilgisi `null` ile ayrıştırıldı
+**Haftalık Hedefler**
+- Yöneticinin verdiği özel düzenleme izni varken, uygulamanın saat kuralının bu izni geçersiz sayması düzeltildi.
+- Haftalık hedefler yüklenirken kilit bilgisinin yanlış görünmesi giderildi.
 
-**İzin Bildirimi (Kayıtlı İzinler)**
-- Tam gün izinler özet gruplu; saatlik izinler ayrı satırda gösteriliyor (tarih, saat aralığı, dakika)
-- Tam gün ve saatlik satırlardaki silme eylemleri aynı görünümde: yuvarlak çöp kutusu butonu, temaya uygun
+**İzin Bildirimi**
+- Kayıtlı izinlerde tam gün izinler özet halde; saatlik izinler ayrı satırda (tarih, saat aralığı, dakika) gösterilir.
+- Tam gün ve saatlik satırlarda silme düğmeleri aynı görünümde (yuvarlak çöp kutusu), temaya uygundur.
 
-**Diğer Paneller**
-- Aynı dışa tıkla kapanma davranışı LeaveRequestModal, görev/ayar modalları, tema paneli, sistem ayarları, yeni görev formu gibi bileşenlerde tutarlı hale getirildi
+**Diğer Ekranlar**
+- Görev ve ayar pencereleri, tema paneli, sistem ayarları, yeni görev formu ve benzeri yerlerde dışarı tıklayınca kapanma davranışı tutarlı hale getirildi.
 
 ### Düzeltmeler
-- Aynı haftaya sadece yeni bir izin günü eklerken, o haftadaki mevcut izin günlerinin silinmesi (API: `POST /leave-requests` birleştirme / merge mantığı)
-- İzin sürelerinin haftalık hedeflere yanlış yansıması (üstteki veri kaybı düzeltmesiyle)
+- Aynı haftaya yalnızca yeni bir izin günü eklerken o haftadaki mevcut izin günlerinin yanlışlıkla kaybolması giderildi.
+- İzin sürelerinin haftalık hedeflere yanlış yansıması giderildi.
 
 ---
 
@@ -65,35 +58,28 @@
 
 ### Yeni Özellikler
 
-**Veritabanı Yükleme**
-- Sistem Yönetimi panelinde "Veritabanını Yükle" özelliği eklendi
-- Yedekten geri yükleme için admin şifre doğrulaması zorunlu
-- POST /database-restore endpoint'i (SQLite header kontrolü, mevcut DB yedeği)
+**Veritabanı Yükleme (Yöneticiler)**
+- Sistem Yönetimi’nde **Veritabanını Yükle** ile yedekten geri yükleme yapılabilir; işlem için yönetici şifresi gerekir.
 
-**Kullanıcı Listesi Tablo Düzeni**
-- Tablo başlığı eklendi: Tümünü Seç (checkbox), Ad Soyad, Mail Adresi, Şifre Sıfırla
-- Ad Soyad ve Mail Adresi ayrı kolonlarda yan yana gösteriliyor
-- Tümünü Seç checkbox'ı: tıklanınca tüm seçilebilir kullanıcıları seçer; hepsi seçiliyken tekrar tıklanınca seçimleri kaldırır ve bulk alanları sıfırlar
+**Kullanıcı Listesi**
+- Tablo başlığı eklendi: Tümünü Seç, Ad Soyad, E-posta, Şifre Sıfırla.
+- Ad Soyad ve e-posta ayrı sütunlarda yan yana gösterilir.
+- Tablo başlığındaki **Tümünü Seç** kutusu: Tüm seçilebilir kullanıcıları seçer; hepsi seçiliyken tekrar tıklanınca seçim kalkar ve toplu işlem alanları sıfırlanır.
 
-**Yeni Kullanıcı Ekle Layout**
-- Manuel form (sol) ve Excel toplu import (sağ) yan yana grid düzeni
+**Yeni Kullanıcı Ekle**
+- Manuel form (sol) ve Excel ile toplu içe aktarma (sağ) yan yana düzenlendi.
 
 ### Değişiklikler
 
-**Eylem Alanı Sadeleştirildi**
-- Tümünü Seç ve İptal butonları kaldırıldı (işlev tablo başlığı checkbox'ına taşındı)
-- Lider, Departman, Rol, Uygula, Seçili Kullanıcıları Sil ve İzin Yönetimi tek satırda
-
-**Veritabanı Yedekleme Alanı**
-- İndir ve Yükle butonları yan yana, farklı renklerle
-- Şifre hatasında bildirim gösterimi (alert + notify)
-
-**Admin Silme**
-- Admin rolündeki kullanıcılar artık silinebilir (panel sadece adminlere açık)
+- Üstteki Tümünü Seç / İptal butonları kaldırıldı; Tümünü Seç işlevi tablo başlığına taşındı.
+- Lider, Departman, Rol, Uygula, Seçili kullanıcıları sil ve İzin Yönetimi tek satırda toplandı.
+- Veritabanı **İndir** ve **Yükle** butonları yan yana ve farklı renklerle gösterilir.
+- Veritabanı yüklemesinde şifre hatalarında artık hem uyarı penceresi hem uygulama bildirimi görünür.
+- Yönetici rolündeki kullanıcılar da silinebilir (yönetim paneli yalnızca yöneticilere açık olduğundan güvenli kabul edilir).
 
 ### Düzeltmeler
-- Kullanıcı seçimi kaldırıldığında bulk alanların (lider, departman, rol) sıfırlanması
-- Veritabanı yükleme şifre hatasında bildirim gösterilmemesi
+- Kullanıcı seçimi kalkınca üstteki toplu alanların (lider, departman, rol) sıfırlanması sağlandı.
+- Veritabanı yüklemesinde şifre hatasında bildirim çıkmaması giderildi.
 
 ---
 
@@ -101,30 +87,29 @@
 
 ### Yeni Özellikler
 
-**Departman Tabanlı Filtreleme Sistemi**
-- Kullanıcılara departman atama özelliği eklendi (Ar-Ge, Fikstür, Elektronik Montaj, Giriş Kalite)
-- Çok dönemli haftalık hedef filtrelerine departman filtresi eklendi
-- Multi-week tabloda departman bilgisi gösterimi eklendi
+**Departmanlar**
+- Kullanıcılara departman atanabilir (örnek: Ar-Ge, Fikstür, Elektronik Montaj, Giriş Kalite).
+- Birden fazla dönemi kapsayan haftalık raporda departmana göre filtreleme vardır.
+- Aynı raporda departman bilgisi bir sütunda gösterilir.
 
-**Kullanıcı Yönetimi Toplu İşlem Barı**
-- Kullanıcı yönetim paneli iki satırlı toplu işlem barı ile yeniden düzenlendi
-- Lider, Departman ve Rol seçimleri tek noktadan toplu uygulanabilir hale getirildi
-- "Tümünü Seç" aksiyonu ile observer hariç toplu seçim desteği eklendi
+**Kullanıcı Yönetimi – Toplu İşlemler**
+- Panel iki satırlı toplu işlem çubuğuyla düzenlendi.
+- Lider, Departman ve Rol tek yerden toplu uygulanabilir.
+- **Tümünü Seç** ile Gözlemci hariç tüm seçilebilir kullanıcılar seçilebilir.
 
 ### Değişiklikler
 
-**Weekly Overview Filtre Akışı Sadeleştirildi**
-- İsim arama + "Ekle" tabanlı dahil etme akışı kaldırıldı
-- Departman seçimi checkbox yerine combobox olarak güncellendi
+**Çok Dönemli Özet Raporu**
+- İsim arayıp tek tek “ekleme” akışı kaldırıldı; departman seçimi açılır listeden yapılır.
 
-**Kullanıcı Satır Görünümü Sadeleştirildi**
-- Kullanıcı satırlarından lider/rol/departman dropdown alanları kaldırıldı
-- Satırda sadece seçim kutusu, ad-soyad, e-posta ve şifre sıfırlama butonu bırakıldı
+**Kullanıcı Satırları**
+- Satırdan lider, rol ve departman alanları kaldırıldı.
+- Her satırda seçim kutusu, ad-soyad, e-posta ve şifre sıfırlama düğmesi kalır.
 
 ### Düzeltmeler
-- Kullanıcı yönetim panelindeki sütun kaymaları ve taşmalar giderildi
-- Admin kullanıcılar seçilebilir hale getirildi; sadece admin hedefinde lider ataması atlanır, diğer güncellemeler uygulanır
-- Tek kullanıcı seçildiğinde üst bardaki Lider/Departman/Rol combobox’ları otomatik doldurulur
+- Kullanıcı yönetim panelindeki hizalama ve taşma sorunları giderildi.
+- Yönetici kullanıcılar da seçilebilir; yalnızca yönetici hedefinde lider atlaması yapılır, diğer toplu güncellemeler uygulanır.
+- Tek kullanıcı seçildiğinde üstteki Lider / Departman / Rol alanları otomatik dolar.
 
 ---
 
@@ -132,219 +117,186 @@
 
 ### Yeni Özellikler
 
-**Haftalık Hedef Onay Sistemi**
-- Takım üyelerinin haftalık hedefleri lider/admin onayı gerektirir
-- Onayla/Reddet butonları ve onay durumu badge'i
-- Onay notu ve bildirim entegrasyonu
-- Veritabanı: approval_status, approved_by, approved_at, approval_note sütunları
+**Haftalık Hedef Onayı**
+- Takım üyelerinin haftalık hedefleri lider veya yönetici onayından sonra kesinleşir.
+- Onayla / Reddet düğmeleri, onay durumu rozeti ve onay notu vardır; ilgili bildirimler gönderilir.
 
-**İzin Bildirimi Sistemi**
-- Kullanıcıların izin günlerini bildirebildiği takvim seçimli modal
-- Takım liderleri geçmiş tarihe de izin girebilir
-- İzin süreleri otomatik olarak haftalık hedeflere yansır
-- İzin input'u devre dışı, sadece gösterim amaçlı
+**İzin Bildirimi**
+- İzin günlerinizi takvimden seçerek bildirebilirsiniz.
+- Takım liderleri geçmiş tarihlere de izin ekleyebilir.
+- İzin süreleri haftalık hedeflere otomatik yansır.
+- İzin toplamı salt okunur gösterilir (manuel değiştirilemez).
 
-**Kullanıcı Yönetimi Paneli (UserPanel)**
-- Toplu lider atama (sadece takım üyeleri için)
-- Toplu kullanıcı silme (admin hariç)
-- Özel düzenleme izni verme modalı (EditGrantModal)
-- Takım liderleri seçilebilir, ancak lider ataması sadece üyelere yapılır
+**Kullanıcı Yönetimi**
+- Toplu lider atama (yalnızca takım üyelerine).
+- Toplu kullanıcı silme (yönetici hariç).
+- Belirli kullanıcılara geçici hedef düzenleme izni verme.
+- Takım liderleri seçimde yer alır; lider ataması yalnızca üyelere yapılır.
 
-**Rol Bazlı Puanlama Görünürlüğü**
-- Admin: tam performans skoru görünür
-- Takım Lideri: harf notu görünür
-- Diğer: puanlama gizli
+**Puanlama Görünürlüğü**
+- Yönetici: tam performans skorunu görür.
+- Takım lideri: harf notunu görür.
+- Diğer roller: puanlama gizlenir.
 
-**Kilitleme Kuralları Güncellendi**
-- Takım üyesi: Pazartesi 10:00'dan sonra hedefler kilitli
-- Takım lideri: Pazartesi 13:30'dan sonra hedefler kilitli
-- Admin: sınırsız düzenleme yetkisi
+**Kilitleme Kuralları**
+- Takım üyesi: Pazartesi 10:00 sonrası hedefler kilitlenir.
+- Takım lideri: Pazartesi 13:30 sonrası hedefler kilitlenir.
+- Yönetici: sınırsız düzenleme.
 
 ### Değişiklikler
 
-**Mimari Yeniden Yapılandırma**
-- App.jsx'ten bağımsız bileşenler çıkarıldı: AddTaskForm, TaskDetailModal, TaskSettingsModal, TeamModal, ThemePanel, UserProfileModal, WeeklyGoalsModal, GoalDescriptionModal, EditGrantModal, LeaveRequestModal, UpdatesModal
-- Panel bileşenler ayrıldı: UserPanel, NotificationsPanel, ProfileMenuDropdown
-- Context'ler oluşturuldu: AuthContext, NotificationContext, ThemeContext
-- Hook'lar oluşturuldu: useTaskSettings, useUsers, useWeeklyGoals, useWeeklyOverview, useBodyScrollLock, usePreventAutofill
-- Utility modülleri eklendi: performance.js, themes.js, weeklyLimits.js, teamAssignments.js
-
-**UI/UX İyileştirmeleri**
-- Tüm input alanları tutarlı yuvarlak köşeye (borderRadius: 8px) geçirildi
-- Yeni Kullanıcı Ekle formu tema uyumlu hale getirildi
-- Yeni Görev formu input stilleri tutarlı hale getirildi
-- Kullanıcı paneli eylem çubuğu: eşit boşluklarla dizilim, ayırıcı çizgi, açıklayıcı buton isimleri
-
-**Backend Yeni Endpoint'ler**
-- POST /weekly-goals/approve (onay/red)
-- GET/POST/DELETE /leave-requests
-- GET/POST/DELETE /weekly-goal-edit-grants
-- Veritabanı migration'ları: leave_requests, weekly_goal_edit_grants, approval sütunları
+**Arayüz**
+- Tüm metin kutuları ve benzeri alanlar tutarlı yuvarlatılmış köşelere geçirildi.
+- Yeni Kullanıcı Ekle ve Yeni Görev formları seçilen temayla uyumludur.
+- Kullanıcı panelindeki eylem çubuğu daha düzenli boşluklar, ayırıcı çizgi ve anlaşılır düğme adlarıyla güncellendi.
 
 ### Düzeltmeler
-- Per-row Gerçekleşme(%) tutarsızlığı düzeltildi
-- Kullanılmayan parametreler (alpha, beta, B_max, eta_max) temizlendi
-- Tooltip fallback değerleri getDailyActualLimits() ile eşleştirildi
-- Şifre tekrar alanı kullanıcı ekleme formundan kaldırıldı
+- Haftalık tabloda Gerçekleşme (%) görünümündeki tutarsızlık giderildi.
+- Haftalık hedef özeti açıklamaları güncel kural setiyle uyumlu hale getirildi.
+- Yeni kullanıcı eklerken “şifre tekrar” alanı kaldırıldı.
 
 ---
 
 ## v2.10.8 – 09.02.2026
 
 ### Yeni Özellikler
-**Görev Detayı: Başlık Düzenleme**
-- Görev Detayı penceresinde başlık alanı artık düzenlenebilir
-- Admin, Sorumlu ve Oluşturan rolleri başlığı değiştirebilir
-- Başlık değişiklikleri Görev Geçmişi'nde eski ve yeni değer olarak gösterilir (ör: "Eski Başlık → Yeni Başlık")
+**Görev Başlığını Düzenleme**
+- Görev detayında başlık artık düzenlenebilir.
+- Yönetici, sorumlu ve oluşturan kullanıcı başlığı değiştirebilir.
+- Değişiklikler görev geçmişinde eski ve yeni değer olarak görünür.
 
 ### Değişiklikler
-**Performans Hesaplama Sistemi Güncellendi**
-- Performans skoru artık tablodaki Gerçekleşme(%) değerlerinin toplamı üzerinden hesaplanır
-- Tamamlanan görev: `rate = (hedef / gerçekleşme) × ağırlık` → hız bonusu otomatik dahil
-- Tamamlanmayan görev: Gecikme cezası + tamamlanmadı cezası (hedefin %10'u) uygulanır
-- Plandışı iş varsa tamamlanmadı cezası uygulanmaz
-- Kesinti/Bonus alanı artık doğru net değeri gösterir: `Performans Skoru - Taban Skor`
-- Tooltip güncellendi: Hız/Tasarruf Bonusu ve Gecikme + Tamamlanmama Cezası ayrı ayrı gösterilir
+**Performans Hesabı**
+- Performans skoru, tablodaki Gerçekleşme (%) sütunlarındaki değerlere göre hesaplanır.
+- Tamamlanan görevlerde hedefe göre hızlı bitirme bonusu dikkate alınır.
+- Tamamlanmayan görevlerde gecikme ve tamamlanmama cezası uygulanır (hedefin yaklaşık %10’u); plandışı iş varsa tamamlanmama cezası uygulanmaz.
+- Kesinti / Bonus alanı, skor ile taban skor arasındaki farkı net gösterir.
+- Açıklama balonunda bonus ve ceza kalemleri ayrı ayrı özetlenir.
 
-**Planlı Süre Validasyonu Kaldırıldı**
-- Kullanıcılar izin alsalar bile 2700 dk hedef koyabilir
-- İzin girişinde planlı süre hatası artık oluşmuyor
-- Kontrol sadece gerçekleşen süre (Kullanılan Süre + Plandışı Süre) üzerinden yapılır
+**İzin ve Planlı Süre**
+- İzin alsanız bile haftalık hedef toplamı 2700 dakikaya kadar yazılabilir.
+- İzin kaydında “planlı süre çok” uyarısı kalktı; asıl kontrol gerçekleşen süre üzerinden yapılır.
 
 ### Düzeltmeler
-- Takım modal kapatma butonu stil düzeltmesi
+- Takım penceresi kapatma düğmesinin görünümü düzeltildi.
 
 ---
 
 ## v2.10.7 – 26.01.2026
 
 ### Düzeltmeler ve İyileştirmeler
-- Hata varken kayıt tuşuna basıldığında oluşan kaydetmeme sorunu giderildi
-- Kullanılan süre artık planlı işler + plana dahil olmayan işler toplamı olarak gösteriliyor
-- Yenile butonu kafa karıştırmaması için gerçek işlevi olan "Son Kaydedileni Yükle" olarak değiştirildi
-- Gerçekleşme süresi girilmemişse Tamamlandı kutucuğu işaretlenemez
+- Uyarı varken Kaydet’e basıldığında kaydın takılı kalması giderildi.
+- Kullanılan süre, planlı işler ile plana dahil olmayan işlerin toplamı olarak gösterilir.
+- Yenile düğmesi, işlevini yansıtacak şekilde **Son Kaydedileni Yükle** olarak yeniden adlandırıldı.
+- Gerçekleşme süresi girilmeden Tamamlandı işaretlenemez.
 
 ---
 
 ## v2.10.6 – 12.01.2026
 
 ### Yeni Özellikler
-**Günlük Gerçekleşme ve Mesai Kotası Sistemi**
-- Haftalık taban süre 2700 dakika olarak güncellendi
-- Günlük gerçekleşme kotası sistemi eklendi (her gün 540 dk):
-  - Pazartesi: En fazla 540 dk
-  - Salı: En fazla 1080 dk (toplam)
-  - Çarşamba: En fazla 1620 dk (toplam)
-  - Perşembe: En fazla 2160 dk (toplam)
-  - Cuma: En fazla 2700 dk (toplam)
-- Günlük mesai kotası sistemi eklendi:
-  - Pazartesi: En fazla 150 dk
-  - Salı: En fazla 300 dk (toplam)
-  - Çarşamba: En fazla 450 dk (toplam)
-  - Perşembe: En fazla 600 dk (toplam)
-  - Cuma: En fazla 750 dk (toplam)
-  - Cumartesi: En fazla 540 dk (ek mesai)
-  - Pazar: En fazla 540 dk (ek mesai)
-- Geçmiş hafta kilitleme: Pazartesi 13:30'dan sonra önceki haftaya müdahale engellenir (mesai ve izin dahil)
-- Mesai süresi eklendiğinde günlük gerçekleşme kotası da artar (örnek: Pazartesi 540 + 150 mesai = 690 dk)
+**Günlük Gerçekleşme ve Mesai Kotası**
+- Haftalık taban süre 2700 dakika olarak güncellendi.
+- Günlük gerçekleşme kotası (her gün 540 dk üzerinden birikerek):
+  - Pazartesi: en fazla 540 dk
+  - Salı: en fazla 1080 dk (toplam)
+  - Çarşamba: en fazla 1620 dk (toplam)
+  - Perşembe: en fazla 2160 dk (toplam)
+  - Cuma: en fazla 2700 dk (toplam)
+- Günlük mesai kotası:
+  - Pazartesi: en fazla 150 dk
+  - Salı: en fazla 300 dk (toplam)
+  - Çarşamba: en fazla 450 dk (toplam)
+  - Perşembe: en fazla 600 dk (toplam)
+  - Cuma: en fazla 750 dk (toplam)
+  - Cumartesi: en fazla 540 dk (ek mesai)
+  - Pazar: en fazla 540 dk (ek mesai)
+- Geçmiş haftaya müdahale: içinde bulunduğunuz haftanın Pazartesi 13:30’dan sonra önceki hafta kilitlenir (mesai ve izin dahil).
+- Mesai girdiğinizde günlük gerçekleşme kotası da artar (örnek: Pazartesi 540 + 150 mesai = 690 dk).
 
-**Anlık Uyarı Sistemi**
-- Hedef alanı değiştiğinde toplam süre kontrolü anında yapılır
-- Gerçekleşme alanı değiştiğinde günlük kota kontrolü anında yapılır
-- Uyarı durumlarında görsel geri bildirim (kırmızı renk ve uyarı ikonu)
-- Kaydet butonu uyarı durumlarında devre dışı bırakılır
+**Anlık Uyarılar**
+- Hedef alanını değiştirince toplam süre hemen kontrol edilir.
+- Gerçekleşme alanını değiştirince günlük kota hemen kontrol edilir.
+- Uyarıda kırmızı vurgu ve uyarı simgesi gösterilir; uyarı varken Kaydet devre dışı kalabilir.
 
-**Hedef Ayrıntısı Güncellemeleri**
-- Toplam Süre: (2700 + mesai - izin) olarak gösterilir
-- Kullanılabilir Süre: Günlük gerçekleşme kotası + mesai kotası olarak hesaplanır
-- Kalan Süre: Kullanılabilir süre - kullanılan süre olarak gösterilir
-- Tooltip desteği: Kullanılabilir Süre üzerine gelindiğinde haftanın tüm günleri için günlük limitler gösterilir
+**Hedef Ayrıntısı**
+- Toplam süre: 2700 + mesai − izin olarak gösterilir.
+- Kullanılabilir süre: günlük gerçekleşme kotası ile mesai kotası birlikte hesaplanır.
+- Kalan süre: kullanılabilir süre eksi kullanılan süre.
+- Kullanılabilir süre satırının üzerine gelince haftanın günleri için günlük limitler gösterilir.
 
 ### Değişiklikler
-**Haftalık Hedef Zaman Aşım Kuralı**
-- Toplam hedef süre (planlı + plansız) kullanılabilir süreyi (2700 + mesai - izin) aşamaz
-- Mesai süresi girilerek kullanılabilir süre artırılabilir
-- Kapasite aşımı durumunda görsel uyarılar ve hata mesajları gösterilir
-- Boş görev listesi kaydedilebilir (tüm görevleri silme özelliği)
+**Haftalık Limitler**
+- Toplam hedef süre (planlı + plansız), kullanılabilir süreyi (2700 + mesai − izin) aşamaz.
+- Mesai girerek kullanılabilir süre artırılabilir.
+- Kapasite aşımında uyarı ve hata mesajları gösterilir.
+- Boş görev listesi kaydedilebilir.
 
-**Gelecek Haftalar İçin Gerçekleşme Kilitleme**
-- Gelecek haftalar için gerçekleşme alanları artık kilitlidir
-- Sadece içinde bulunulan hafta için gerçekleşme alanları açıktır
-- Yeni haftaya geçildiğinde (kota kontrolü başladığında) gerçekleşme alanları otomatik olarak açılır
-- Hedef alanları gelecek haftalar için açık kalmaya devam eder
-- Bu sayede kullanıcılar gelecek haftaları önceden dolduramaz ve sadece ilgili hafta için gerçekleşme girebilir
+**Gelecek Haftalar**
+- Gelecek haftalarda gerçekleşme alanları kilitlidir; yalnızca içinde bulunduğunuz haftanın gerçekleşmesi düzenlenebilir.
+- Yeni haftaya geçildiğinde ilgili hafta için gerçekleşme alanları açılır.
+- Hedef alanları gelecek haftalar için açık kalabilir.
 
 ### Performans İyileştirmeleri
-**Sayısal Alanlarda Anlık Güncelleme**
-- Haftalık Hedefler panelindeki Hedef (dk) ve Gerçekleşme (dk) alanlarında gecikmeler tamamen giderildi
-- Bu alanlara değer girildiğinde Hedef Ayrıntısı bölümü anında güncelleniyor
-- Yazılan sayılar artık anında ekranda görünüyor ve hesaplamalar anlık olarak yapılıyor
-- Mouse wheel ile sayısal alanlarda yanlışlıkla değer değişmesi engellendi
+**Sayısal Alanlar**
+- Haftalık hedeflerde Hedef (dk) ve Gerçekleşme (dk) yazarken gecikme azaltıldı.
+- Değer girdiğinizde Hedef Ayrıntısı anında güncellenir.
+- Sayı alanlarında fare tekerleğiyle yanlışlıkla değer değişmesi engellendi.
 
 ---
 
 ## v2.10.5 – 07.01.2026
 
 ### Performans İyileştirmeleri
-**Yazma Deneyimi İyileştirildi**
-- Haftalık Hedefler panelindeki metin alanlarında yaşanan gecikmeler giderildi
-- Yazılan karakterler artık anında ekranda görünüyor
-- Uzun metinlerde yazma performansı belirgin şekilde artırıldı
-- Başlık, Aksiyon Planı ve Ek Açıklama alanlarında daha akıcı bir yazım deneyimi sağlandı
+**Metin Alanları**
+- Haftalık hedeflerde başlık, aksiyon planı ve ek açıklama alanlarında yazarken gecikme giderildi; yazı ekranda anında görünür.
 
 ### Yeni Özellikler
-**Gelişmiş Tema Sistemi**
-- Uygulama genelinde dinamik tema desteği eklendi
-- 6 adet hazır tema seçeneği sunuldu:
-  - Koyu, Açık, Mavi, Yeşil, Mor, Turuncu
-- Özel tema oluşturma imkânı:
-  - 9 farklı renk alanı ayrı ayrı özelleştirilebilir
-  - Koyu / Açık logo seçimi yapılabilir
-- Tema tercihleri kullanıcı hesabına kaydedilir ve otomatik olarak yüklenir
-- Tüm UI bileşenleri tema uyumlu hale getirildi:
-  - Input alanları, butonlar, tablolar ve dropdown menüler
+**Temalar**
+- Uygulama genelinde tema desteği.
+- Altı hazır tema: Koyu, Açık, Mavi, Yeşil, Mor, Turuncu.
+- Özel tema: dokuz renk alanı ve koyu/açık logo seçimi.
+- Tema tercihiniz hesabınıza kaydedilir ve açılışta yüklenir.
+- Düğmeler, tablolar, açılır listeler ve giriş alanları temayla uyumludur.
 
 ### Değişiklikler
-**Haftalık Hedefler Kilitleme Kuralları Yeniden Düzenlendi**
-- **Mevcut Hafta (Pazartesi 13:30’dan önce)** : Hedef ve gerçekleşme alanları açıktır
-- **Mevcut Hafta (Pazartesi 13:30’dan sonra)**  : Hedef alanları kilitli, gerçekleşme alanları açıktır
-- **Önceki Hafta (Mevcut hafta Pazartesi 13:30’dan önce)** : Hedef alanları kilitli, gerçekleşme alanları düzenlenebilir
-- **Önceki Hafta (Mevcut hafta Pazartesi 13:30’dan sonra)** : Hedef ve gerçekleşme alanları tamamen kilitlenir
-- **Daha Eski Haftalar** : Hedef ve gerçekleşme alanları kilitlidir
-- **Gelecek Haftalar** : Hedef ve gerçekleşme alanları açıktır
-- **Plana Dahil Olmayan İşler** : Gerçekleşme alanı kilitlendiğinde bu bölüm de kilitlenir
+**Haftalık Hedef Kilitleme (Özet)**
+- **Bu hafta, Pazartesi 13:30 öncesi:** hedef ve gerçekleşme açık.
+- **Bu hafta, Pazartesi 13:30 sonrası:** hedef kilitli, gerçekleşme açık.
+- **Önceki hafta:** bu haftanın Pazartesi 13:30 öncesinde hedef kilitli, gerçekleşme düzenlenebilir; sonrasında her ikisi de kilitlenir.
+- **Daha eski haftalar:** hedef ve gerçekleşme kilitli.
+- **Gelecek haftalar (bu sürümdeki kurala göre):** hedef ve gerçekleşme açık (sonraki sürümlerde gerçekleşme kuralı sıkılaştırılmıştır).
+- Plandışı işler bölümü, gerçekleşme kilitlendiğinde birlikte kilitlenir.
 
 ### İyileştirmeler
-**UI / UX İyileştirmeleri**:
-  - Tema ayarları paneli yeniden tasarlandı:
-    - 2 sütunlu düzen
-    - Daha büyük ve anlaşılır renk seçim alanları
-  - Disabled butonların görünürlüğü ve cursor davranışı iyileştirildi
-  - Tüm kapatma butonları standart hale getirildi (✕ simgesi)
-  - Dropdown menüler ve input alanları tema ile tam uyumlu çalışacak şekilde güncellendi
+- Tema paneli iki sütunlu ve daha okunaklı renk seçicilerle yenilendi.
+- Devre dışı düğmelerin görünümü ve imleç davranışı iyileştirildi.
+- Kapatma düğmeleri tutarlı ✕ simgesiyle gösterilir.
 
 ---
+
 ## v2.10.4 – 05.01.2026
 
 ### Düzeltmeler
-**Görev Ekleme Sorunu Giderildi**
-- Manuel olarak görevden çıkarılan kullanıcılar, otomatik ekleme sırasında yeniden eklenmiyor
-- Artık yalnızca seçilen kullanıcılar göreve atanıyor
-- Gereksiz bildirim gönderimi engellendi
+**Görev Atama**
+- Görevden elle çıkardığınız kişiler, otomatik eklemede yeniden eklenmez.
+- Yalnızca seçtiğiniz kişiler göreve atanır.
+- Gereksiz bildirimler azaltıldı.
 
 ---
+
 ## v2.10.3 – 05.01.2026
 
 ### Değişiklikler
-**Haftalık Hedefler Kilitleme Kuralları Güncellendi**
-- Hedef alanları Pazartesi 13:30’a kadar düzenlenebilir _(önceki sınır: 10:00)_
-- Gerçekleşme alanı sürekli açık olacak şekilde düzenlendi
+**Haftalık Hedef Kilitleme**
+- Hedef alanları Pazartesi 13:30’a kadar düzenlenebilir (önceki sınır 10:00 idi).
+- Gerçekleşme alanı sürekli düzenlenebilir kabul edildi.
 
-**Planlı Süre Kontrolü Kaldırıldı**
-- İzin eklenirken planlı süre, kullanılabilir süreyi aşsa bile kaydedilebilir
-- Sadece gerçekleşen süre, kullanılabilir süreyi aşarsa kaydetme engellenir
+**İzin ve Süre**
+- İzin eklerken planlı süre, kullanılabilir süreyi aşsa bile kayıt yapılabilir.
+- Yalnızca gerçekleşen süre limiti aşılırsa kayıt engellenir.
 
 ### Yeni Özellikler
 **Tamamlanmayan İşleri Aktar**
-- Haftalık Hedefler penceresine **“Tamamlanmayan İşleri Aktar”** butonu eklendi
-- Önceki haftadan tamamlanmamış görevler tek tıkla mevcut haftaya aktarılabilir
+- Haftalık Hedefler penceresine **Tamamlanmayan İşleri Aktar** düğmesi eklendi.
+- Önceki haftadan tamamlanmamış işler tek tıkla mevcut haftaya taşınabilir.
