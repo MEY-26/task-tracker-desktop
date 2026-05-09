@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { createPortal } from 'react-dom';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function TaskSettingsModal({
   open,
@@ -63,29 +64,7 @@ export function TaskSettingsModal({
             borderStyle: 'solid',
             color: currentTheme.text
           }} onClick={(e) => e.stopPropagation()}>
-          <div className="border-b flex-none" style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.border, padding: '0px 10px' }}>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-              <div className="justify-self-start">
-              </div>
-              <h2 className="text-xl md:text-2xl font-semibold text-center" style={{ color: currentTheme.text }}>Görev Ayarları</h2>
-              <div className="justify-self-end">
-                <button
-                  onClick={onClose}
-                  className="rounded-lg px-2 py-1 transition-colors"
-                  style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = currentTheme.text;
-                    e.target.style.backgroundColor = `${currentTheme.border}30`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = currentTheme.textSecondary;
-                    e.target.style.backgroundColor = 'transparent';
-                  }}
-                  aria-label="Kapat"
-                >✕</button>
-              </div>
-            </div>
-          </div>
+          <ModalHeader title="Görev Ayarları" onClose={onClose} theme={currentTheme} />
           <div className="flex min-w-0 overflow-y-auto no-scrollbar" style={{ height: 'calc(80vh - 72px)', borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}` }}>
             <div className="w-1/2 min-w-0 space-y-6" style={{ padding: '20px' }}>
               <div className="pt-4" style={{ paddingTop: '5px' }}>

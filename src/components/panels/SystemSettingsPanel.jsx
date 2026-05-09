@@ -5,6 +5,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import { SystemSettings, DatabaseBackup, getDepartments } from '../../api';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { WorkingCalendarSection } from './WorkingCalendarSection';
+import { ModalHeader } from '../shared/ModalHeader';
 
 const inputStyle = (theme) => ({
   borderRadius: '8px',
@@ -191,22 +192,7 @@ export function SystemSettingsPanel({ open, onClose, addNotification, users = []
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="border-b flex-none shrink-0" style={{ backgroundColor: theme.background, borderColor: theme.border, padding: '16px 20px' }}>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-              <div />
-              <h2 className="text-xl font-semibold text-center" style={{ color: theme.text }}>Sistem Yönetimi</h2>
-              <div className="justify-self-end">
-                <button
-                  onClick={onClose}
-                  className="rounded-lg px-2 py-1 transition-colors"
-                  style={{ color: theme.textSecondary, backgroundColor: 'transparent' }}
-                  aria-label="Kapat"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          </div>
+          <ModalHeader title="Sistem Yönetimi" onClose={onClose} theme={theme} />
 
           <div
             className={[

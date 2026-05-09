@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { WeeklyGoals } from '../../api';
 import { getPerformanceGrade } from '../../utils/performance.js';
 import { formatDateOnly } from '../../utils/date.js';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function PerformanceDetailModal({
   open,
@@ -75,35 +76,27 @@ export function PerformanceDetailModal({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ backgroundColor: theme.background, borderColor: theme.border }}>
-            <h2 className="text-xl font-semibold" style={{ color: theme.text }}>
-              Performans Detayı
-              {data?.user?.name && ` - ${data.user.name}`}
-            </h2>
-            <div className="flex items-center gap-2">
-              {onExportExcel && data && (
+          <ModalHeader
+            title={`Performans Detayı${data?.user?.name ? ` - ${data.user.name}` : ''}`}
+            onClose={onClose}
+            theme={theme}
+            right={
+              onExportExcel && data ? (
                 <button
+                  type="button"
                   onClick={() => onExportExcel('detail', data)}
-                  className="rounded px-3 py-1.5 text-sm font-medium border"
+                  className="rounded px-3 py-1.5 text-sm font-medium border shrink-0"
                   style={{
                     backgroundColor: theme.accent,
                     color: '#fff',
-                    borderColor: theme.accent
+                    borderColor: theme.accent,
                   }}
                 >
                   Excel'e Aktar
                 </button>
-              )}
-              <button
-                onClick={onClose}
-                className="rounded px-2 py-1 transition-colors"
-                style={{ color: theme.textSecondary, backgroundColor: 'transparent' }}
-                aria-label="Kapat"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
+              ) : null
+            }
+          />
 
           <div className="flex-1 overflow-y-auto" style={{ padding: '10px' }}>
             {loading ? (

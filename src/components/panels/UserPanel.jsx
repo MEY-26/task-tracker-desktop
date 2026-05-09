@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { PasswordReset, getDepartments } from '../../api';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { PermissionManagementModal } from '../modals/PermissionManagementModal';
+import { ModalHeader } from '../shared/ModalHeader';
 
 function UserPanel({
   open,
@@ -178,58 +179,37 @@ function UserPanel({
             borderStyle: 'solid',
             color: currentTheme.text
           }} onClick={(e) => e.stopPropagation()}>
-          <div className="border-b flex-none shrink-0" style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.border, padding: '0px 10px' }}>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-              <div className="justify-self-start"></div>
-              <h2 className="text-xl md:text-2xl font-semibold text-center" style={{ color: currentTheme.text }}>Kullanıcı Yönetimi</h2>
-              <div className="justify-self-end">
-                <button
-                  onClick={onClose}
-                  className="rounded-lg px-2 py-1 transition-colors"
-                  style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = currentTheme.text;
-                    e.target.style.backgroundColor = `${currentTheme.border}30`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = currentTheme.textSecondary;
-                    e.target.style.backgroundColor = 'transparent';
-                  }}
-                  aria-label="Kapat"
-                >✕</button>
-              </div>
+          <ModalHeader title="Kullanıcı Yönetimi" onClose={onClose} theme={currentTheme} />
+          {user?.role === 'admin' && (
+            <div className="flex gap-0 border-b shrink-0" style={{ borderColor: currentTheme.border, backgroundColor: currentTheme.tableHeader || currentTheme.border }}>
+              <button
+                onClick={() => setActiveTab('users')}
+                className="transition-colors"
+                style={{
+                  padding: '8px 20px',
+                  borderBottom: activeTab === 'users' ? `4px solid ${currentTheme.accent}` : '2px solid transparent',
+                  color: activeTab === 'users' ? currentTheme.accent : currentTheme.textSecondary,
+                  fontWeight: activeTab === 'users' ? 600 : 400,
+                  backgroundColor: 'transparent',
+                }}
+              >
+                Kullanıcı Listesi
+              </button>
+              <button
+                onClick={() => setActiveTab('addUser')}
+                className="transition-colors"
+                style={{
+                  padding: '8px 20px',
+                  borderBottom: activeTab === 'addUser' ? `4px solid ${currentTheme.accent}` : '2px solid transparent',
+                  color: activeTab === 'addUser' ? currentTheme.accent : currentTheme.textSecondary,
+                  fontWeight: activeTab === 'addUser' ? 600 : 400,
+                  backgroundColor: 'transparent',
+                }}
+              >
+                Yeni Kullanıcı Ekle
+              </button>
             </div>
-            {user?.role === 'admin' && (
-              <div className="flex gap-0" style={{ padding: '0 16px' }}>
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className="transition-colors"
-                  style={{
-                    padding: '8px 20px',
-                    borderBottom: activeTab === 'users' ? `4px solid ${currentTheme.accent}` : '2px solid transparent',
-                    color: activeTab === 'users' ? currentTheme.accent : currentTheme.textSecondary,
-                    fontWeight: activeTab === 'users' ? 600 : 400,
-                    backgroundColor: 'transparent',
-                  }}
-                >
-                  Kullanıcı Listesi
-                </button>
-                <button
-                  onClick={() => setActiveTab('addUser')}
-                  className="transition-colors"
-                  style={{
-                    padding: '8px 20px',
-                    borderBottom: activeTab === 'addUser' ? `4px solid ${currentTheme.accent}` : '2px solid transparent',
-                    color: activeTab === 'addUser' ? currentTheme.accent : currentTheme.textSecondary,
-                    fontWeight: activeTab === 'addUser' ? 600 : 400,
-                    backgroundColor: 'transparent',
-                  }}
-                >
-                  Yeni Kullanıcı Ekle
-                </button>
-              </div>
-            )}
-          </div>
+          )}
           <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden flex-col" style={{ borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}`, backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
             {(activeTab === 'users' || user?.role !== 'admin') && (
               <div className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden w-full">

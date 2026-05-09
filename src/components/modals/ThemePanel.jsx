@@ -5,6 +5,7 @@ import darkLogo from '../../assets/Dark_VadenLogo.svg';
 import lightLogo from '../../assets/Light_VadenLogo.svg';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function ThemePanel() {
   const modalRef = useRef(null);
@@ -105,27 +106,7 @@ export function ThemePanel() {
           borderStyle: 'solid',
           color: currentTheme.text
         }} onClick={(e) => e.stopPropagation()}>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-3"
-            style={{
-              borderBottom: `1px solid ${currentTheme.border}`,
-              backgroundColor: currentTheme.background
-            }}>
-            <div></div>
-            <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Tema Ayarları</h2>
-            <div className="justify-self-end">
-              <button onClick={handleClose}
-                className="rounded-lg px-2 py-1 transition-colors"
-                style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
-                onMouseEnter={(e) => {
-                  e.target.style.color = currentTheme.text;
-                  e.target.style.backgroundColor = `${currentTheme.border}30`;
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.color = currentTheme.textSecondary;
-                  e.target.style.backgroundColor = 'transparent';
-                }}>✕</button>
-            </div>
-          </div>
+          <ModalHeader title="Tema Ayarları" onClose={handleClose} theme={currentTheme} />
 
           <div className="p-4 xs:p-6 sm:p-8 space-y-6 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
             {/* Hazır Temalar */}

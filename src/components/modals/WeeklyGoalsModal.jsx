@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { getMonday, fmtYMD, isoWeekNumber } from '../../utils/date';
 import { getPerformanceGrade } from '../../utils/performance';
 import { getDailyOvertimeLimits, getDailyActualLimitsFromBreakdown } from '../../utils/weeklyLimits';
+import { ModalHeader } from '../shared/ModalHeader';
 
 const FALLBACK_WEEK_BASE = 2700;
 
@@ -63,63 +64,58 @@ export function WeeklyGoalsModal({
             borderColor: currentTheme.border,
             color: currentTheme.text
           }} onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-3 border-b relative"
-            style={{
-              backgroundColor: currentTheme.tableHeader || currentTheme.border,
-              borderColor: currentTheme.border
-            }}>
-            <div className="flex-1">
-              {weeklyUserId && Array.isArray(users) ? (
-                <div className="text-sm" style={{ paddingLeft: '10px', color: currentTheme.text }}>
+          <ModalHeader
+            title="Haftalık Hedefler"
+            onClose={onClose}
+            theme={currentTheme}
+            left={
+              weeklyUserId && Array.isArray(users) ? (
+                <div className="text-sm leading-tight" style={{ color: currentTheme.text }}>
                   {(() => {
-                    const targetUser = users.find(u => u.id === weeklyUserId);
+                    const targetUser = users.find((u) => u.id === weeklyUserId);
                     return targetUser ? (
                       <>
                         {targetUser.name} <br /> {targetUser.email}
                       </>
                     ) : (
                       'Bilinmeyen Kullanıcı'
-                    )
+                    );
                   })()}
                 </div>
               ) : (
-                <div className="text-sm" style={{ paddingLeft: '10px', color: currentTheme.text }}>
+                <div className="text-sm leading-tight" style={{ color: currentTheme.text }}>
                   {user?.name} <br /> {user?.email}
                 </div>
-              )}
-            </div>
-            <div className="flex-1 text-center">
-              <h3 className="!text-[24px] font-semibold" style={{ color: currentTheme.text }}>Haftalık Hedefler</h3>
-            </div>
-            <div className="flex-1 flex justify-end">
-              <div className="ml-auto flex items-center gap-4 text-sm text-[24px]" style={{ paddingRight: '20px', color: currentTheme.text }}>
-                {weeklyGoals?.goal?.approval_status && (
-                  <span
-                    className="px-2 py-0.5 rounded text-sm font-medium"
-                    style={{
-                      backgroundColor: weeklyGoals.goal.approval_status === 'approved' ? 'rgba(16, 185, 129, 0.2)' : weeklyGoals.goal.approval_status === 'rejected' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(234, 179, 8, 0.2)',
-                      color: weeklyGoals.goal.approval_status === 'approved' ? '#059669' : weeklyGoals.goal.approval_status === 'rejected' ? '#dc2626' : '#b45309'
-                    }}
-                  >
-                    {weeklyGoals.goal.approval_status === 'approved' ? 'Onaylandı' : weeklyGoals.goal.approval_status === 'rejected' ? 'Reddedildi' : 'Onay Bekliyor'}
-                  </span>
-                )}
-              </div>
-              <button onClick={onClose} className="rounded px-2 py-1 transition-colors"
-                style={{
-                  color: currentTheme.text,
-                  backgroundColor: 'transparent'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = `${currentTheme.border}30`;
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = 'transparent';
-                }}>
-                ✕
-              </button>
-            </div>
-          </div>
+              )
+            }
+            right={
+              weeklyGoals?.goal?.approval_status ? (
+                <span
+                  className="px-2 py-0.5 rounded text-sm font-medium shrink-0"
+                  style={{
+                    backgroundColor:
+                      weeklyGoals.goal.approval_status === 'approved'
+                        ? 'rgba(16, 185, 129, 0.2)'
+                        : weeklyGoals.goal.approval_status === 'rejected'
+                          ? 'rgba(239, 68, 68, 0.2)'
+                          : 'rgba(234, 179, 8, 0.2)',
+                    color:
+                      weeklyGoals.goal.approval_status === 'approved'
+                        ? '#059669'
+                        : weeklyGoals.goal.approval_status === 'rejected'
+                          ? '#dc2626'
+                          : '#b45309',
+                  }}
+                >
+                  {weeklyGoals.goal.approval_status === 'approved'
+                    ? 'Onaylandı'
+                    : weeklyGoals.goal.approval_status === 'rejected'
+                      ? 'Reddedildi'
+                      : 'Onay Bekliyor'}
+                </span>
+              ) : null
+            }
+          />
           <div className="p-6 space-y-5 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(90vh - 80px)', paddingTop: '10px' }}>
             <div className="flex items-center gap-3 flex-wrap" style={{ paddingBottom: '10px' }}>
               <span className="w-[10px]"></span>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { CalendarOverrides } from '../../api';
+import { CalendarOverrides, SystemSettings } from '../../api';
 import { fmtYMD } from '../../utils/date';
 import {
   monthGridRange,
@@ -7,6 +7,9 @@ import {
   workingCalendarDayInfo as dayInfo,
   workingCalendarCellColor as colorForCell,
   workingCalendarCellTitle as cellTitle,
+  workingCalendarCellWorkTimeLine,
+  workingCalendarCellNativeTooltipLines,
+  workingCalendarCellBreakRangeLines,
 } from '../../utils/workingCalendarShared';
 
 import { WorkingCalendarMonthGrid } from '../calendar/WorkingCalendarMonthGrid';
@@ -57,6 +60,16 @@ const DEFAULT_BREAKS = [
   ['16:00', '16:15'],
 ];
 
+const DEFAULT_BREAKS_FRIDAY = [
+  ['10:00', '10:15'],
+  ['13:00', '14:30'],
+  ['16:00', '16:15'],
+];
+
+function copyDefaultBreaksFriday() {
+  return DEFAULT_BREAKS_FRIDAY.map((p) => [...p]);
+}
+
 function copyDefaultBreaks() {
   return DEFAULT_BREAKS.map((p) => [...p]);
 }
@@ -89,6 +102,12 @@ export function WorkingCalendarSection({ theme, notify, users = [], departments 
     breaks: copyDefaultBreaks(),
   });
   const [saving, setSaving] = useState(false);
+  const [systemSettings, setSystemSettings] = useState(() => ({
+    work_start: DEFAULT_WORK_START,
+    work_end: DEFAULT_WORK_END,
+    breaks_default: copyDefaultBreaks(),
+    breaks_friday: copyDefaultBreaksFriday(),
+  }));
 
   const leaderOptions = useMemo(
     () => (users || []).filter((u) => u.role === 'team_leader' || u.role === 'admin'),
@@ -114,6 +133,19 @@ export function WorkingCalendarSection({ theme, notify, users = [], departments 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    SystemSettings.get()
+      .then((data) =>
+        setSystemSettings({
+          work_start: data.work_start ?? DEFAULT_WORK_START,
+          work_end: data.work_end ?? DEFAULT_WORK_END,
+          breaks_default: Array.isArray(data.breaks_default) ? data.breaks_default : copyDefaultBreaks(),
+          breaks_friday: Array.isArray(data.breaks_friday) ? data.breaks_friday : copyDefaultBreaksFriday(),
+        }),
+      )
+      .catch(() => {});
+  }, []);
 
   const itemsByDate = useMemo(() => {
     const map = {};
@@ -424,13 +456,20 @@ export function WorkingCalendarSection({ theme, notify, users = [], departments 
               const info = dayInfo(d, itemsByDate);
               const bg = colorForCell(info.list, info.baseHoliday);
               const title = cellTitle(info.list, info.baseHoliday);
+              const workTimeLine = workingCalendarCellWorkTimeLine(info.list, d, systemSettings);
+              const firstRow = info.list[0];
+              const isWorkCell = firstRow && (firstRow.type === 'working' || firstRow.type === 'custom');
+              const breakLines = isWorkCell ? workingCalendarCellBreakRangeLines(info.list, d, systemSettings) : [];
+              const hoverTip =
+                workingCalendarCellNativeTooltipLines(info.list, info.baseHoliday, d, systemSettings) ||
+                ds;
               const border = theme.border;
               const sel = selectedDate === ds;
               return (
                 <button
                   key={ds}
                   type="button"
-                  title={title || ds}
+                  title={hoverTip}
                   onClick={() => handleCellClick(d)}
                   className={`${WORKING_CALENDAR_CELL_BUTTON_CLASS} text-sm`}
                   style={{
@@ -443,18 +482,41 @@ export function WorkingCalendarSection({ theme, notify, users = [], departments 
                     boxShadow: sel ? '0 0 0 1px rgba(255,255,255,0.35)' : 'none',
                   }}
                 >
-                  <div className="font-semibold shrink-0" style={{ fontSize: '17px' }}>
-                    {d.getDate()}
-                  </div>
-                  {title ? (
-                    <div
-                      className="mt-1 line-clamp-4 leading-snug break-words flex-1 min-h-0"
-                      style={{ fontSize: '12px' }}
-                      title={title}
-                    >
-                      {title}
+                  {isWorkCell ? (
+                    <div className="flex flex-1 min-h-0 min-w-0 w-full flex-row items-start">
+                      <div className="font-semibold shrink-0 tabular-nums leading-none" style={{ fontSize: '17px' }}>
+                        {d.getDate()}
+                      </div>
+                      <div className="min-h-0 min-w-0 max-w-[72%] ml-auto flex flex-col gap-0.5 text-right">
+                        <div className="shrink-0 text-[12px] leading-snug break-words">{title}</div>
+                        <div className="shrink-0 text-[11px] leading-tight">{workTimeLine}</div>
+                        <div className="shrink-0 h-4 min-h-[16px]" aria-hidden />
+                        <div className="shrink-0 text-[11px] font-medium leading-tight">Molalar</div>
+                        <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-0.5 w-full min-w-0 text-right">
+                          {(breakLines.length ? breakLines : ['yok']).map((line, idx) => (
+                            <div key={`${ds}-b-${idx}`} className="shrink-0 text-[11px] leading-tight">
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  ) : null}
+                  ) : title ? (
+                    <div className="flex flex-1 min-h-0 min-w-0 w-full flex-row items-start">
+                      <div className="font-semibold shrink-0 tabular-nums leading-none" style={{ fontSize: '17px' }}>
+                        {d.getDate()}
+                      </div>
+                      <div className="min-h-0 min-w-0 max-w-[72%] ml-auto flex flex-col gap-0.5 text-right">
+                        <div className="min-h-0 flex-1 overflow-hidden break-words leading-snug text-[12px]">
+                          {title}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="font-semibold shrink-0 tabular-nums leading-none" style={{ fontSize: '17px' }}>
+                      {d.getDate()}
+                    </div>
+                  )}
                 </button>
               );
             })}

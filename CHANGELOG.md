@@ -4,6 +4,14 @@ Tüm önemli değişiklikler bu dosyada belgelenecektir.
 
 Format [Keep a Changelog](https://keepachangelog.com/tr/1.0.0/) standardına uygun olacaktır.
 
+## [3.0.5] - 2026-05-09
+
+### Added
+- `src/components/shared/ModalHeader.jsx`: Ortak modal/panel başlık çubuğu; birçok modala entegre edildi.
+
+### Fixed
+- `WeeklyGoalController`: `weeklyGoalWeekHasSubstantivePerformanceData` — performans özeti, çok dönemli rapor (`multiWeekLeaderboard` / Verili Hafta) ve `userDetail` yalnızca görev anlamı taşıyan haftaları sayar; otomatik izin/mesai veya `weight_percent`–only hayalet kalemler haftayı doldurmaz; `multiWeekLeaderboard` sorgusuna kalem metin alanları eklendi.
+
 ## [2.9.2] - 2025-01-14
 
 ### Added

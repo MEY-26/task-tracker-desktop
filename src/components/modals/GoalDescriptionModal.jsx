@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useNotification } from '../../contexts/NotificationContext';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function GoalDescriptionModal({
   open,
@@ -70,32 +71,7 @@ export function GoalDescriptionModal({
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center px-6 py-4 border-b" style={{ paddingRight: '10px', paddingLeft: '10px', backgroundColor: currentTheme.background, borderColor: currentTheme.border }}>
-          <div className="flex-1"></div>
-          <div className="flex-1 text-center">
-            <h3 className="text-xl font-semibold" style={{ color: currentTheme.text }}>Ek Açıklama</h3>
-          </div>
-          <div className="flex-1 flex justify-end">
-            <button
-              onClick={onClose}
-              className="rounded px-2 py-1 transition-colors"
-              style={{
-                color: currentTheme.textSecondary || currentTheme.text,
-                backgroundColor: 'transparent'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.color = currentTheme.text;
-                e.target.style.backgroundColor = `${currentTheme.border}30`;
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.color = currentTheme.textSecondary || currentTheme.text;
-                e.target.style.backgroundColor = 'transparent';
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <ModalHeader title="Ek Açıklama" onClose={onClose} theme={currentTheme} />
 
         <div className="p-8" style={{ maxHeight: 'calc(80vh - 80px)', paddingLeft: '10px', paddingRight: '10px', paddingBottom: '10px', backgroundColor: currentTheme.tableBackground || currentTheme.background }}>
           {row && (

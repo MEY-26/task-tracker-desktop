@@ -11,8 +11,12 @@ const WORKING_CALENDAR_WEEKDAY_LABELS_TR = [
   'Pazar',
 ];
 
-const gridClass =
+const gridClassHeader =
   'grid grid-cols-7 gap-2 min-w-0 max-w-full w-full [grid-template-columns:repeat(7,minmax(0,1fr))]';
+
+/** Tüm satırlar aynı yükseklikte; hücre içi metin sarma ile taşanı gizler */
+const gridClassBody =
+  'grid grid-cols-7 gap-2 min-w-0 max-w-full w-full auto-rows-[128px] [grid-template-columns:repeat(7,minmax(0,1fr))]';
 
 /**
  * @param {object} props
@@ -23,7 +27,7 @@ const gridClass =
 export function WorkingCalendarMonthGrid({ headerColor, weekdayLabels = WORKING_CALENDAR_WEEKDAY_LABELS_TR, children }) {
   return (
     <div className="min-w-0 w-full">
-      <div className={`${gridClass} text-center mb-2`} style={{ color: headerColor }}>
+      <div className={`${gridClassHeader} text-center mb-2`} style={{ color: headerColor }}>
         {weekdayLabels.map((w) => (
           <div
             key={w}
@@ -34,7 +38,7 @@ export function WorkingCalendarMonthGrid({ headerColor, weekdayLabels = WORKING_
           </div>
         ))}
       </div>
-      <div className={gridClass}>{children}</div>
+      <div className={gridClassBody}>{children}</div>
     </div>
   );
 }

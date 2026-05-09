@@ -1,6 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function TeamModal({
   open,
@@ -35,24 +36,7 @@ export function TeamModal({
           borderStyle: 'solid',
           color: themeToUse.text
         }} onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-center px-5 py-3 relative"
-            style={{
-              borderBottom: `1px solid ${themeToUse.border}`,
-              backgroundColor: themeToUse.background
-            }}>
-            <h2 className="font-semibold text-center" style={{ color: themeToUse.text }}>Takım</h2>
-            <button onClick={onClose} className="absolute transition-colors" style={{ backgroundColor: 'transparent', right: '16px', top: '50%', transform: 'translateY(-50%)', color: themeToUse.textSecondary }}
-              onMouseEnter={(e) => {
-                e.target.style.color = themeToUse.text;
-                e.target.style.backgroundColor = `${themeToUse.border}30`;
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.color = themeToUse.textSecondary;
-                e.target.style.backgroundColor = 'transparent';
-              }}>
-              <span className="rounded px-2 py-1">✕</span>
-            </button>
-          </div>
+          <ModalHeader title="Takım" onClose={onClose} theme={themeToUse} />
           <div className="p-4 space-y-3 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(80vh - 120px)' }}>
             {filteredMembers.length > 0 ? (
               filteredMembers.map(m => (

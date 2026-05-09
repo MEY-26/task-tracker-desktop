@@ -7,6 +7,7 @@ import { getMonday, fmtYMD, isWeekday, addDays } from '../../utils/date';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { WorkingCalendarMonthGrid } from '../calendar/WorkingCalendarMonthGrid';
 import { WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/workingCalendarStyles';
+import { ModalHeader } from '../shared/ModalHeader';
 
 const LEAVE_WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -390,22 +391,7 @@ export function PermissionManagementModal({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div
-            className="grid grid-cols-[1fr_auto_1fr] items-center px-5 py-3 border-b"
-            style={{ backgroundColor: currentTheme.tableHeader || currentTheme.border, borderColor: currentTheme.border }}
-          >
-            <div />
-            <h3 className="text-lg font-semibold text-center" style={{ color: currentTheme.text }}>
-              İzin Yönetimi
-            </h3>
-            <button
-              onClick={onClose}
-              className="rounded px-2 py-1 transition-colors justify-self-end"
-              style={{ color: currentTheme.text, backgroundColor: 'transparent' }}
-            >
-              ✕
-            </button>
-          </div>
+          <ModalHeader title="İzin Yönetimi" onClose={onClose} theme={currentTheme} />
 
           <div className="flex gap-0 border-b" style={{ borderColor: currentTheme.border }}>
             <button

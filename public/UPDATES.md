@@ -1,3 +1,16 @@
+## v3.0.5 – 09.05.2026
+
+### Düzeltmeler
+
+**Performans ve haftalık özet**
+- Haftalık hedeflere sadece göz atıp kayıt eklemeden çıktığınızda oluşan haftalar artık “dolu hafta” gibi görünmez; **Performans Detayı** ve **Verili Hafta** sayıları yalnızca gerçekten iş veya hedef girdiğiniz haftaları yansıtır.
+- Takvimden otomatik gelen **izin süresi** tek başına o haftayı dolu saydırmaz; özet hesapları buna göre sadeleşir.
+
+**Pencereler**
+- Birçok ekranda üst başlık çubuğu aynı düzene getirildi; başlık, kapatma ve yan düğmeler daha tutarlı hizalanır.
+
+---
+
 ## v3.0.4 – 08.05.2026
 
 ### Yeni Özellikler

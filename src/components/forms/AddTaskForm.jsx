@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { PriorityLabelWithTooltip } from '../shared/PriorityLabelWithTooltip';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function AddTaskForm({
   open,
@@ -44,39 +45,13 @@ export function AddTaskForm({
       >
         <div ref={modalRef} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-[1440px] max-h-[100vh] rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,.6)] overflow-hidden" style={{
           pointerEvents: 'auto',
-          paddingRight: '5px',
           backgroundColor: currentTheme.tableBackground || currentTheme.background,
           borderColor: currentTheme.border,
           borderWidth: '1px',
           borderStyle: 'solid',
           color: currentTheme.text
         }} onClick={(e) => e.stopPropagation()}>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-3"
-            style={{
-              borderBottom: `1px solid ${currentTheme.border}`,
-              backgroundColor: currentTheme.background
-            }}>
-            <div></div>
-            <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Yeni Görev</h2>
-            <div className="justify-self-end">
-              <button onClick={onClose} className="px-2 py-1 transition-colors font-bold"
-                style={{
-                  borderRadius: '8px',
-                  color: currentTheme.text,
-                  backgroundColor: 'transparent',
-                  fontSize: '20px',
-                  lineHeight: '1'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#ffffff';
-                  e.target.style.backgroundColor = currentTheme.accent;
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.color = currentTheme.text;
-                  e.target.style.backgroundColor = 'transparent';
-                }}>✕</button>
-            </div>
-          </div>
+          <ModalHeader title="Yeni Görev" onClose={onClose} theme={currentTheme} />
           <div className="overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-6" style={{ height: 'auto', maxHeight: 'calc(95vh - 80px)', padding: '20px 20px 20px 20px' }}>
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-2xl mb-4">

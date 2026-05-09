@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getRoleText } from '../../utils/performance.js';
 import PasswordChangeForm from '../account/PasswordChangeForm';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function UserProfileModal({
   open,
@@ -37,27 +38,7 @@ export function UserProfileModal({
           borderStyle: 'solid',
           color: currentTheme.text
         }} onClick={(e) => e.stopPropagation()}>
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-3"
-            style={{
-              borderBottom: `1px solid ${currentTheme.border}`,
-              backgroundColor: currentTheme.background
-            }}>
-            <div></div>
-            <h2 className="font-semibold text-center" style={{ color: currentTheme.text }}>Profil</h2>
-            <div className="justify-self-end">
-              <button onClick={onClose}
-                className="rounded px-2 py-1 transition-colors"
-                style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
-                onMouseEnter={(e) => {
-                  e.target.style.color = currentTheme.text;
-                  e.target.style.backgroundColor = `${currentTheme.border}30`;
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.color = currentTheme.textSecondary;
-                  e.target.style.backgroundColor = 'transparent';
-                }}>✕</button>
-            </div>
-          </div>
+          <ModalHeader title="Profil" onClose={onClose} theme={currentTheme} />
 
           <div className="p-4 xs:p-6 sm:p-8 space-y-4 xs:space-y-6 sm:space-y-8 overflow-y-auto no-scrollbar" style={{ maxHeight: 'calc(85vh - 80px)' }}>
             <div className="rounded-2xl p-6 mx-4" style={{ padding: '15px', backgroundColor: `${currentTheme.border}20` }}>

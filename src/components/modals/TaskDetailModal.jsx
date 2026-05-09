@@ -5,6 +5,7 @@ import { Tasks, apiOrigin } from '../../api';
 import { formatDate, formatDateOnly } from '../../utils/date';
 import { renderHistoryValue, renderFieldLabel } from '../../utils/performance';
 import { PriorityLabelWithTooltip } from '../shared/PriorityLabelWithTooltip';
+import { ModalHeader } from '../shared/ModalHeader';
 import ReactMarkdown from 'react-markdown';
 
 export function TaskDetailModal({
@@ -92,35 +93,7 @@ export function TaskDetailModal({
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div
-            className="border-b flex-none"
-            style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.border, padding: '0px 10px' }}
-          >
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-              <div className="justify-self-start">
-
-              </div>
-              <h2 className="text-xl md:text-2xl font-semibold text-center" style={{ color: currentTheme.text }}>Görev Detayı</h2>
-              <div className="justify-self-end">
-                <button
-                  onClick={onClose}
-                  className="rounded-lg px-2 py-1 transition-colors border border-red-500"
-                  style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = currentTheme.text;
-                    e.target.style.backgroundColor = `${currentTheme.border}30`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = currentTheme.textSecondary;
-                    e.target.style.backgroundColor = 'transparent';
-                  }}
-                  aria-label="Kapat"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          </div>
+          <ModalHeader title="Görev Detayı" onClose={onClose} theme={currentTheme} />
 
           <div className="flex-1 flex min-w-0 overflow-hidden overflow-x-hidden" style={{ borderLeft: `1px solid ${currentTheme.border}`, borderRight: `1px solid ${currentTheme.border}` }}>
             <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden no-scrollbar" style={{ padding: '0px 24px' }}>

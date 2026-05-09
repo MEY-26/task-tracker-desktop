@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ModalHeader } from '../shared/ModalHeader';
 
 export function UpdatesModal({ open, onClose, updatesContent }) {
   const { currentTheme } = useTheme();
@@ -31,34 +32,7 @@ export function UpdatesModal({ open, onClose, updatesContent }) {
             borderStyle: 'solid'
           }}
         >
-          <div
-            className="flex items-center justify-between p-4"
-            style={{
-              borderBottom: `1px solid ${currentTheme.border}`,
-              backgroundColor: `${currentTheme.accent}20`
-            }}
-          >
-            <h2 className="text-xl font-bold flex items-center gap-2" style={{ color: currentTheme.text }}>
-              <span>📋</span>
-              Güncelleme Notları
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
-              style={{ color: currentTheme.textSecondary, backgroundColor: 'transparent' }}
-              onMouseEnter={(e) => {
-                e.target.style.color = currentTheme.text;
-                e.target.style.backgroundColor = `${currentTheme.border}30`;
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.color = currentTheme.textSecondary;
-                e.target.style.backgroundColor = 'transparent';
-              }}
-              aria-label="Kapat"
-            >
-              ✕
-            </button>
-          </div>
+          <ModalHeader title="📋 Güncelleme Notları" onClose={onClose} theme={currentTheme} />
 
           <div
             className="overflow-y-auto flex-1 p-6 no-scrollbar update-screen__inner"

@@ -708,6 +708,9 @@ class WeeklyGoalController extends Controller
                 'wg.overtime_minutes',
                 'wg.approval_status',
                 'wgi.id as item_id',
+                'wgi.title',
+                'wgi.action_plan',
+                'wgi.description',
                 'wgi.target_minutes',
                 'wgi.actual_minutes',
                 'wgi.weight_percent',
@@ -724,20 +727,29 @@ class WeeklyGoalController extends Controller
                 $weekStart = $first->week_start ?? null;
                 $leave = (int)($first->leave_minutes ?? 0);
                 $overtime = (int)($first->overtime_minutes ?? 0);
-                $approvalStatus = $first->approval_status ?? 'pending';
-                $items = $weekRows
-                    ->filter(fn($r) => $r->item_id !== null)
-                    ->map(fn($r) => (object)[
-                        'target_minutes' => (int)($r->target_minutes ?? 0),
-                        'actual_minutes' => (int)($r->actual_minutes ?? 0),
-                        'weight_percent' => (float)($r->weight_percent ?? 0),
-                        'is_unplanned' => (bool)($r->is_unplanned ?? false),
-                        'is_completed' => (bool)($r->is_completed ?? false),
-                    ]);
+                $approvalStatus = (string)($first->approval_status ?? 'pending');
+                $itemRows = $weekRows->filter(fn($r) => $r->item_id !== null);
+                $rawItemsForFilter = $itemRows->map(fn($r) => (object)[
+                    'target_minutes' => (int)($r->target_minutes ?? 0),
+                    'actual_minutes' => (int)($r->actual_minutes ?? 0),
+                    'title' => $r->title ?? '',
+                    'action_plan' => $r->action_plan ?? '',
+                    'description' => $r->description ?? '',
+                ]);
+                $items = $itemRows->map(fn($r) => (object)[
+                    'target_minutes' => (int)($r->target_minutes ?? 0),
+                    'actual_minutes' => (int)($r->actual_minutes ?? 0),
+                    'weight_percent' => (float)($r->weight_percent ?? 0),
+                    'is_unplanned' => (bool)($r->is_unplanned ?? false),
+                    'is_completed' => (bool)($r->is_completed ?? false),
+                ]);
                 $uid = (int) ($first->user_id ?? 0);
                 $summary = $this->computeSummary($items, $leave, $overtime, $weekStart, $uid);
                 $plannedItems = $items->where('is_unplanned', false);
                 $totalActual = (int)$plannedItems->sum('actual_minutes');
+                if (!$this->weeklyGoalWeekHasSubstantivePerformanceData($rawItemsForFilter, $summary)) {
+                    return null;
+                }
                 return [
                     'final_score' => $summary['final_score'] ?? 0,
                     'planned_score' => $summary['planned_score'] ?? 0,
@@ -747,7 +759,7 @@ class WeeklyGoalController extends Controller
                     'unplanned_minutes' => $summary['unplanned_minutes'] ?? 0,
                     'approval_status' => $approvalStatus,
                 ];
-            });
+            })->filter();
         });
 
         $items = $users->map(function ($user) use ($byUserWeek, $weeksCount) {
@@ -790,6 +802,36 @@ class WeeklyGoalController extends Controller
             'weeks_count' => $weeksCount,
             'items' => $items,
         ]);
+    }
+
+    /**
+     * Performans / "verili hafta" sayımı: yalnızca görev kalemi anlamı taşıyan haftalar.
+     * Takvimden otomatik yazılan izin/mesai tek başına haftayı doldurmuş sayılmaz (pencere açılıp kapanınca oluşan kayıtlar).
+     * Planlı hedef/plan dışı süre özette >0 ise veya kalemlerde hedef/gerçekleşme veya doldurulmuş metin varsa sayılır.
+     */
+    private function weeklyGoalWeekHasSubstantivePerformanceData($rawItems, array $summary): bool
+    {
+        if ((int)($summary['total_target_minutes'] ?? 0) > 0 || (int)($summary['unplanned_minutes'] ?? 0) > 0) {
+            return true;
+        }
+
+        foreach ($rawItems as $i) {
+            $target = (int)($i->target_minutes ?? 0);
+            $actual = (int)($i->actual_minutes ?? 0);
+            if ($actual > 0 || $target > 0) {
+                return true;
+            }
+        }
+
+        foreach ($rawItems as $i) {
+            if (trim((string)($i->title ?? '')) !== '' ||
+                trim((string)($i->action_plan ?? '')) !== '' ||
+                trim((string)($i->description ?? '')) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -887,6 +929,10 @@ class WeeklyGoalController extends Controller
             );
             $plannedItems = $itemsForSummary->where('is_unplanned', false);
             $totalActual = (int)$plannedItems->sum('actual_minutes');
+
+            if (!$this->weeklyGoalWeekHasSubstantivePerformanceData($rawItems, $summary)) {
+                continue;
+            }
 
             $weeksData[] = [
                 'week_start' => $goal->week_start,

@@ -11,11 +11,15 @@ import {
   workingCalendarDayInfo,
   workingCalendarCellColor,
   workingCalendarCellTitle,
+  workingCalendarCellWorkTimeLine,
+  workingCalendarCellNativeTooltipLines,
+  workingCalendarCellBreakRangeLines,
 } from '../../utils/workingCalendarShared';
 import { getMonday, fmtYMD, addDays, isWeekday, isPast } from '../../utils/date';
 import { useOutsideClickClose } from '../../hooks/useOutsideClickClose';
 import { WorkingCalendarMonthGrid } from '../calendar/WorkingCalendarMonthGrid';
 import { WORKING_CALENDAR_CELL_BUTTON_CLASS } from '../calendar/workingCalendarStyles';
+import { ModalHeader } from '../shared/ModalHeader';
 
 const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const MONTH_NAMES = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -497,22 +501,7 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div
-            className="grid grid-cols-[1fr_auto_1fr] items-center px-5 py-3 border-b"
-            style={{ backgroundColor: currentTheme.tableHeader || currentTheme.border, borderColor: currentTheme.border }}
-          >
-            <div />
-            <h3 className="text-lg font-semibold text-center" style={{ color: currentTheme.text }}>
-              İzin Bildirimi
-            </h3>
-            <button
-              onClick={onClose}
-              className="rounded px-2 py-1 transition-colors justify-self-end"
-              style={{ color: currentTheme.text, backgroundColor: 'transparent' }}
-            >
-              ✕
-            </button>
-          </div>
+          <ModalHeader title="İzin Bildirimi" onClose={onClose} theme={currentTheme} />
           <div className="space-y-4 overflow-y-auto no-scrollbar" style={{ padding: '24px 32px' }}>
             <p className="text-sm" style={{ color: currentTheme.textSecondary }}>
               Takvimdeki renkler Sistem Yönetimi çalışma takvimiyle aynıdır (tatil, çalışma istisnası vb.). Kendi izinli günleriniz mavi görünür.
@@ -562,6 +551,16 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                   baseBg = `${currentTheme.tableRowAlt || currentTheme.border}33`;
                 }
                 const subtitle = workingCalendarCellTitle(info.list, info.baseHoliday);
+                const workTimeLine = workingCalendarCellWorkTimeLine(info.list, dateObj, systemSettings);
+                const firstRow = info.list[0];
+                const isWorkCell = firstRow && (firstRow.type === 'working' || firstRow.type === 'custom');
+                const breakLines = isWorkCell ? workingCalendarCellBreakRangeLines(info.list, dateObj, systemSettings) : [];
+                const hoverTip = workingCalendarCellNativeTooltipLines(
+                  info.list,
+                  info.baseHoliday,
+                  dateObj,
+                  systemSettings,
+                );
                 const isSaved = savedDates.has(dateStr);
                 const selected = selectedDates.has(dateStr);
                 const pastBlocked = !canSelectPast && isPast(dateObj);
@@ -606,22 +605,68 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                     }}
                     title={
                       isSaved
-                        ? 'Bu gün zaten kayıtlı izinlerde. Değiştirmek için kaydı silip yeniden ekleyin.'
-                        : subtitle || dateStr
+                        ? [
+                            'Bu gün zaten kayıtlı izinlerde. Değiştirmek için kaydı silip yeniden ekleyin.',
+                            hoverTip,
+                          ]
+                            .filter(Boolean)
+                            .join('\n')
+                        : hoverTip || dateStr
                     }
                   >
-                    <div className="font-semibold shrink-0" style={{ fontSize: '17px' }}>
-                      {dateObj.getDate()}
-                    </div>
-                    {subtitle ? (
+                    {isWorkCell ? (
                       <div
-                        className="mt-1 line-clamp-4 leading-snug break-words flex-1 min-h-0"
-                        style={{ fontSize: '12px', opacity: isSaved || selected ? 0.92 : 1 }}
-                        title={subtitle}
+                        className="flex flex-1 min-h-0 min-w-0 w-full flex-row items-start"
+                        style={{ opacity: isSaved || selected ? 0.92 : 1 }}
                       >
-                        {subtitle}
+                        <div className="font-semibold shrink-0 tabular-nums leading-none" style={{ fontSize: '17px' }}>
+                          {dateObj.getDate()}
+                        </div>
+                        <div className="min-h-0 min-w-0 max-w-[72%] ml-auto flex flex-col gap-0.5 text-right">
+                          <div className="shrink-0 text-[12px] leading-snug break-words">{subtitle}</div>
+                          <div className="shrink-0 text-[11px] leading-tight">{workTimeLine}</div>
+                          <div className="shrink-0 h-4 min-h-[16px]" aria-hidden />
+                          <div className="shrink-0 text-[11px] font-medium leading-tight">Molalar</div>
+                          <div className="flex-1 min-h-0 overflow-hidden flex flex-col gap-0.5 w-full min-w-0 text-right">
+                            {(breakLines.length ? breakLines : ['yok']).map((line, idx) => (
+                              <div key={`${dateStr}-b-${idx}`} className="shrink-0 text-[11px] leading-tight">
+                                {line}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    ) : null}
+                    ) : (subtitle || workTimeLine) ? (
+                      <div className="flex flex-1 min-h-0 min-w-0 w-full flex-row items-start">
+                        <div className="font-semibold shrink-0 tabular-nums leading-none" style={{ fontSize: '17px' }}>
+                          {dateObj.getDate()}
+                        </div>
+                        <div className="min-h-0 min-w-0 max-w-[72%] ml-auto flex flex-col gap-0.5 text-right">
+                          {subtitle ? (
+                            <div
+                              className="min-h-0 flex-1 overflow-hidden break-words leading-snug text-[12px]"
+                              style={{ opacity: isSaved || selected ? 0.92 : 1 }}
+                            >
+                              {subtitle}
+                            </div>
+                          ) : (
+                            <div className="flex-1 min-h-0" aria-hidden />
+                          )}
+                          {workTimeLine ? (
+                            <div
+                              className="shrink-0 min-w-0 w-full leading-tight text-[11px]"
+                              style={{ opacity: isSaved || selected ? 0.92 : 0.95 }}
+                            >
+                              {workTimeLine}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="font-semibold shrink-0 tabular-nums leading-none" style={{ fontSize: '17px' }}>
+                        {dateObj.getDate()}
+                      </div>
+                    )}
                   </button>
                 );
               })}

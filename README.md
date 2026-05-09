@@ -596,6 +596,10 @@ Bu proje MIT lisansı altında lisanslanmıştır.
 
 Ayrıntılı sürüm notları: uygulama içi [public/UPDATES.md](public/UPDATES.md), teknik kayıt [CHANGELOG.md](CHANGELOG.md).
 
+### v3.0.5 - Performans özeti ve tutarlı pencereler (Mayıs 2026)
+- **Performans / Verili Hafta**: Yalnızca görev–hedef girdisi olan haftalar sayılır; otomatik izin veya boş ziyaret kayıtları özetlere karışmaz (`WeeklyGoalController` substantive-week filtresi).
+- **Modal başlıkları**: Ortak `ModalHeader` ile tutarlı başlık çubuğu (birçok modal ve panel).
+
 ### v3.0.4 - Çalışma Takvimi İstisnaları ve İzin Hesapları (Mayıs 2026)
 - ✅ **Çalışma Takvimi İstisnaları**: Sistem Yönetimi içinde gün bazlı "Tatil / Çalışma" istisnaları, kapsam seçimi (tüm kullanıcılar/departman/takım/kullanıcı) ve inline düzenleme akışı.
 - ✅ **Resmi Tatil Preset Desteği**: Türkiye resmi tatilleri varsayılan olarak takvimde işaretlenir; gün detayında preset kaynağı görülebilir.
