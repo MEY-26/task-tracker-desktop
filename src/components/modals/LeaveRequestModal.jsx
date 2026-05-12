@@ -194,6 +194,33 @@ function splitLeaveItemDisplay(item, settings) {
   return { fullDayDateStrs, fullDayKeys, hourlyRows };
 }
 
+/** Kayıtlı izin takvim hücresi: tam gün yalnız "İzin"; saatlikte saat aralığı */
+function savedLeaveLabelForDate(dateStr, leaveItems, settings) {
+  const ws = settings.work_start || DEFAULT_SETTINGS.work_start;
+  const we = settings.work_end || DEFAULT_SETTINGS.work_end;
+  for (const item of leaveItems) {
+    if (!item?.week_start) continue;
+    const mon = new Date(item.week_start + 'T12:00:00');
+    for (let i = 0; i < WEEKDAY_KEYS.length; i += 1) {
+      const key = WEEKDAY_KEYS[i];
+      if (!item[key]) continue;
+      const dStr = fmtYMD(addDays(mon, i));
+      if (dStr !== dateStr) continue;
+      const st = item[`${key}_start`];
+      const en = item[`${key}_end`];
+      const startPad = (st || ws).slice(0, 5);
+      const endPad = (en || we).slice(0, 5);
+      const wsPad = ws.slice(0, 5);
+      const wePad = we.slice(0, 5);
+      if (startPad === wsPad && endPad === wePad) {
+        return { mode: 'full' };
+      }
+      return { mode: 'hourly', range: `${startPad}–${endPad}` };
+    }
+  }
+  return { mode: 'full' };
+}
+
 export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
   const { user } = useAuth();
   const { currentTheme } = useTheme();
@@ -504,8 +531,8 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
           <ModalHeader title="İzin Bildirimi" onClose={onClose} theme={currentTheme} />
           <div className="space-y-4 overflow-y-auto no-scrollbar" style={{ padding: '24px 32px' }}>
             <p className="text-sm" style={{ color: currentTheme.textSecondary }}>
-              Takvimdeki renkler Sistem Yönetimi çalışma takvimiyle aynıdır (tatil, çalışma istisnası vb.). Kendi izinli günleriniz mavi görünür.
-              Çalışma olarak işaretlenen hafta sonlarına da izin girebilirsiniz. Tam gün yerine saatlik izin için başlangıç ve bitiş saatlerini girin; mola süreleri otomatik düşülür.
+              Hafta sonu ve resmi tatiller yeşil; şirket tatilleri daha açık yeşil. Hafta sonu veya tatilde çalışma istisnaları sıcak turuncu. Kayıtlı izin günleriniz mavi ve hücrede "İzin" yazar; saatlik izinde saat aralığı gösterilir.
+              Tam gün yerine saatlik izin için başlangıç ve bitiş saatlerini girin; mola süreleri otomatik düşülür.
             </p>
             {!canSelectPast && (
               <p className="text-xs" style={{ color: currentTheme.textSecondary }}>
@@ -555,13 +582,21 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                 const firstRow = info.list[0];
                 const isWorkCell = firstRow && (firstRow.type === 'working' || firstRow.type === 'custom');
                 const breakLines = isWorkCell ? workingCalendarCellBreakRangeLines(info.list, dateObj, systemSettings) : [];
-                const hoverTip = workingCalendarCellNativeTooltipLines(
+                let hoverTip = workingCalendarCellNativeTooltipLines(
                   info.list,
                   info.baseHoliday,
                   dateObj,
                   systemSettings,
                 );
                 const isSaved = savedDates.has(dateStr);
+                const savedLeaveHint = isSaved ? savedLeaveLabelForDate(dateStr, items, systemSettings) : null;
+                if (isSaved) {
+                  const tipExtra =
+                    savedLeaveHint?.mode === 'hourly'
+                      ? `İzin: ${savedLeaveHint.range}`
+                      : 'İzin (tam gün)';
+                  hoverTip = [tipExtra, hoverTip].filter(Boolean).join('\n');
+                }
                 const selected = selectedDates.has(dateStr);
                 const pastBlocked = !canSelectPast && isPast(dateObj);
                 const workSelectable = canSelectDateForLeave(dateStr, dateObj);
@@ -614,7 +649,22 @@ export function LeaveRequestModal({ open, onClose, onLeaveSaved }) {
                         : hoverTip || dateStr
                     }
                   >
-                    {isWorkCell ? (
+                    {isSaved ? (
+                      <div
+                        className="flex flex-1 min-h-0 min-w-0 w-full flex-row items-start"
+                        style={{ opacity: selected ? 0.92 : 1 }}
+                      >
+                        <div className="font-semibold shrink-0 tabular-nums leading-none" style={{ fontSize: '17px' }}>
+                          {dateObj.getDate()}
+                        </div>
+                        <div className="min-h-0 min-w-0 max-w-[72%] ml-auto flex flex-col gap-0.5 text-right">
+                          <div className="shrink-0 text-[12px] font-semibold leading-snug">İzin</div>
+                          {savedLeaveHint?.mode === 'hourly' ? (
+                            <div className="shrink-0 text-[11px] leading-tight">{savedLeaveHint.range}</div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : isWorkCell ? (
                       <div
                         className="flex flex-1 min-h-0 min-w-0 w-full flex-row items-start"
                         style={{ opacity: isSaved || selected ? 0.92 : 1 }}

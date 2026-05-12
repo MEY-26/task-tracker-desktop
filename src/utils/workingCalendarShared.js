@@ -63,15 +63,18 @@ export function workingCalendarDayInfo(d, itemsByDate) {
 export function workingCalendarCellColor(list, baseHoliday) {
   const first = list[0];
   if (first) {
-    if (first.type === 'working') return 'rgba(16,185,129,0.35)';
-    if (first.type === 'custom') return 'rgba(234,179,8,0.4)';
+    if (first.type === 'working' || first.type === 'custom') {
+      // Hafta sonu veya resmi tatilde çalışma istisnası: sıcak turuncu
+      if (baseHoliday) return 'rgba(234, 88, 12, 0.48)';
+      return 'rgba(16, 185, 129, 0.32)';
+    }
     if (first.type === 'non_working') {
       const src = first.source || 'manual';
-      if (src === 'preset') return 'rgba(239,68,68,0.3)';
-      return 'rgba(245,158,11,0.35)';
+      if (src === 'preset') return 'rgba(22, 163, 74, 0.42)';
+      return 'rgba(74, 222, 128, 0.38)';
     }
   }
-  if (baseHoliday) return 'rgba(239,68,68,0.28)';
+  if (baseHoliday) return 'rgba(22, 163, 74, 0.38)';
   return 'transparent';
 }
 
